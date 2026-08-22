@@ -267,7 +267,7 @@ class GitRepository(models.Model):
             'context': {'default_repository_id': self.id},
         }
 
-    def _check_access(self, user, operation='read'):
+    def _check_repo_access(self, user, operation='read'):
         """Check if user has access to repository"""
         if user.has_group('git_hosting.group_git_manager'):
             return True
@@ -283,7 +283,7 @@ class GitRepository(models.Model):
 
     def _check_portal_access(self, user):
         """Check if user has portal access to repository"""
-        return self._check_access(user, 'read')
+        return self._check_repo_access(user, 'read')
 
     def _get_user_permissions(self, user):
         """Get user permissions for repository"""

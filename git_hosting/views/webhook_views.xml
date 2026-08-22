@@ -22,13 +22,13 @@
                 <field name="name"/>
                 <field name="url"/>
                 <field name="repository_id" options="{'no_create': True, 'no_open': True}"/>
-                <field name="event_push" string="Push" widget="boolean_favorite"/>
-                <field name="event_pull_request" string="PR" widget="boolean_favorite"/>
-                <field name="event_pull_request_review" string="PR Review" widget="boolean_favorite"/>
+                <field name="event_push" string="Push" widget="boolean_toggle"/>
+                <field name="event_pull_request" string="PR" widget="boolean_toggle"/>
+                <field name="event_pull_request_review" string="PR Review" widget="boolean_toggle"/>
                 <field name="last_delivery" widget="date"/>
                 <field name="last_status" widget="badge" options="{'classes': {'success': 'bg-success', 'failed': 'bg-danger'}}"/>
                 <field name="failure_count" string="Failures"/>
-                <field name="is_active" string="Active" widget="boolean_favorite"/>
+                <field name="is_active" string="Active" widget="boolean_toggle"/>
             </list>
         </field>
     </record>

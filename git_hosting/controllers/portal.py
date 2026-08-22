@@ -73,7 +73,7 @@ class GitPortalController(http.Controller):
 # Add _check_portal_access to repository model (will be monkey-patched)
 def _check_portal_access(self, user):
     """Check if user has portal access to repository"""
-    if self._check_access(user, 'read'):
+    if self._check_repo_access(user, 'read'):
         return True
     # Allow public read for internal repos
     if self.visibility == 'internal' and not user.share:

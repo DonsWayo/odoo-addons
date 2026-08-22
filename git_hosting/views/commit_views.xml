@@ -30,7 +30,7 @@
                 <field name="author_name" string="Author"/>
                 <field name="committed_date" widget="date"/>
                 <field name="repository_id" optional="hide"/>
-                <field name="is_signed" string="Signed" widget="boolean_favorite"/>
+                <field name="is_signed" string="Signed" widget="boolean_toggle"/>
             </list>
         </field>
     </record>

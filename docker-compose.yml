@@ -32,6 +32,7 @@ services:
       - "8072:8072"
     stdin_open: true
     tty: true
+    command: odoo
 
 volumes:
   postgres_data:

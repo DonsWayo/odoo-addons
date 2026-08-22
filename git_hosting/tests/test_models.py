@@ -101,16 +101,16 @@ class TestGitRepository(TransactionCase):
             'visibility': 'private',
         })
         # Owner has access
-        self.assertTrue(repo._check_access(self.user, 'read'))
-        self.assertTrue(repo._check_access(self.user, 'write'))
+        self.assertTrue(repo._check_repo_access(self.user, 'read'))
+        self.assertTrue(repo._check_repo_access(self.user, 'write'))
 
         # Other user no access
-        self.assertFalse(repo._check_access(self.other_user, 'read'))
+        self.assertFalse(repo._check_repo_access(self.other_user, 'read'))
 
         # Add as member
         repo.member_ids = [(4, self.other_user.id)]
-        self.assertTrue(repo._check_access(self.other_user, 'read'))
-        self.assertTrue(repo._check_access(self.other_user, 'write'))
+        self.assertTrue(repo._check_repo_access(self.other_user, 'read'))
+        self.assertTrue(repo._check_repo_access(self.other_user, 'write'))
 
     def test_internal_visibility(self):
         repo = self.env['git.repository'].create({
@@ -119,8 +119,8 @@ class TestGitRepository(TransactionCase):
             'visibility': 'internal',
         })
         # Internal user has read access
-        self.assertTrue(repo._check_access(self.other_user, 'read'))
-        self.assertFalse(repo._check_access(self.other_user, 'write'))
+        self.assertTrue(repo._check_repo_access(self.other_user, 'read'))
+        self.assertFalse(repo._check_repo_access(self.other_user, 'write'))
 
     def test_counters(self):
         repo = self.env['git.repository'].create({

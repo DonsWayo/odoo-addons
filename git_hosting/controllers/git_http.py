@@ -60,7 +60,7 @@ class GitHTTPController(http.Controller):
                     pass
 
         # Check session user access
-        if repository._check_access(request.env.user, operation):
+        if repository._check_repo_access(request.env.user, operation):
             return repository
 
         return None
@@ -242,7 +242,7 @@ class GitHTTPController(http.Controller):
         """Check if push is allowed based on branch protection rules"""
         # The actual protection is enforced via git pre-receive hook
         # Here we just do a basic check
-        return repository._check_access(user, 'write')
+        return repository._check_repo_access(user, 'write')
 
     def _trigger_post_receive_hooks(self, repository, user):
         """Trigger webhooks and update branch refs after push"""

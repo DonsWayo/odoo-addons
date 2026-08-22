@@ -36,7 +36,7 @@ class GitAPIController(http.Controller):
     def api_get_repository(self, repo_id, **kwargs):
         """Get single repository details"""
         repo = request.env['git.repository'].browse(repo_id)
-        if not repo.exists() or not repo._check_access(request.env.user):
+        if not repo.exists() or not repo._check_repo_access(request.env.user):
             return {'error': 'Not found'}, 404
 
         return {
@@ -88,7 +88,7 @@ class GitAPIController(http.Controller):
     def api_list_branches(self, repo_id, **kwargs):
         """List branches for repository"""
         repo = request.env['git.repository'].browse(repo_id)
-        if not repo.exists() or not repo._check_access(request.env.user):
+        if not repo.exists() or not repo._check_repo_access(request.env.user):
             return {'error': 'Not found'}, 404
 
         branches = repo.branch_ids
@@ -106,7 +106,7 @@ class GitAPIController(http.Controller):
     def api_list_commits(self, repo_id, **kwargs):
         """List commits for repository"""
         repo = request.env['git.repository'].browse(repo_id)
-        if not repo.exists() or not repo._check_access(request.env.user):
+        if not repo.exists() or not repo._check_repo_access(request.env.user):
             return {'error': 'Not found'}, 404
 
         branch = kwargs.get('branch', repo.default_branch)
@@ -130,7 +130,7 @@ class GitAPIController(http.Controller):
     def api_get_tree(self, repo_id, **kwargs):
         """Get file tree for repository at path"""
         repo = request.env['git.repository'].browse(repo_id)
-        if not repo.exists() or not repo._check_access(request.env.user):
+        if not repo.exists() or not repo._check_repo_access(request.env.user):
             return {'error': 'Not found'}, 404
 
         # This would use git to get the tree
@@ -141,7 +141,7 @@ class GitAPIController(http.Controller):
     def api_get_pr(self, pr_id, **kwargs):
         """Get pull request details"""
         pr = request.env['git.pull_request'].browse(pr_id)
-        if not pr.exists() or not pr._check_access(request.env.user):
+        if not pr.exists() or not pr._check_repo_access(request.env.user):
             return {'error': 'Not found'}, 404
 
         return {
@@ -162,7 +162,7 @@ class GitAPIController(http.Controller):
     def api_get_pr_files(self, pr_id, **kwargs):
         """Get PR changed files"""
         pr = request.env['git.pull_request'].browse(pr_id)
-        if not pr.exists() or not pr._check_access(request.env.user):
+        if not pr.exists() or not pr._check_repo_access(request.env.user):
             return {'error': 'Not found'}, 404
 
         return [{
@@ -177,7 +177,7 @@ class GitAPIController(http.Controller):
     def api_create_review(self, pr_id, **kwargs):
         """Create PR review"""
         pr = request.env['git.pull_request'].browse(pr_id)
-        if not pr.exists() or not pr._check_access(request.env.user):
+        if not pr.exists() or not pr._check_repo_access(request.env.user):
             return {'error': 'Not found'}, 404
 
         data = json.loads(request.httprequest.data)

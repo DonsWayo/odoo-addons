@@ -36,7 +36,7 @@
                 <field name="open_pr_count" optional="hide" string="Open PRs"/>
                 <field name="open_issue_count" optional="hide" string="Open Issues"/>
                 <field name="last_activity_date" optional="hide" widget="date"/>
-                <field name="star_count" optional="hide" widget="staranimation" string="★"/>
+                <field name="star_count" optional="hide" string="★"/>
             </list>
         </field>
     </record>
@@ -61,14 +61,14 @@
                     <t t-name="kanban-box">
                         <div class="oe_kanban_global_click o_kanban_git_repo_card">
                             <div class="o_kanban_record_head">
-                                <span class="fw-bold" t-out="record.name.value"/>
-                                <span class="badge" t-att-class="'bg-' + (record.visibility.value == 'internal' and 'success' or 'secondary')" t-out="record.visibility.value"/>
+                                <span class="fw-bold" t-out="record.name"/>
+                                <span class="badge" t-att-class="'bg-' + (record.visibility == 'internal' and 'success' or 'secondary')" t-out="record.visibility"/>
                             </div>
-                            <div class="text-muted small" t-out="record.description.value"/>
+                            <div class="text-muted small" t-out="record.description"/>
                             <div class="d-flex gap-2 mt-2 small text-muted">
-                                <span><i class="fa fa-code-branch"/> <t t-out="record.branch_count.value"/></span>
-                                <span><i class="fa fa-star"/> <t t-out="record.star_count.value"/></span>
-                                <span><i class="fa fa-git-pull-request"/> <t t-out="record.open_pr_count.value"/></span>
+                                <span><i class="fa fa-code-branch"/> <t t-out="record.branch_count"/></span>
+                                <span><i class="fa fa-star"/> <t t-out="record.star_count"/></span>
+                                <span><i class="fa fa-git-pull-request"/> <t t-out="record.open_pr_count"/></span>
                             </div>
                         </div>
                     </t>
@@ -85,7 +85,7 @@
             <form string="Repository">
                 <header>
                     <button name="action_toggle_star" type="object" class="oe_stat_button" icon="fa-star">
-                        <field name="star_count" widget="staranimation" string="Stars"/>
+                        <field name="star_count" string="Stars"/>
                     </button>
                     <field name="visibility" widget="statusbar" statusbar_visible="private,internal" statusbar_colors='{"private":"secondary","internal":"success"}'/>
                 </header>
@@ -183,7 +183,7 @@
     <record id="action_git_repository" model="ir.actions.act_window">
         <field name="name">Repositories</field>
         <field name="res_model">git.repository</field>
-        <field name="view_mode">list,kanban,form,graph,pivot</field>
+        <field name="view_mode">list,kanban,form</field>
         <field name="search_view_id" ref="view_git_repository_search"/>
         <field name="context">{'search_default_my_repos': 1}</field>
     </record>
