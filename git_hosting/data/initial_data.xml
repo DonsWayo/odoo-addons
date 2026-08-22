@@ -1,0 +1,23 @@
+<odoo>
+    <!-- System parameters for git hosting -->
+    <record id="git_hosting_param_repo_base_path" model="ir.config_parameter">
+        <field name="key">git_hosting.repo_base_path</field>
+        <field name="value">/var/lib/odoo/git/repos</field>
+    </record>
+
+    <record id="git_hosting_param_ssh_host" model="ir.config_parameter">
+        <field name="key">git_hosting.ssh_host</field>
+        <field name="value">git.example.com</field>
+    </record>
+
+    <!-- Cron for mirror sync (future use) -->
+    <record id="git_cron_sync_mirrors" model="ir.cron">
+        <field name="name">Sync Git Mirrors</field>
+        <field name="model_id" ref="model_git_repository"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_sync_mirrors()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">hours</field>
+        <field name="numbercall">-1</field>
+    </record>
+</odoo>

@@ -1,0 +1,87 @@
+<odoo>
+    <!-- Demo Repository -->
+    <record id="demo_repo" model="git.repository">
+        <field name="name">awesome-project</field>
+        <field name="description"><p>A demo repository for testing Git Hosting features</p></field>
+        <field name="visibility">internal</field>
+        <field name="owner_id" ref="base.user_demo"/>
+        <field name="has_wiki">True</field>
+        <field name="has_issues">True</field>
+        <field name="has_pull_requests">True</field>
+    </record>
+
+    <!-- Demo Branches -->
+    <record id="demo_branch_main" model="git.branch">
+        <field name="name">main</field>
+        <field name="repository_id" ref="demo_repo"/>
+        <field name="commit_sha">a1b2c3d4e5f6789012345678901234567890abcd</field>
+    </record>
+
+    <record id="demo_branch_feature" model="git.branch">
+        <field name="name">feature/new-ui</field>
+        <field name="repository_id" ref="demo_repo"/>
+        <field name="commit_sha">f6e5d4c3b2a109876543210fedcba9876543210</field>
+        <field name="target_branch">main</field>
+    </record>
+
+    <!-- Demo Commits -->
+    <record id="demo_commit_initial" model="git.commit">
+        <field name="sha">a1b2c3d4e5f6789012345678901234567890abcd</field>
+        <field name="message">Initial commit</field>
+        <field name="author_name">Demo User</field>
+        <field name="author_email">demo@example.com</field>
+        <field name="committer_name">Demo User</field>
+        <field name="committer_email">demo@example.com</field>
+        <field name="committed_date">2024-01-15 10:00:00</field>
+        <field name="repository_id" ref="demo_repo"/>
+    </record>
+
+    <record id="demo_commit_feature" model="git.commit">
+        <field name="sha">f6e5d4c3b2a109876543210fedcba9876543210</field>
+        <field name="message">Add new UI components</field>
+        <field name="author_name">Demo User</field>
+        <field name="author_email">demo@example.com</field>
+        <field name="committer_name">Demo User</field>
+        <field name="committer_email">demo@example.com</field>
+        <field name="committed_date">2024-01-20 14:30:00</field>
+        <field name="repository_id" ref="demo_repo"/>
+    </record>
+
+    <!-- Demo Pull Request -->
+    <record id="demo_pr" model="git.pull_request">
+        <field name="title">Add new UI components</field>
+        <field name="description"><p>This PR adds new UI components for the dashboard</p></field>
+        <field name="repository_id" ref="demo_repo"/>
+        <field name="source_branch_id" ref="demo_branch_feature"/>
+        <field name="target_branch_id" ref="demo_branch_main"/>
+        <field name="author_id" ref="base.user_demo"/>
+        <field name="state">open</field>
+    </record>
+
+    <!-- Demo PAT -->
+    <record id="demo_pat" model="git.personal_access_token">
+        <field name="name">Demo Token</field>
+        <field name="user_id" ref="base.user_demo"/>
+        <field name="scopes">write</field>
+        <field name="token">demo_token_not_real</field>
+        <field name="token_hash">not_a_real_hash</field>
+    </record>
+
+    <!-- Demo Deploy Key -->
+    <record id="demo_deploy_key" model="git.deploy_key">
+        <field name="name">GitHub Actions</field>
+        <field name="repository_id" ref="demo_repo"/>
+        <field name="can_push">False</field>
+        <field name="token">demo_deploy_key_not_real</field>
+        <field name="token_hash">not_a_real_hash</field>
+    </record>
+
+    <!-- Demo Webhook -->
+    <record id="demo_webhook" model="git.webhook">
+        <field name="name">CI/CD Webhook</field>
+        <field name="url">https://ci.example.com/webhook</field>
+        <field name="repository_id" ref="demo_repo"/>
+        <field name="event_push">True</field>
+        <field name="event_pull_request">True</field>
+    </record>
+</odoo>
