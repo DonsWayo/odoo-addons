@@ -1,0 +1,126 @@
+<odoo>
+    <!-- Search View -->
+    <record id="view_git_pat_search" model="ir.ui.view">
+        <field name="name">git.personal_access_token.search</field>
+        <field name="model">git.personal_access_token</field>
+        <field name="arch" type="xml">
+            <search string="Search Personal Access Tokens">
+                <field name="name" string="Name"/>
+                <filter name="active" string="Active" domain="[('is_active', '=', True)]"/>
+                <filter name="inactive" string="Inactive" domain="[('is_active', '=', False)]"/>
+                <filter name="expired" string="Expired" domain="[('expires_at', '<', context_today())]"/>
+            </search>
+        </field>
+    </record>
+
+    <!-- List View -->
+    <record id="view_git_pat_list" model="ir.ui.view">
+        <field name="name">git.personal_access_token.list</field>
+        <field name="model">git.personal_access_token</field>
+        <field name="arch" type="xml">
+            <list string="Personal Access Tokens" sample="1" decoration-muted="is_active == False" decoration-danger="expires_at < context_today()">
+                <field name="name"/>
+                <field name="scopes" widget="badge"/>
+                <field name="repository_ids" widget="many2many_tags" options="{'no_create_edit': True}"/>
+                <field name="last_used" widget="date"/>
+                <field name="expires_at" widget="date"/>
+                <field name="is_active" string="Active" widget="boolean_favorite"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Form View -->
+    <record id="view_git_pat_form" model="ir.ui.view">
+        <field name="name">git.personal_access_token.form</field>
+        <field name="model">git.personal_access_token</field>
+        <field name="arch" type="xml">
+            <form string="Personal Access Token" create="false" edit="false">
+                <header>
+                    <button name="action_revoke" type="object" string="Revoke" class="btn-danger" attrs="{'invisible': [('is_active', '=', False)]}"/>
+                    <button name="action_regenerate" type="object" string="Regenerate" class="btn-primary" attrs="{'invisible': [('is_active', '=', False)]}"/>
+                </header>
+                <sheet>
+                    <group string="Token Info">
+                        <field name="name"/>
+                        <field name="user_id" options="{'no_create': True, 'no_open': True}" readonly="1"/>
+                        <field name="scopes" readonly="1"/>
+                        <field name="repository_ids" widget="many2many_tags" options="{'no_create_edit': True}" readonly="1"/>
+                    </group>
+                    <group string="Status">
+                        <field name="is_active" readonly="1" widget="boolean_favorite"/>
+                        <field name="last_used" readonly="1" widget="date"/>
+                        <field name="expires_at" readonly="1" widget="date"/>
+                    </group>
+                    <group string="Token" attrs="{'invisible': [('is_active', '=', False)]}">
+                        <field name="token" readonly="1" widget="password"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Create Form View (shows token once) -->
+    <record id="view_git_pat_form_create" model="ir.ui.view">
+        <field name="name">git.personal_access_token.form.create</field>
+        <field name="model">git.personal_access_token</field>
+        <field name="mode">primary</field>
+        <field name="arch" type="xml">
+            <form string="Create Personal Access Token">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="scopes"/>
+                        <field name="repository_ids" widget="many2many_tags" options="{'no_create_edit': True}"/>
+                        <field name="expires_at" widget="date"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_create_and_show" string="Create Token" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Token Display Wizard -->
+    <record id="view_git_pat_token_display" model="ir.ui.view">
+        <field name="name">git.personal_access_token.token.display</field>
+        <field name="model">git.personal_access_token</field>
+        <field name="mode">primary</field>
+        <field name="arch" type="xml">
+            <form string="Your Personal Access Token">
+                <div class="alert alert-warning" role="alert">
+                    <strong>Important:</strong> This token will only be shown once. Copy it now and store it securely.
+                </div>
+                <sheet>
+                    <group>
+                        <field name="name" readonly="1"/>
+                        <field name="token" readonly="1" widget="password" class="o_monospace"/>
+                        <field name="scopes" readonly="1"/>
+                        <field name="expires_at" readonly="1" widget="date"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button string="I have copied the token" class="btn-primary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Actions -->
+    <record id="action_git_personal_access_token" model="ir.actions.act_window">
+        <field name="name">Personal Access Tokens</field>
+        <field name="res_model">git.personal_access_token</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_git_pat_search"/>
+        <field name="context">{'search_default_active': 1}</field>
+    </record>
+
+    <record id="action_git_personal_access_token_create" model="ir.actions.act_window">
+        <field name="name">New Personal Access Token</field>
+        <field name="res_model">git.personal_access_token</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_git_pat_form_create"/>
+        <field name="target">new</field>
+    </record>
+</odoo>

@@ -1,0 +1,97 @@
+<odoo>
+    <!-- Search View -->
+    <record id="view_git_commit_search" model="ir.ui.view">
+        <field name="name">git.commit.search</field>
+        <field name="model">git.commit</field>
+        <field name="arch" type="xml">
+            <search string="Search Commits">
+                <field name="sha" string="SHA"/>
+                <field name="message" string="Message"/>
+                <field name="author_name" string="Author"/>
+                <field name="repository_id" string="Repository"/>
+                <filter name="signed" string="Signed" domain="[('is_signed', '=', True)]"/>
+                <group expand="0" string="Group By">
+                    <filter name="by_repo" string="Repository" context="{'group_by': 'repository_id'}"/>
+                    <filter name="by_author" string="Author" context="{'group_by': 'author_name'}"/>
+                    <filter name="by_date" string="Date" context="{'group_by': 'committed_date'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- List View -->
+    <record id="view_git_commit_list" model="ir.ui.view">
+        <field name="name">git.commit.list</field>
+        <field name="model">git.commit</field>
+        <field name="arch" type="xml">
+            <list string="Commits" sample="1">
+                <field name="short_sha" string="SHA"/>
+                <field name="message_short" string="Message"/>
+                <field name="author_name" string="Author"/>
+                <field name="committed_date" widget="date"/>
+                <field name="repository_id" optional="hide"/>
+                <field name="is_signed" string="Signed" widget="boolean_favorite"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Form View -->
+    <record id="view_git_commit_form" model="ir.ui.view">
+        <field name="name">git.commit.form</field>
+        <field name="model">git.commit</field>
+        <field name="arch" type="xml">
+            <form string="Commit">
+                <sheet>
+                    <group string="Commit Info">
+                        <field name="sha" readonly="1"/>
+                        <field name="repository_id" readonly="1" options="{'no_create': True, 'no_open': True}"/>
+                        <field name="author_name" readonly="1"/>
+                        <field name="author_email" readonly="1"/>
+                        <field name="author_date" readonly="1"/>
+                        <field name="committer_name" readonly="1"/>
+                        <field name="committer_email" readonly="1"/>
+                        <field name="committed_date" readonly="1"/>
+                    </group>
+                    <group string="Stats">
+                        <field name="additions" readonly="1" string="Lines Added"/>
+                        <field name="deletions" readonly="1" string="Lines Deleted"/>
+                        <field name="files_changed" readonly="1" string="Files Changed"/>
+                    </group>
+                    <group string="Signature">
+                        <field name="is_signed" readonly="1"/>
+                        <field name="signature_verification" readonly="1"/>
+                    </group>
+                    <notebook>
+                        <page string="Message" name="message">
+                            <field name="message" readonly="1" widget="text" class="o_monospace"/>
+                        </page>
+                        <page string="Parents" name="parents">
+                            <field name="parent_ids" mode="list" readonly="1">
+                                <list string="Parents">
+                                    <field name="short_sha" string="SHA"/>
+                                    <field name="message_short" string="Message"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Branches" name="branches">
+                            <field name="branch_ids" mode="list" readonly="1">
+                                <list string="Branches">
+                                    <field name="name"/>
+                                    <field name="is_default"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_git_commit" model="ir.actions.act_window">
+        <field name="name">Commits</field>
+        <field name="res_model">git.commit</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_git_commit_search"/>
+    </record>
+</odoo>

@@ -1,0 +1,135 @@
+<odoo>
+    <!-- Search View -->
+    <record id="view_git_webhook_search" model="ir.ui.view">
+        <field name="name">git.webhook.search</field>
+        <field name="model">git.webhook</field>
+        <field name="arch" type="xml">
+            <search string="Search Webhooks">
+                <field name="name" string="Name"/>
+                <field name="url" string="URL"/>
+                <filter name="active" string="Active" domain="[('is_active', '=', True)]"/>
+                <filter name="inactive" string="Inactive" domain="[('is_active', '=', False)]"/>
+            </search>
+        </field>
+    </record>
+
+    <!-- List View -->
+    <record id="view_git_webhook_list" model="ir.ui.view">
+        <field name="name">git.webhook.list</field>
+        <field name="model">git.webhook</field>
+        <field name="arch" type="xml">
+            <list string="Webhooks" sample="1" decoration-muted="is_active == False" decoration-danger="failure_count > 5">
+                <field name="name"/>
+                <field name="url"/>
+                <field name="repository_id" options="{'no_create': True, 'no_open': True}"/>
+                <field name="event_push" string="Push" widget="boolean_favorite"/>
+                <field name="event_pull_request" string="PR" widget="boolean_favorite"/>
+                <field name="event_pull_request_review" string="PR Review" widget="boolean_favorite"/>
+                <field name="last_delivery" widget="date"/>
+                <field name="last_status" widget="badge" options="{'classes': {'success': 'bg-success', 'failed': 'bg-danger'}}"/>
+                <field name="failure_count" string="Failures"/>
+                <field name="is_active" string="Active" widget="boolean_favorite"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Form View -->
+    <record id="view_git_webhook_form" model="ir.ui.view">
+        <field name="name">git.webhook.form</field>
+        <field name="model">git.webhook</field>
+        <field name="arch" type="xml">
+            <form string="Webhook">
+                <header>
+                    <button name="action_test_delivery" type="object" string="Test" class="btn-primary" attrs="{'invisible': [('is_active', '=', False)]}"/>
+                </header>
+                <sheet>
+                    <group string="Configuration">
+                        <field name="name"/>
+                        <field name="repository_id" options="{'no_create': True, 'no_open': True}"/>
+                        <field name="url"/>
+                        <field name="secret_token" readonly="1" widget="password"/>
+                    </group>
+                    <group string="Events">
+                        <field name="event_push"/>
+                        <field name="event_pull_request"/>
+                        <field name="event_pull_request_review"/>
+                        <field name="event_branch"/>
+                        <field name="event_tag"/>
+                    </group>
+                    <group string="Options">
+                        <field name="content_type"/>
+                        <field name="ssl_verify"/>
+                        <field name="is_active"/>
+                    </group>
+                    <group string="Delivery Stats">
+                        <field name="last_delivery" readonly="1" widget="date"/>
+                        <field name="last_status" readonly="1" widget="badge" options="{'classes': {'success': 'bg-success', 'failed': 'bg-danger'}}"/>
+                        <field name="failure_count" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Webhook Delivery List View -->
+    <record id="view_git_webhook_delivery_list" model="ir.ui.view">
+        <field name="name">git.webhook.delivery.list</field>
+        <field name="model">git.webhook.delivery</field>
+        <field name="arch" type="xml">
+            <list string="Webhook Deliveries" sample="1" decoration-danger="status == 'failed'" decoration-success="status == 'success'">
+                <field name="webhook_id" options="{'no_create': True, 'no_open': True}"/>
+                <field name="event_type"/>
+                <field name="status" widget="badge" options="{'classes': {'pending': 'bg-warning', 'success': 'bg-success', 'failed': 'bg-danger'}}"/>
+                <field name="response_code" optional="hide"/>
+                <field name="duration" optional="hide" string="Duration (s)"/>
+                <field name="error_message" optional="hide"/>
+                <field name="create_date" widget="date"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Webhook Delivery Form View -->
+    <record id="view_git_webhook_delivery_form" model="ir.ui.view">
+        <field name="name">git.webhook.delivery.form</field>
+        <field name="model">git.webhook.delivery</field>
+        <field name="arch" type="xml">
+            <form string="Webhook Delivery" create="false" edit="false">
+                <header>
+                    <button name="action_retry" type="object" string="Retry" class="btn-primary" attrs="{'invisible': [('status', '!=', 'failed')]}"/>
+                </header>
+                <sheet>
+                    <group string="Delivery Info">
+                        <field name="webhook_id" options="{'no_create': True, 'no_open': True}"/>
+                        <field name="event_type"/>
+                        <field name="status" widget="badge" options="{'classes': {'pending': 'bg-warning', 'success': 'bg-success', 'failed': 'bg-danger'}}"/>
+                        <field name="response_code"/>
+                        <field name="duration" string="Duration (s)"/>
+                    </group>
+                    <group string="Request">
+                        <field name="payload" widget="text" class="o_monospace" readonly="1"/>
+                        <field name="signature" readonly="1"/>
+                    </group>
+                    <group string="Response" attrs="{'invisible': [('response_body', '=', False)]}">
+                        <field name="response_body" widget="text" class="o_monospace" readonly="1"/>
+                        <field name="error_message" widget="text" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Actions -->
+    <record id="action_git_webhook" model="ir.actions.act_window">
+        <field name="name">Webhooks</field>
+        <field name="res_model">git.webhook</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_git_webhook_search"/>
+        <field name="context">{'search_default_active': 1}</field>
+    </record>
+
+    <record id="action_git_webhook_delivery" model="ir.actions.act_window">
+        <field name="name">Webhook Deliveries</field>
+        <field name="res_model">git.webhook.delivery</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

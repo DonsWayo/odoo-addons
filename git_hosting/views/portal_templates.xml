@@ -1,0 +1,146 @@
+<odoo>
+    <!-- Portal My Repositories -->
+    <template id="portal_my_repositories" inherit_id="portal.portal_my_home">
+        <xpath expr="//div[@id='portal_my_home']" position="inside">
+            <div class="col-12 col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5><i class="fa fa-code-branch me-2"/> My Repositories</h5>
+                    </div>
+                    <div class="card-body">
+                        <t t-if="repositories">
+                            <t t-foreach="repositories" t-as="repo">
+                                <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
+                                    <a t-attf-href="/git/#{repo.owner_id.login}/#{repo.name}">
+                                        <strong t-out="repo.owner_id.login"/>/<span t-out="repo.name"/>
+                                    </a>
+                                    <span t-attf-class="badge bg-#{repo.visibility == 'internal' and 'success' or 'secondary'}">
+                                        <t t-out="repo.visibility"/>
+                                    </span>
+                                </div>
+                            </t>
+                        </t>
+                        <t t-else="">
+                            <p class="text-muted text-center">No repositories yet.</p>
+                        </t>
+                    </div>
+                </div>
+            </div>
+        </xpath>
+    </template>
+
+    <!-- Portal Repository Home -->
+    <template id="portal_repository_home">
+        <t t-call="portal.layout">
+            <t t-set="title">Repository: <t t-out="repository.name"/></t>
+            <div class="container mt-4">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="card mb-3">
+                            <div class="card-header d-flex justify-content-between">
+                                <h5 class="mb-0"><t t-out="repository.owner_id.login"/>/<t t-out="repository.name"/></h5>
+                                <span class="badge" t-att-class="'bg-' + (repository.visibility == 'internal' and 'success' or 'secondary')">
+                                    <t t-out="repository.visibility"/>
+                                </span>
+                            </div>
+                            <div class="card-body">
+                                <t t-if="repository.description">
+                                    <div t-out="repository.description" class="mb-3"/>
+                                </t>
+                                <div class="d-flex gap-3 text-muted small">
+                                    <span><i class="fa fa-code-branch"/> <t t-out="repository.branch_count"/> branches</span>
+                                    <span><i class="fa fa-history"/> <t t-out="repository.commit_count"/> commits</span>
+                                    <span><i class="fa fa-git-pull-request"/> <t t-out="repository.open_pr_count"/> PRs</span>
+                                    <span><i class="fa fa-star"/> <t t-out="repository.star_count"/> stars</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recent Commits -->
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <h5 class="mb-0">Recent Commits</h5>
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>SHA</th>
+                                            <th>Message</th>
+                                            <th>Author</th>
+                                            <th>Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <t t-foreach="recent_commits" t-as="commit">
+                                            <tr>
+                                                <td class="o_monospace"><a t-attf-href="/git/#{repository.owner_id.login}/#{repository.name}/commit/#{commit.sha}"><t t-out="commit.short_sha"/></a></td>
+                                                <td><t t-out="commit.message_short"/></td>
+                                                <td><t t-out="commit.author_name"/></td>
+                                                <td><t t-out="commit.committed_date" t-options="{'widget': 'date'}"/></td>
+                                            </tr>
+                                        </t>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <!-- Branches -->
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <h5 class="mb-0">Branches</h5>
+                            </div>
+                            <div class="card-body">
+                                <ul class="list-group list-group-flush">
+                                    <t t-foreach="branches" t-as="branch">
+                                        <li class="list-group-item d-flex justify-content-between">
+                                            <span t-out="branch.name"/>
+                                            <span class="badge" t-att-class="branch.is_default and 'bg-primary' or 'bg-secondary'">
+                                                <t t-if="branch.is_default">Default</t>
+                                            </span>
+                                        </li>
+                                    </t>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Open PRs -->
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <h5 class="mb-0">Open Pull Requests</h5>
+                            </div>
+                            <div class="card-body">
+                                <t t-if="open_prs">
+                                    <ul class="list-group list-group-flush">
+                                        <t t-foreach="open_prs" t-as="pr">
+                                            <li class="list-group-item">
+                                                <a t-attf-href="/git/#{repository.owner_id.login}/#{repository.name}/pull/#{pr.number}">#<t t-out="pr.number"/> <t t-out="pr.title"/></a>
+                                            </li>
+                                        </t>
+                                    </ul>
+                                </t>
+                                <t t-else="">
+                                    <p class="text-muted text-center">No open PRs</p>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- Portal Repository Private -->
+    <template id="portal_repository_private">
+        <t t-call="portal.layout">
+            <t t-set="title">Private Repository</t>
+            <div class="container mt-5 text-center">
+                <i class="fa fa-lock fa-3x text-muted mb-3"/>
+                <h3>Private Repository</h3>
+                <p class="text-muted">This repository is private. You don't have access to view it.</p>
+            </div>
+        </t>
+    </template>
+</odoo>

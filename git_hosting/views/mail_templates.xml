@@ -1,0 +1,104 @@
+<odoo>
+    <!-- PR Created Email -->
+    <record id="mail_template_git_pr_created" model="mail.template">
+        <field name="name">Git: Pull Request Created</field>
+        <field name="model_id" ref="model_git_pull_request"/>
+        <field name="subject">New Pull Request: {{ object.title }} (#{{ object.number }})</field>
+        <field name="email_from">${object.author_id.email_formatted}</field>
+        <field name="email_to">${', '.join(object.reviewer_ids.mapped('email_formatted'))}</field>
+        <field name="body_html" type="html">
+            <div>
+                <p>Hello,</p>
+                <p><strong>{{ object.author_id.name }}</strong> created a new pull request in <strong>{{ object.repository_id.name }}</strong>:</p>
+                <h3><a href="{{ object.get_access_url() }}">{{ object.title }} (#{{ object.number }})</a></h3>
+                <p>{{ object.description }}</p>
+                <p>
+                    <strong>Source:</strong> {{ object.source_branch_id.name }}<br/>
+                    <strong>Target:</strong> {{ object.target_branch_id.name }}
+                </p>
+                <p>Please review the changes.</p>
+                <p>Thanks,<br/>Odoo Git Hosting</p>
+            </div>
+        </field>
+    </record>
+
+    <!-- PR Review Request -->
+    <record id="mail_template_git_pr_review_request" model="mail.template">
+        <field name="name">Git: Pull Request Review Requested</field>
+        <field name="model_id" ref="model_git_pull_request"/>
+        <field name="subject">Review requested: {{ object.title }} (#{{ object.number }})</field>
+        <field name="email_from">${object.author_id.email_formatted}</field>
+        <field name="email_to">${', '.join(object.reviewer_ids.mapped('email_formatted'))}</field>
+        <field name="body_html" type="html">
+            <div>
+                <p>Hello,</p>
+                <p>You have been requested to review a pull request in <strong>{{ object.repository_id.name }}</strong>:</p>
+                <h3><a href="{{ object.get_access_url() }}">{{ object.title }} (#{{ object.number }})</a></h3>
+                <p>
+                    <strong>Source:</strong> {{ object.source_branch_id.name }}<br/>
+                    <strong>Target:</strong> {{ object.target_branch_id.name }}
+                </p>
+                <p>Please review the changes.</p>
+                <p>Thanks,<br/>Odoo Git Hosting</p>
+            </div>
+        </field>
+    </record>
+
+    <!-- PR Merged Email -->
+    <record id="mail_template_git_pr_merged" model="mail.template">
+        <field name="name">Git: Pull Request Merged</field>
+        <field name="model_id" ref="model_git_pull_request"/>
+        <field name="subject">Pull Request Merged: {{ object.title }} (#{{ object.number }})</field>
+        <field name="email_from">${object.merged_by_id.email_formatted}</field>
+        <field name="email_to">${object.author_id.email_formatted}</field>
+        <field name="body_html" type="html">
+            <div>
+                <p>Hello,</p>
+                <p>Your pull request in <strong>{{ object.repository_id.name }}</strong> has been merged:</p>
+                <h3><a href="{{ object.get_access_url() }}">{{ object.title }} (#{{ object.number }})</a></h3>
+                <p>Merged by <strong>{{ object.merged_by_id.name }}</strong> using <strong>{{ object.merge_method }}</strong>.</p>
+                <p>Thanks,<br/>Odoo Git Hosting</p>
+            </div>
+        </field>
+    </record>
+
+    <!-- PR Closed Email -->
+    <record id="mail_template_git_pr_closed" model="mail.template">
+        <field name="name">Git: Pull Request Closed</field>
+        <field name="model_id" ref="model_git_pull_request"/>
+        <field name="subject">Pull Request Closed: {{ object.title }} (#{{ object.number }})</field>
+        <field name="email_from">${object.merged_by_id.email_formatted or object.author_id.email_formatted}</field>
+        <field name="email_to">${object.author_id.email_formatted}</field>
+        <field name="body_html" type="html">
+            <div>
+                <p>Hello,</p>
+                <p>Your pull request in <strong>{{ object.repository_id.name }}</strong> has been closed:</p>
+                <h3><a href="{{ object.get_access_url() }}">{{ object.title }} (#{{ object.number }})</a></h3>
+                <p>Thanks,<br/>Odoo Git Hosting</p>
+            </div>
+        </field>
+    </record>
+
+    <!-- Webhook Delivery Failed -->
+    <record id="mail_template_git_webhook_failed" model="mail.template">
+        <field name="name">Git: Webhook Delivery Failed</field>
+        <field name="model_id" ref="model_git_webhook_delivery"/>
+        <field name="subject">Webhook Delivery Failed: {{ object.webhook_id.name }}</field>
+        <field name="email_from">${object.webhook_id.repository_id.owner_id.email_formatted}</field>
+        <field name="email_to">${object.webhook_id.repository_id.owner_id.email_formatted}</field>
+        <field name="body_html" type="html">
+            <div>
+                <p>Hello,</p>
+                <p>A webhook delivery failed for <strong>{{ object.webhook_id.name }}</strong> in repository <strong>{{ object.webhook_id.repository_id.name }}</strong>:</p>
+                <ul>
+                    <li><strong>Event:</strong> {{ object.event_type }}</li>
+                    <li><strong>URL:</strong> {{ object.webhook_id.url }}</li>
+                    <li><strong>Response Code:</strong> {{ object.response_code }}</li>
+                    <li><strong>Error:</strong> {{ object.error_message }}</li>
+                </ul>
+                <p>Please check the webhook configuration.</p>
+                <p>Thanks,<br/>Odoo Git Hosting</p>
+            </div>
+        </field>
+    </record>
+</odoo>
