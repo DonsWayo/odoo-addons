@@ -58,8 +58,8 @@ class GitPullRequest(models.Model):
         default=lambda self: self.env.user,
         tracking=True
     )
-    assignee_ids = fields.Many2many('res.users', string='Assignees')
-    reviewer_ids = fields.Many2many('res.users', string='Reviewers')
+    assignee_ids = fields.Many2many('res.users', 'git_pr_assignee_rel', 'pr_id', 'user_id', string='Assignees')
+    reviewer_ids = fields.Many2many('res.users', 'git_pr_reviewer_rel', 'pr_id', 'user_id', string='Reviewers')
     merged_by_id = fields.Many2one('res.users', string='Merged By')
 
     # === Commits & Changes ===
@@ -84,11 +84,6 @@ class GitPullRequest(models.Model):
     review_ids = fields.One2many('git.pr.review', 'pull_request_id', string='Reviews')
     approval_count = fields.Integer(compute='_compute_review_status')
     changes_requested = fields.Boolean(compute='_compute_review_status')
-
-    # === CI/CD Checks ===
-    check_run_ids = fields.One2many('git.check_run', 'pull_request_id', string='Check Runs')
-    all_checks_passed = fields.Boolean(compute='_compute_checks')
-    required_checks_passed = fields.Boolean(compute='_compute_checks')
 
     # === Dates ===
     merged_at = fields.Datetime()
@@ -121,9 +116,6 @@ class GitPullRequest(models.Model):
                 if target.require_pr_reviews:
                     if pr.approval_count < target.required_approving_reviews:
                         can_merge = False
-                if target.require_status_checks:
-                    if not pr.required_checks_passed:
-                        can_merge = False
             pr.is_mergeable = can_merge and not pr.has_conflicts
 
     def _check_conflicts(self):
@@ -143,14 +135,6 @@ class GitPullRequest(models.Model):
             changes = pr.review_ids.filtered(lambda r: r.state == 'request_changes')
             pr.approval_count = len(approvals)
             pr.changes_requested = bool(changes)
-
-    @api.depends('check_run_ids.conclusion')
-    def _compute_checks(self):
-        for pr in self:
-            required = pr.target_branch_id.required_status_check_contexts.splitlines() if pr.target_branch_id.required_status_check_contexts else []
-            runs = pr.check_run_ids.filtered(lambda c: c.name in required) if required else pr.check_run_ids
-            pr.all_checks_passed = all(r.conclusion == 'success' for r in runs) if runs else True
-            pr.required_checks_passed = pr.all_checks_passed
 
     def action_merge(self, method=None):
         """Merge the pull request"""

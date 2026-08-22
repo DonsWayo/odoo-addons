@@ -195,7 +195,7 @@ class TestGitBranch(TransactionCase):
             'name': 'Manager',
             'login': 'manager',
             'email': 'manager@example.com',
-            'groups_id': [(4, self.env.ref('git_hosting.group_git_manager').id)],
+            'group_ids': [(4, self.env.ref('git_hosting.group_git_manager').id)],
         })
         self.assertTrue(branch.can_user_push(manager))
 

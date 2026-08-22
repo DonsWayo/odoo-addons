@@ -23,7 +23,7 @@
                     <div class="card-body">
                         <div class="row mb-3">
                             <div class="col-md-6">
-                                <strong>Author:</strong> <t t-out="commit.author_name"/> <<t t-out="commit.author_email"/>>
+                                <strong>Author:</strong> <t t-out="commit.author_name"/> &lt;<t t-out="commit.author_email"/>&gt;
                             </div>
                             <div class="col-md-6">
                                 <strong>Date:</strong> <t t-out="commit.committed_date" t-options="{'widget': 'date'}"/>
@@ -31,7 +31,7 @@
                         </div>
                         <div class="row mb-3">
                             <div class="col-md-6">
-                                <strong>Committer:</strong> <t t-out="commit.committer_name"/> <<t t-out="commit.committer_email"/>>
+                                <strong>Committer:</strong> <t t-out="commit.committer_name"/> &lt;<t t-out="commit.committer_email"/>&gt;
                             </div>
                             <div class="col-md-6">
                                 <strong>SHA:</strong> <code class="o_monospace"><t t-out="commit.sha"/></code>

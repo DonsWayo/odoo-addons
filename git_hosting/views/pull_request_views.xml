@@ -15,7 +15,7 @@
                 <filter name="draft" string="Draft" domain="[('state', '=', 'draft')]"/>
                 <filter name="mine" string="My PRs" domain="[('author_id', '=', uid)]"/>
                 <filter name="to_review" string="To Review" domain="[('reviewer_ids', 'in', [uid]), ('state', '=', 'open')]"/>
-                <group expand="0" string="Group By">
+                <group>
                     <filter name="by_state" string="State" context="{'group_by': 'state'}"/>
                     <filter name="by_repo" string="Repository" context="{'group_by': 'repository_id'}"/>
                     <filter name="by_author" string="Author" context="{'group_by': 'author_id'}"/>
@@ -96,16 +96,16 @@
         <field name="arch" type="xml">
             <form string="Pull Request">
                 <header>
-                    <button name="action_merge" type="object" string="Merge" class="btn-primary" groups="git_hosting.group_git_manager" attrs="{'invisible': [('state', '!=', 'open'), ('is_mergeable', '=', False)]}"/>
-                    <button name="action_merge" type="object" string="Squash & Merge" class="btn-primary" context="{'method': 'squash'}" groups="git_hosting.group_git_manager" attrs="{'invisible': [('state', '!=', 'open'), ('is_mergeable', '=', False)]}"/>
-                    <button name="action_merge" type="object" string="Rebase & Merge" class="btn-primary" context="{'method': 'rebase'}" groups="git_hosting.group_git_manager" attrs="{'invisible': [('state', '!=', 'open'), ('is_mergeable', '=', False)]}"/>
-                    <button name="action_close" type="object" string="Close" class="btn-secondary" attrs="{'invisible': [('state', 'in', ['closed', 'merged'])]}"/>
-                    <button name="action_reopen" type="object" string="Reopen" class="btn-secondary" attrs="{'invisible': [('state', 'not in', ['closed', 'merged'])]}"/>
+                    <button name="action_merge" type="object" string="Merge" class="btn-primary" groups="git_hosting.group_git_manager" invisible="state != 'open' and is_mergeable == False"/>
+                    <button name="action_merge" type="object" string="Squash &amp; Merge" class="btn-primary" context="{'method': 'squash'}" groups="git_hosting.group_git_manager" invisible="state != 'open' and is_mergeable == False"/>
+                    <button name="action_merge" type="object" string="Rebase &amp; Merge" class="btn-primary" context="{'method': 'rebase'}" groups="git_hosting.group_git_manager" invisible="state != 'open' and is_mergeable == False"/>
+                    <button name="action_close" type="object" string="Close" class="btn-secondary" invisible="state in ['closed', 'merged']"/>
+                    <button name="action_reopen" type="object" string="Reopen" class="btn-secondary" invisible="state not in ['closed', 'merged']"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,open,merged,closed" statusbar_colors='{"draft":"secondary","open":"primary","merged":"success","closed":"danger"}'/>
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
-                        <button type="object" name="action_merge" class="oe_stat_button" icon="fa-check" attrs="{'invisible': [('state', '!=', 'open')]}">
+                        <button type="object" name="action_merge" class="oe_stat_button" icon="fa-check" invisible="state != 'open'">
                             <field name="approval_count" widget="statinfo" string="Approvals"/>
                         </button>
                     </div>
@@ -139,15 +139,6 @@
                                 </list>
                             </field>
                         </page>
-                        <page string="Checks" name="checks">
-                            <field name="check_run_ids" mode="list" readonly="1">
-                                <list string="Status Checks">
-                                    <field name="name"/>
-                                    <field name="conclusion" widget="badge" options="{'classes': {'success': 'bg-success', 'failure': 'bg-danger', 'pending': 'bg-warning', 'cancelled': 'bg-secondary'}}"/>
-                                    <field name="duration" string="Duration (s)"/>
-                                </list>
-                            </field>
-                        </page>
                         <page string="Commits" name="commits">
                             <field name="commit_ids" mode="list" readonly="1">
                                 <list string="Commits">
@@ -161,7 +152,6 @@
                         <page string="Settings" name="settings" groups="base.group_system">
                             <group>
                                 <field name="merge_method"/>
-                                <field name="milestone_id" options="{'no_create': True, 'no_open': True}"/>
                             </group>
                         </page>
                     </notebook>

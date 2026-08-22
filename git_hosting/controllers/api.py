@@ -14,7 +14,7 @@ class GitAPIController(http.Controller):
             '|', '|',
             ('owner_id', '=', request.env.user.id),
             ('member_ids', 'in', request.env.user.id),
-            ('group_ids', 'in', request.env.user.groups_id.ids)
+            ('group_ids', 'in', request.env.user.group_ids.ids)
         ]
         if kwargs.get('visibility'):
             domain.append(('visibility', '=', kwargs['visibility']))

@@ -10,7 +10,7 @@
                 <field name="author_name" string="Author"/>
                 <field name="repository_id" string="Repository"/>
                 <filter name="signed" string="Signed" domain="[('is_signed', '=', True)]"/>
-                <group expand="0" string="Group By">
+                <group>
                     <filter name="by_repo" string="Repository" context="{'group_by': 'repository_id'}"/>
                     <filter name="by_author" string="Author" context="{'group_by': 'author_name'}"/>
                     <filter name="by_date" string="Date" context="{'group_by': 'committed_date'}"/>

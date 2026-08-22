@@ -8,8 +8,8 @@
             ['|', '|', '|',
                 ('owner_id', '=', user.id),
                 ('member_ids', 'in', [user.id]),
-                ('group_ids', 'in', user.groups_id.ids),
-                '&', ('visibility', '=', 'internal'), ('create_uid.share', '=', False)
+                ('group_ids', 'in', user.group_ids.ids),
+                '&amp;', ('visibility', '=', 'internal'), ('create_uid.share', '=', False)
             ]
         </field>
         <field name="perm_read" eval="1"/>
@@ -36,7 +36,7 @@
             ['|', '|',
                 ('repository_id.owner_id', '=', user.id),
                 ('repository_id.member_ids', 'in', [user.id]),
-                ('repository_id.group_ids', 'in', user.groups_id.ids)
+                ('repository_id.group_ids', 'in', user.group_ids.ids)
             ]
         </field>
     </record>
@@ -50,7 +50,7 @@
             ['|', '|',
                 ('repository_id.owner_id', '=', user.id),
                 ('repository_id.member_ids', 'in', [user.id]),
-                ('repository_id.group_ids', 'in', user.groups_id.ids)
+                ('repository_id.group_ids', 'in', user.group_ids.ids)
             ]
         </field>
     </record>
@@ -64,7 +64,7 @@
             ['|', '|',
                 ('repository_id.owner_id', '=', user.id),
                 ('repository_id.member_ids', 'in', [user.id]),
-                ('repository_id.group_ids', 'in', user.groups_id.ids)
+                ('repository_id.group_ids', 'in', user.group_ids.ids)
             ]
         </field>
     </record>

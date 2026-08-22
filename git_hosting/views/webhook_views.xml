@@ -40,7 +40,7 @@
         <field name="arch" type="xml">
             <form string="Webhook">
                 <header>
-                    <button name="action_test_delivery" type="object" string="Test" class="btn-primary" attrs="{'invisible': [('is_active', '=', False)]}"/>
+                    <button name="action_test_delivery" type="object" string="Test" class="btn-primary" invisible="is_active == False"/>
                 </header>
                 <sheet>
                     <group string="Configuration">
@@ -95,7 +95,7 @@
         <field name="arch" type="xml">
             <form string="Webhook Delivery" create="false" edit="false">
                 <header>
-                    <button name="action_retry" type="object" string="Retry" class="btn-primary" attrs="{'invisible': [('status', '!=', 'failed')]}"/>
+                    <button name="action_retry" type="object" string="Retry" class="btn-primary" invisible="status != 'failed'"/>
                 </header>
                 <sheet>
                     <group string="Delivery Info">
@@ -109,7 +109,7 @@
                         <field name="payload" widget="text" class="o_monospace" readonly="1"/>
                         <field name="signature" readonly="1"/>
                     </group>
-                    <group string="Response" attrs="{'invisible': [('response_body', '=', False)]}">
+                    <group string="Response" invisible="response_body == False">
                         <field name="response_body" widget="text" class="o_monospace" readonly="1"/>
                         <field name="error_message" widget="text" readonly="1"/>
                     </group>

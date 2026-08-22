@@ -1,7 +1,7 @@
 <odoo>
     <!-- Portal My Repositories -->
     <template id="portal_my_repositories" inherit_id="portal.portal_my_home">
-        <xpath expr="//div[@id='portal_my_home']" position="inside">
+        <xpath expr="//div[hasclass('o_portal_my_home')]" position="inside">
             <div class="col-12 col-lg-6 mb-4">
                 <div class="card h-100">
                     <div class="card-header">

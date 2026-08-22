@@ -35,8 +35,8 @@
         <field name="arch" type="xml">
             <form string="Deploy Key" create="false" edit="false">
                 <header>
-                    <button name="action_revoke" type="object" string="Revoke" class="btn-danger" attrs="{'invisible': [('is_active', '=', False)]}"/>
-                    <button name="action_regenerate" type="object" string="Regenerate" class="btn-primary" attrs="{'invisible': [('is_active', '=', False)]}"/>
+                    <button name="action_revoke" type="object" string="Revoke" class="btn-danger" invisible="is_active == False"/>
+                    <button name="action_regenerate" type="object" string="Regenerate" class="btn-primary" invisible="is_active == False"/>
                 </header>
                 <sheet>
                     <group string="Key Info">
@@ -48,56 +48,10 @@
                         <field name="is_active" readonly="1" widget="boolean_favorite"/>
                         <field name="last_used" readonly="1" widget="date"/>
                     </group>
-                    <group string="Token" attrs="{'invisible': [('is_active', '=', False)]}">
+                    <group string="Token" invisible="is_active == False">
                         <field name="token" readonly="1" widget="password"/>
                     </group>
                 </sheet>
-            </form>
-        </field>
-    </record>
-
-    <!-- Create Form View -->
-    <record id="view_git_deploy_key_form_create" model="ir.ui.view">
-        <field name="name">git.deploy_key.form.create</field>
-        <field name="model">git.deploy_key</field>
-        <field name="mode">primary</field>
-        <field name="arch" type="xml">
-            <form string="Create Deploy Key">
-                <sheet>
-                    <group>
-                        <field name="name"/>
-                        <field name="repository_id" options="{'no_create': True, 'no_open': True}" required="1"/>
-                        <field name="can_push"/>
-                    </group>
-                </sheet>
-                <footer>
-                    <button name="action_create_and_show" string="Create Key" type="object" class="btn-primary"/>
-                    <button string="Cancel" class="btn-secondary" special="cancel"/>
-                </footer>
-            </form>
-        </field>
-    </record>
-
-    <!-- Token Display -->
-    <record id="view_git_deploy_key_token_display" model="ir.ui.view">
-        <field name="name">git.deploy_key.token.display</field>
-        <field name="model">git.deploy_key</field>
-        <field name="mode">primary</field>
-        <field name="arch" type="xml">
-            <form string="Your Deploy Key">
-                <div class="alert alert-warning" role="alert">
-                    <strong>Important:</strong> This key will only be shown once. Copy it now and store it securely.
-                </div>
-                <sheet>
-                    <group>
-                        <field name="name" readonly="1"/>
-                        <field name="token" readonly="1" widget="password" class="o_monospace"/>
-                        <field name="can_push" readonly="1"/>
-                    </group>
-                </sheet>
-                <footer>
-                    <button string="I have copied the key" class="btn-primary" special="cancel"/>
-                </footer>
             </form>
         </field>
     </record>
@@ -111,11 +65,4 @@
         <field name="context">{'search_default_active': 1}</field>
     </record>
 
-    <record id="action_git_deploy_key_create" model="ir.actions.act_window">
-        <field name="name">New Deploy Key</field>
-        <field name="res_model">git.deploy_key</field>
-        <field name="view_mode">form</field>
-        <field name="view_id" ref="view_git_deploy_key_form_create"/>
-        <field name="target">new</field>
-    </record>
 </odoo>

@@ -9,7 +9,7 @@
                 <field name="repository_id" string="Repository"/>
                 <filter name="protected" string="Protected" domain="[('is_protected', '=', True)]"/>
                 <filter name="default" string="Default" domain="[('is_default', '=', True)]"/>
-                <group expand="0" string="Group By">
+                <group>
                     <filter name="by_repo" string="Repository" context="{'group_by': 'repository_id'}"/>
                     <filter name="by_protected" string="Protected" context="{'group_by': 'is_protected'}"/>
                 </group>
@@ -59,11 +59,11 @@
                             <group string="Branch Protection" col="2">
                                 <field name="is_protected"/>
                                 <field name="require_pr_reviews"/>
-                                <field name="required_approving_reviews" attrs="{'invisible': [('require_pr_reviews', '=', False)]}"/>
-                                <field name="dismiss_stale_reviews" attrs="{'invisible': [('require_pr_reviews', '=', False)]}"/>
+                                <field name="required_approving_reviews" invisible="require_pr_reviews == False"/>
+                                <field name="dismiss_stale_reviews" invisible="require_pr_reviews == False"/>
                                 <field name="require_linear_history"/>
                                 <field name="require_status_checks"/>
-                                <field name="required_status_check_contexts" placeholder="One check context per line" attrs="{'invisible': [('require_status_checks', '=', False)]}" widget="text"/>
+                                <field name="required_status_check_contexts" placeholder="One check context per line" invisible="require_status_checks == False" widget="text"/>
                                 <field name="allow_force_push"/>
                                 <field name="allow_deletions"/>
                             </group>

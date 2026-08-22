@@ -78,6 +78,12 @@ class GitBranch(models.Model):
         string='Users Allowed to Merge',
         domain="[('share', '=', False)]"
     )
+    restricted_push_group_ids = fields.Many2many(
+        'res.groups',
+        'git_branch_push_group_rel',
+        'branch_id', 'group_id',
+        string='Groups Allowed to Push'
+    )
 
     # === Computed ===
     is_default = fields.Boolean(compute='_compute_is_default', store=True)

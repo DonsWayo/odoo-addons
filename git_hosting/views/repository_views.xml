@@ -6,13 +6,12 @@
         <field name="arch" type="xml">
             <search string="Search Repositories">
                 <field name="name" string="Name"/>
-                <field name="description" string="Description"/>
                 <field name="owner_id" string="Owner"/>
                 <filter name="my_repos" string="My Repositories" domain="[('owner_id', '=', uid)]"/>
                 <filter name="starred" string="Starred" domain="[('star_ids', 'in', [uid])]"/>
                 <filter name="internal" string="Internal" domain="[('visibility', '=', 'internal')]"/>
                 <filter name="private" string="Private" domain="[('visibility', '=', 'private')]"/>
-                <group expand="0" string="Group By">
+                <group>
                     <filter name="by_owner" string="Owner" context="{'group_by': 'owner_id'}"/>
                     <filter name="by_visibility" string="Visibility" context="{'group_by': 'visibility'}"/>
                     <filter name="by_project" string="Project" context="{'group_by': 'project_id'}"/>
@@ -55,6 +54,9 @@
                 <field name="default_branch"/>
                 <field name="star_count"/>
                 <field name="is_starred"/>
+                <field name="branch_count"/>
+                <field name="open_pr_count"/>
+                <field name="commit_count"/>
                 <templates>
                     <t t-name="kanban-box">
                         <div class="oe_kanban_global_click o_kanban_git_repo_card">
@@ -129,8 +131,6 @@
                         </page>
                         <page string="Settings" name="settings" groups="base.group_system">
                             <group string="Repository Settings">
-                                <field name="has_wiki"/>
-                                <field name="has_issues"/>
                                 <field name="has_pull_requests"/>
                                 <field name="has_projects"/>
                                 <field name="default_branch"/>
@@ -170,7 +170,7 @@
         <field name="arch" type="xml">
             <pivot string="Commit Analysis" sample="1">
                 <field name="repository_id" type="col"/>
-                <field name="author_id" type="row"/>
+                <field name="author_name" type="row"/>
                 <field name="committed_date" interval="month" type="col"/>
                 <field name="id" type="measure" string="Commits"/>
                 <field name="additions" type="measure" string="Lines Added"/>

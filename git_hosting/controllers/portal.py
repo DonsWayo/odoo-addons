@@ -13,7 +13,7 @@ class GitPortalController(http.Controller):
             '|', '|',
             ('owner_id', '=', user.id),
             ('member_ids', 'in', user.id),
-            ('group_ids', 'in', user.groups_id.ids)
+            ('group_ids', 'in', user.group_ids.ids)
         ]
 
         Repository = request.env['git.repository']

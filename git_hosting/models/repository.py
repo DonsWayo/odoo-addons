@@ -37,6 +37,8 @@ class GitRepository(models.Model):
         required=True,
         help="Default branch name"
     )
+    clone_url_http = fields.Char(compute='_compute_clone_urls', string='Clone URL (HTTPS)')
+    clone_url_ssh = fields.Char(compute='_compute_clone_urls', string='Clone URL (SSH)')
 
     # === Ownership & Members ===
     owner_id = fields.Many2one(
@@ -80,9 +82,13 @@ class GitRepository(models.Model):
     branch_ids = fields.One2many('git.branch', 'repository_id', string='Branches')
     commit_ids = fields.One2many('git.commit', 'repository_id', string='Commits')
     pull_request_ids = fields.One2many('git.pull_request', 'repository_id', string='Pull Requests')
-    issue_ids = fields.One2many('git.issue', 'repository_id', string='Issues')
-    wiki_page_ids = fields.One2many('git.wiki.page', 'repository_id', string='Wiki Pages')
-    pat_ids = fields.One2many('git.personal_access_token', 'repository_id', string='Personal Access Tokens')
+    pat_ids = fields.Many2many(
+        'git.personal_access_token',
+        'git_pat_repo_rel',
+        'repo_id', 'pat_id',
+        string='Personal Access Tokens',
+        inverse_name='repository_ids'
+    )
     deploy_key_ids = fields.One2many('git.deploy_key', 'repository_id', string='Deploy Keys')
     webhook_ids = fields.One2many('git.webhook', 'repository_id', string='Webhooks')
 
@@ -112,9 +118,13 @@ class GitRepository(models.Model):
     is_starred = fields.Boolean(compute='_compute_is_starred')
 
     # === Settings ===
-    has_issues = fields.Boolean(default=True)
-    has_wiki = fields.Boolean(default=True)
     has_pull_requests = fields.Boolean(default=True)
+    protected_branch_ids = fields.Many2many(
+        'git.branch',
+        'git_repo_protected_branch_rel',
+        'repo_id', 'branch_id',
+        string='Protected Branches'
+    )
     has_projects = fields.Boolean(default=False)
     require_signed_commits = fields.Boolean(default=False)
     max_file_size = fields.Integer(default=100, help="Max file size in MB")
@@ -129,14 +139,14 @@ class GitRepository(models.Model):
          'Invalid repository name format'),
     ]
 
-    @api.depends('branch_ids', 'commit_ids', 'pull_request_ids', 'issue_ids', 'wiki_page_ids')
+    @api.depends('branch_ids', 'commit_ids', 'pull_request_ids')
     def _compute_counters(self):
         for repo in self:
             repo.commit_count = len(repo.commit_ids)
             repo.branch_count = len(repo.branch_ids)
             repo.open_pr_count = len(repo.pull_request_ids.filtered(lambda pr: pr.state == 'open'))
-            repo.open_issue_count = len(repo.issue_ids.filtered(lambda i: i.state == 'open'))
-            repo.wiki_page_count = len(repo.wiki_page_ids)
+            repo.open_issue_count = 0
+            repo.wiki_page_count = 0
 
     @api.depends('member_ids', 'group_ids')
     def _compute_collaborator_count(self):
@@ -146,7 +156,7 @@ class GitRepository(models.Model):
                 users |= group.users
             repo.collaborator_count = len(users)
 
-    @api.depends('commit_ids.create_date', 'pull_request_ids.create_date', 'issue_ids.create_date')
+    @api.depends('commit_ids.create_date', 'pull_request_ids.create_date')
     def _compute_last_activity(self):
         for repo in self:
             dates = []
@@ -154,8 +164,6 @@ class GitRepository(models.Model):
                 dates.append(max(repo.commit_ids.mapped('create_date')))
             if repo.pull_request_ids:
                 dates.append(max(repo.pull_request_ids.mapped('create_date')))
-            if repo.issue_ids:
-                dates.append(max(repo.issue_ids.mapped('create_date')))
             repo.last_activity_date = max(dates) if dates else False
 
     @api.depends('star_ids')
@@ -176,6 +184,17 @@ class GitRepository(models.Model):
         else:
             self.star_ids = [(4, self.env.user.id)]
         return True
+
+    def _compute_clone_urls(self):
+        base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url', 'http://localhost:8069')
+        ssh_host = self.env['ir.config_parameter'].sudo().get_param('git_hosting.ssh_host', 'git.example.com')
+        for repo in self:
+            if repo.owner_id and repo.name:
+                repo.clone_url_http = f"{base_url}/git/{repo.owner_id.login}/{repo.name}.git"
+                repo.clone_url_ssh = f"git@{ssh_host}:{repo.owner_id.login}/{repo.name}.git"
+            else:
+                repo.clone_url_http = False
+                repo.clone_url_ssh = False
 
     def _get_repo_path(self):
         """Get absolute path for repository"""
@@ -248,16 +267,6 @@ class GitRepository(models.Model):
             'context': {'default_repository_id': self.id},
         }
 
-    def action_open_issues(self):
-        return {
-            'type': 'ir.actions.act_window',
-            'name': 'Issues',
-            'res_model': 'git.issue',
-            'view_mode': 'list,form',
-            'domain': [('repository_id', '=', self.id)],
-            'context': {'default_repository_id': self.id},
-        }
-
     def _check_access(self, user, operation='read'):
         """Check if user has access to repository"""
         if user.has_group('git_hosting.group_git_manager'):
@@ -266,7 +275,7 @@ class GitRepository(models.Model):
             return True
         if user in self.member_ids:
             return True
-        if self.group_ids & user.groups_id:
+        if self.group_ids & user.group_ids:
             return True
         if operation == 'read' and self.visibility == 'internal' and not user.share:
             return True
@@ -289,7 +298,7 @@ class GitRepository(models.Model):
             perms = {'read': True, 'write': True, 'admin': True}
         elif user in self.member_ids:
             perms = {'read': True, 'write': True, 'admin': False}
-        elif self.group_ids & user.groups_id:
+        elif self.group_ids & user.group_ids:
             perms = {'read': True, 'write': True, 'admin': False}
         elif self.visibility == 'internal' and not user.share:
             perms = {'read': True, 'write': False, 'admin': False}
