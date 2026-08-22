@@ -1,0 +1,36 @@
+/* Portal Styles */
+
+.o-git-portal-repo {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.o-git-portal-repo-header {
+    margin-bottom: 1.5rem;
+}
+
+.o-git-portal-stats {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1rem;
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+.o-git-portal-commits table {
+    margin-bottom: 0;
+}
+
+.o-git-portal-commits td {
+    vertical-align: middle;
+}
+
+.o-git-portal-branches .list-group-item {
+    border: none;
+    border-bottom: 1px solid #dee2e6;
+    padding: 0.5rem 0;
+}
+
+.o-git-portal-branches .list-group-item:last-child {
+    border-bottom: none;
+}

@@ -271,3 +271,45 @@ class GitRepository(models.Model):
         if operation == 'read' and self.visibility == 'internal' and not user.share:
             return True
         return False
+
+    def _check_portal_access(self, user):
+        """Check if user has portal access to repository"""
+        return self._check_access(user, 'read')
+
+    def _get_user_permissions(self, user):
+        """Get user permissions for repository"""
+        perms = {
+            'read': False,
+            'write': False,
+            'admin': False,
+        }
+        if user.has_group('git_hosting.group_git_manager'):
+            perms = {'read': True, 'write': True, 'admin': True}
+        elif user == self.owner_id:
+            perms = {'read': True, 'write': True, 'admin': True}
+        elif user in self.member_ids:
+            perms = {'read': True, 'write': True, 'admin': False}
+        elif self.group_ids & user.groups_id:
+            perms = {'read': True, 'write': True, 'admin': False}
+        elif self.visibility == 'internal' and not user.share:
+            perms = {'read': True, 'write': False, 'admin': False}
+        return perms
+
+    @api.model
+    def _cron_sync_mirrors(self):
+        """Scheduled action to sync mirrored repositories"""
+        repos = self.search([('is_mirror', '=', True), ('mirror_active', '=', True)])
+        for repo in repos:
+            try:
+                repo._sync_mirror()
+            except Exception as e:
+                _logger.error(f"Failed to sync mirror for {repo.name}: {e}")
+                repo.message_post(body=_("Mirror sync failed: %s") % str(e))
+
+    def _sync_mirror(self):
+        """Sync a mirrored repository from upstream"""
+        self.ensure_one()
+        if not self.mirror_url:
+            return
+        # Implementation would use git fetch --mirror
+        pass

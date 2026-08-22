@@ -1,0 +1,123 @@
+<odoo>
+    <!-- Clone Wizard -->
+    <record id="view_git_clone_wizard" model="ir.ui.view">
+        <field name="name">git.clone.wizard.form</field>
+        <field name="model">git.clone.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Clone Repository">
+                <sheet>
+                    <group string="Repository">
+                        <field name="repository_id" options="{'no_create': True, 'no_open': True}"/>
+                    </group>
+                    <group string="Clone URLs">
+                        <field name="clone_url_http" readonly="1" widget="url"/>
+                        <field name="clone_url_ssh" readonly="1" widget="url"/>
+                    </group>
+                    <group string="Authentication">
+                        <field name="token_help" widget="text" readonly="1" class="text-muted small"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button string="Close" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_git_clone_wizard" model="ir.actions.act_window">
+        <field name="name">Clone Repository</field>
+        <field name="res_model">git.clone.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- Import Wizard -->
+    <record id="view_git_import_wizard" model="ir.ui.view">
+        <field name="name">git.import.wizard.form</field>
+        <field name="model">git.import.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Import Repository">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="source_url" placeholder="https://github.com/user/repo.git"/>
+                        <field name="visibility"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_import" string="Import" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_git_import_wizard" model="ir.actions.act_window">
+        <field name="name">Import Repository</field>
+        <field name="res_model">git.import.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- Mirror Wizard -->
+    <record id="view_git_mirror_wizard" model="ir.ui.view">
+        <field name="name">git.mirror.wizard.form</field>
+        <field name="model">git.mirror.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Setup Mirror">
+                <sheet>
+                    <group string="Mirror Configuration">
+                        <field name="repository_id" options="{'no_create': True, 'no_open': True}"/>
+                        <field name="mirror_url" placeholder="https://github.com/user/repo.git"/>
+                        <field name="mirror_interval"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_setup" string="Setup Mirror" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_git_mirror_wizard" model="ir.actions.act_window">
+        <field name="name">Setup Mirror</field>
+        <field name="res_model">git.mirror.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- Release Wizard -->
+    <record id="view_git_release_wizard" model="ir.ui.view">
+        <field name="name">git.release.wizard.form</field>
+        <field name="model">git.release.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Create Release">
+                <sheet>
+                    <group string="Release Info">
+                        <field name="repository_id" options="{'no_create': True, 'no_open': True}"/>
+                        <field name="tag_name" placeholder="v1.0.0"/>
+                        <field name="target_branch"/>
+                        <field name="title"/>
+                        <field name="is_prerelease"/>
+                        <field name="is_draft"/>
+                    </group>
+                    <group string="Release Notes">
+                        <field name="description" widget="html"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_create_release" string="Create Release" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_git_release_wizard" model="ir.actions.act_window">
+        <field name="name">Create Release</field>
+        <field name="res_model">git.release.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

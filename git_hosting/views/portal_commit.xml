@@ -1,0 +1,63 @@
+<odoo>
+    <!-- Portal Commit View -->
+    <template id="portal_commit">
+        <t t-call="portal.layout">
+            <t t-set="title">Commit: <t t-out="commit.short_sha"/></t>
+            <div class="container mt-4">
+                <nav aria-label="breadcrumb" class="mb-4">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="/my/repositories">Repositories</a></li>
+                        <li class="breadcrumb-item"><a t-attf-href="/git/#{repository.owner_id.login}/#{repository.name}"><t t-out="repository.owner_id.login"/>/<t t-out="repository.name"/></a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Commit <t t-out="commit.short_sha"/></li>
+                    </ol>
+                </nav>
+
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <code class="o_monospace"><t t-out="commit.short_sha"/></code>
+                            <span class="ms-2"><t t-out="commit.message_short"/></span>
+                        </h5>
+                        <span class="badge bg-secondary"><t t-out="commit.repository_id.owner_id.login"/>/<t t-out="commit.repository_id.name"/></span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <strong>Author:</strong> <t t-out="commit.author_name"/> <<t t-out="commit.author_email"/>>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Date:</strong> <t t-out="commit.committed_date" t-options="{'widget': 'date'}"/>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <strong>Committer:</strong> <t t-out="commit.committer_name"/> <<t t-out="commit.committer_email"/>>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>SHA:</strong> <code class="o_monospace"><t t-out="commit.sha"/></code>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <strong>Message:</strong>
+                            <pre class="mt-2 p-3 bg-light rounded"><t t-out="commit.message"/></pre>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <span class="badge bg-success">+<t t-out="commit.additions"/></span>
+                            <span class="badge bg-danger">-<t t-out="commit.deletions"/></span>
+                            <span class="badge bg-secondary"><t t-out="commit.files_changed"/> files</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Changes</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted">Diff view coming soon...</p>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+</odoo>
