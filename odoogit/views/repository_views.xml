@@ -192,6 +192,6 @@
         <field name="name">Repository Base Path</field>
         <field name="res_model">ir.config_parameter</field>
         <field name="view_mode">form</field>
-        <field name="res_id" ref="git_hosting_param_repo_base_path"/>
+        <field name="res_id" ref="odoogit_param_repo_base_path"/>
     </record>
 </odoo>

@@ -1,0 +1,12 @@
+<odoo>
+    <!-- Main Menu -->
+    <menuitem id="menu_odoogit_root" name="Git Hosting" sequence="10" web_icon="odoogit,static/description/icon.png"/>
+
+    <menuitem id="menu_git_repositories" name="Repositories" parent="menu_odoogit_root" action="action_git_repository" sequence="10"/>
+    <menuitem id="menu_git_pull_requests" name="Pull Requests" parent="menu_odoogit_root" action="action_git_pull_request" sequence="20"/>
+    <menuitem id="menu_git_webhooks" name="Webhooks" parent="menu_odoogit_root" action="action_git_webhook" sequence="30"/>
+    <menuitem id="menu_git_pats" name="Personal Access Tokens" parent="menu_odoogit_root" action="action_git_personal_access_token" sequence="40"/>
+    <menuitem id="menu_git_deploy_keys" name="Deploy Keys" parent="menu_odoogit_root" action="action_git_deploy_key" sequence="50"/>
+    <menuitem id="menu_git_config" name="Configuration" parent="menu_odoogit_root" sequence="90" groups="odoogit.group_git_manager"/>
+    <menuitem id="menu_git_repo_base_path" name="Repository Base Path" parent="menu_git_config" action="action_git_repo_base_path" sequence="10"/>
+</odoo>

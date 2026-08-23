@@ -134,7 +134,7 @@ class GitBranch(models.Model):
             return True
         if user in self.restricted_push_user_ids:
             return True
-        if user.has_group('git_hosting.group_git_manager'):
+        if user.has_group('odoogit.group_git_manager'):
             return True
         return False
 
@@ -145,7 +145,7 @@ class GitBranch(models.Model):
             return True
         if user in self.restricted_merge_user_ids:
             return True
-        if user.has_group('git_hosting.group_git_manager'):
+        if user.has_group('odoogit.group_git_manager'):
             return True
         return False
 

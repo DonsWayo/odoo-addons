@@ -6,11 +6,11 @@
 
     <record id="group_git_manager" model="res.groups">
         <field name="name">Git Manager</field>
-        <field name="implied_ids" eval="[(4, ref('git_hosting.group_git_user'))]"/>
+        <field name="implied_ids" eval="[(4, ref('odoogit.group_git_user'))]"/>
     </record>
 
     <record id="group_git_admin" model="res.groups">
         <field name="name">Git Administrator</field>
-        <field name="implied_ids" eval="[(4, ref('git_hosting.group_git_manager'))]"/>
+        <field name="implied_ids" eval="[(4, ref('odoogit.group_git_manager'))]"/>
     </record>
 </odoo>

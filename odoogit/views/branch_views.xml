@@ -55,7 +55,7 @@
                     </group>
 
                     <notebook>
-                        <page string="Protection Rules" name="protection" groups="git_hosting.group_git_manager">
+                        <page string="Protection Rules" name="protection" groups="odoogit.group_git_manager">
                             <group string="Branch Protection" col="2">
                                 <field name="is_protected"/>
                                 <field name="require_pr_reviews"/>

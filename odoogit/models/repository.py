@@ -187,7 +187,7 @@ class GitRepository(models.Model):
 
     def _compute_clone_urls(self):
         base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url', 'http://localhost:8069')
-        ssh_host = self.env['ir.config_parameter'].sudo().get_param('git_hosting.ssh_host', 'git.example.com')
+        ssh_host = self.env['ir.config_parameter'].sudo().get_param('odoogit.ssh_host', 'git.example.com')
         for repo in self:
             if repo.owner_id and repo.name:
                 repo.clone_url_http = f"{base_url}/git/{repo.owner_id.login}/{repo.name}.git"
@@ -199,7 +199,7 @@ class GitRepository(models.Model):
     def _get_repo_path(self):
         """Get absolute path for repository"""
         base_path = self.env['ir.config_parameter'].sudo().get_param(
-            'git_hosting.repo_base_path',
+            'odoogit.repo_base_path',
             '/var/lib/odoo/git/repos'
         )
         return os.path.join(base_path, self.owner_id.login, f"{self.name}.git")
@@ -269,7 +269,7 @@ class GitRepository(models.Model):
 
     def _check_repo_access(self, user, operation='read'):
         """Check if user has access to repository"""
-        if user.has_group('git_hosting.group_git_manager'):
+        if user.has_group('odoogit.group_git_manager'):
             return True
         if user == self.owner_id:
             return True
@@ -292,7 +292,7 @@ class GitRepository(models.Model):
             'write': False,
             'admin': False,
         }
-        if user.has_group('git_hosting.group_git_manager'):
+        if user.has_group('odoogit.group_git_manager'):
             perms = {'read': True, 'write': True, 'admin': True}
         elif user == self.owner_id:
             perms = {'read': True, 'write': True, 'admin': True}

@@ -96,9 +96,9 @@
         <field name="arch" type="xml">
             <form string="Pull Request">
                 <header>
-                    <button name="action_merge" type="object" string="Merge" class="btn-primary" groups="git_hosting.group_git_manager" invisible="state != 'open' and is_mergeable == False"/>
-                    <button name="action_merge" type="object" string="Squash &amp; Merge" class="btn-primary" context="{'method': 'squash'}" groups="git_hosting.group_git_manager" invisible="state != 'open' and is_mergeable == False"/>
-                    <button name="action_merge" type="object" string="Rebase &amp; Merge" class="btn-primary" context="{'method': 'rebase'}" groups="git_hosting.group_git_manager" invisible="state != 'open' and is_mergeable == False"/>
+                    <button name="action_merge" type="object" string="Merge" class="btn-primary" groups="odoogit.group_git_manager" invisible="state != 'open' and is_mergeable == False"/>
+                    <button name="action_merge" type="object" string="Squash &amp; Merge" class="btn-primary" context="{'method': 'squash'}" groups="odoogit.group_git_manager" invisible="state != 'open' and is_mergeable == False"/>
+                    <button name="action_merge" type="object" string="Rebase &amp; Merge" class="btn-primary" context="{'method': 'rebase'}" groups="odoogit.group_git_manager" invisible="state != 'open' and is_mergeable == False"/>
                     <button name="action_close" type="object" string="Close" class="btn-secondary" invisible="state in ['closed', 'merged']"/>
                     <button name="action_reopen" type="object" string="Reopen" class="btn-secondary" invisible="state not in ['closed', 'merged']"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,open,merged,closed" statusbar_colors='{"draft":"secondary","open":"primary","merged":"success","closed":"danger"}'/>

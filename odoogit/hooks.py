@@ -22,11 +22,11 @@ def _post_init_hook(env):
 
     # Create system parameters
     env['ir.config_parameter'].sudo().set_param(
-        'git_hosting.repo_base_path',
+        'odoogit.repo_base_path',
         '/var/lib/odoo/git/repos'
     )
     env['ir.config_parameter'].sudo().set_param(
-        'git_hosting.ssh_host',
+        'odoogit.ssh_host',
         'git.example.com'
     )
 

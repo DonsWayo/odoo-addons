@@ -20,7 +20,7 @@ class GitPortalController(http.Controller):
         repositories = Repository.search(domain, limit=12, offset=(page-1)*12)
         total = Repository.search_count(domain)
 
-        return request.render('git_hosting.portal_my_repositories', {
+        return request.render('odoogit.portal_my_repositories', {
             'repositories': repositories,
             'page': page,
             'total': total,
@@ -39,9 +39,9 @@ class GitPortalController(http.Controller):
 
         # Check access
         if not repository._check_portal_access(request.env.user):
-            return request.render('git_hosting.portal_repository_private', {'repo': repository})
+            return request.render('odoogit.portal_repository_private', {'repo': repository})
 
-        return request.render('git_hosting.portal_repository_home', {
+        return request.render('odoogit.portal_repository_home', {
             'repository': repository,
             'branches': repository.branch_ids,
             'recent_commits': repository.commit_ids[:10],
@@ -64,7 +64,7 @@ class GitPortalController(http.Controller):
         if not commit:
             return request.not_found()
 
-        return request.render('git_hosting.portal_commit', {
+        return request.render('odoogit.portal_commit', {
             'repository': repository,
             'commit': commit,
         })

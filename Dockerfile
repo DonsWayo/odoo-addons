@@ -1,11 +1,12 @@
 FROM odoo:19
 
-# Copy the git_hosting module to a temporary location
-COPY git_hosting /opt/git_hosting
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir --break-system-packages GitPython==3.1.44
+USER odoo
 
-# Copy custom entrypoint
+COPY odoogit /opt/odoogit
 COPY entrypoint.sh /custom-entrypoint.sh
-
-# Use custom entrypoint
 ENTRYPOINT ["/custom-entrypoint.sh"]
-CMD ["odoo", "--dev=all", "--log-level=info"]
+CMD ["odoo"]

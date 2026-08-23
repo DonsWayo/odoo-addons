@@ -23,7 +23,7 @@
         <field name="name">Git Repository: Manager Access</field>
         <field name="model_id" ref="model_git_repository"/>
         <field name="global" eval="True"/>
-        <field name="groups" eval="[(4, ref('git_hosting.group_git_manager'))]"/>
+        <field name="groups" eval="[(4, ref('odoogit.group_git_manager'))]"/>
         <field name="domain_force">[(1, '=', 1)]</field>
     </record>
 
@@ -88,7 +88,7 @@
                 ('repository_id.member_ids', 'in', [user.id])
             ]
         </field>
-        <field name="groups" eval="[(4, ref('git_hosting.group_git_manager'))]"/>
+        <field name="groups" eval="[(4, ref('odoogit.group_git_manager'))]"/>
     </record>
 
     <!-- Webhook: Repo members with write access -->
@@ -102,6 +102,6 @@
                 ('repository_id.member_ids', 'in', [user.id])
             ]
         </field>
-        <field name="groups" eval="[(4, ref('git_hosting.group_git_manager'))]"/>
+        <field name="groups" eval="[(4, ref('odoogit.group_git_manager'))]"/>
     </record>
 </odoo>

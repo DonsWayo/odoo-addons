@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 {
-    'name': 'Git Hosting',
+    'name': 'OdooGit',
     'version': '19.0.1.0.0',
     'category': 'Tools/Development',
-    'summary': 'Private Git repository hosting with native Odoo integration',
+    'summary': 'OdooGit — private Git repository hosting with native Odoo integration',
     'description': """
 Git hosting module for Odoo 18/19 providing:
 - Private/internal repositories with Git Smart HTTP
@@ -56,12 +56,12 @@ Git hosting module for Odoo 18/19 providing:
     'uninstall_hook': '_uninstall_hook',
     'assets': {
         'web.assets_backend': [
-            'git_hosting/static/src/scss/git_hosting.scss',
-            'git_hosting/static/src/components/**/*',
-            'git_hosting/static/src/services/**/*',
+            'odoogit/static/src/scss/odoogit.scss',
+            'odoogit/static/src/components/**/*',
+            'odoogit/static/src/services/**/*',
         ],
         'web.assets_frontend': [
-            'git_hosting/static/src/scss/portal.scss',
+            'odoogit/static/src/scss/portal.scss',
         ],
     },
 }

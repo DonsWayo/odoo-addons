@@ -3,7 +3,7 @@
     <record id="seq_git_pull_request" model="ir.sequence">
         <field name="name">Git Pull Request</field>
         <field name="code">git.pull.request</field>
-        <field name="prefix">PR</field>
+        <field name="prefix"></field>
         <field name="padding">4</field>
         <field name="company_id" eval="False"/>
     </record>

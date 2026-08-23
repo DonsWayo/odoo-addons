@@ -1,12 +1,12 @@
 <odoo>
     <!-- System parameters for git hosting -->
-    <record id="git_hosting_param_repo_base_path" model="ir.config_parameter">
-        <field name="key">git_hosting.repo_base_path</field>
+    <record id="odoogit_param_repo_base_path" model="ir.config_parameter">
+        <field name="key">odoogit.repo_base_path</field>
         <field name="value">/var/lib/odoo/git/repos</field>
     </record>
 
-    <record id="git_hosting_param_ssh_host" model="ir.config_parameter">
-        <field name="key">git_hosting.ssh_host</field>
+    <record id="odoogit_param_ssh_host" model="ir.config_parameter">
+        <field name="key">odoogit.ssh_host</field>
         <field name="value">git.example.com</field>
     </record>
 
