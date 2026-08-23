@@ -12,10 +12,10 @@ class GitBranch(models.Model):
     _name = 'git.branch'
     _description = 'Git Branch'
     _order = 'is_default desc, name'
-    _sql_constraints = [
-        ('name_repo_uniq', 'unique(name, repository_id)',
-         'Branch name must be unique per repository!'),
-    ]
+    _name_repo_uniq = models.Constraint(
+        'unique(name, repository_id)',
+        'Branch name must be unique per repository!',
+    )
 
     name = fields.Char(required=True, index=True)
     repository_id = fields.Many2one(
@@ -148,6 +148,19 @@ class GitBranch(models.Model):
         if user.has_group('odoogit.group_git_manager'):
             return True
         return False
+
+    @api.constrains('name', 'repository_id')
+    def _check_branch_unique(self):
+        for rec in self:
+            dup = self.search([
+                ('name', '=', rec.name),
+                ('repository_id', '=', rec.repository_id.id),
+                ('id', '!=', rec.id),
+            ], limit=1)
+            if dup:
+                raise ValidationError(_(
+                    "Branch '%s' already exists in this repository.",
+                    rec.name))
 
     def action_create_pr(self, target_branch_id=None):
         """Create pull request from this branch"""

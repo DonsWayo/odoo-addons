@@ -60,6 +60,9 @@ Git hosting module for Odoo 18/19 providing:
             'odoogit/static/src/components/**/*',
             'odoogit/static/src/services/**/*',
         ],
+        'web.assets_tests': [
+            'odoogit/static/src/tours/**/*',
+        ],
         'web.assets_frontend': [
             'odoogit/static/src/scss/portal.scss',
         ],

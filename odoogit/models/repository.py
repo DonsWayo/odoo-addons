@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import re
 import secrets
 import logging
 
@@ -7,6 +8,8 @@ from odoo import models, fields, api, _
 from odoo.exceptions import ValidationError, UserError
 
 _logger = logging.getLogger(__name__)
+
+NAME_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$')
 
 
 class GitRepository(models.Model):
@@ -131,13 +134,8 @@ class GitRepository(models.Model):
     auto_delete_head_branch = fields.Boolean(default=True)
 
     # === Constraints ===
-    _sql_constraints = [
-        ('name_company_uniq', 'unique(name, company_id)',
-         'Repository name must be unique per company!'),
-        ('name_format',
-         "CHECK(name ~ '^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$')",
-         'Invalid repository name format'),
-    ]
+# Name validation handled by api.constrains below (ORM-level,
+    # raises ValidationError before DB flush)
 
     @api.depends('branch_ids', 'commit_ids', 'pull_request_ids')
     def _compute_counters(self):
@@ -236,6 +234,27 @@ class GitRepository(models.Model):
             return refs
         except Exception:
             return {}
+
+    @api.constrains('name')
+    def _check_name_validity(self):
+        for rec in self:
+            if rec.name and not NAME_RE.match(rec.name):
+                raise ValidationError(_(
+                    "Invalid repository name: %s. Use letters, digits, "
+                    "dots, hyphens or underscores.", rec.name))
+
+    @api.constrains('name', 'company_id')
+    def _check_name_company_unique(self):
+        for rec in self:
+            dup = self.search([
+                ('name', '=', rec.name),
+                ('company_id', '=', rec.company_id.id),
+                ('id', '!=', rec.id),
+            ], limit=1)
+            if dup:
+                raise ValidationError(_(
+                    "Repository name '%s' already exists in this company.",
+                    rec.name))
 
     def action_open_branches(self):
         return {
