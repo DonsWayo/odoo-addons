@@ -62,7 +62,7 @@
                         <div class="oe_kanban_global_click o_kanban_git_repo_card">
                             <div class="o_kanban_record_head">
                                 <span class="fw-bold" t-out="record.name.value"/>
-                                <span class="badge" t-attf-class="bg-#{'success' if record.visibility.raw_value == 'internal' else 'secondary'}" t-out="record.visibility.value"/>
+                                <span class="badge" t-att-class="record.visibility.raw_value == 'internal' ? 'bg-success' : 'bg-secondary'" t-out="record.visibility.value"/>
                             </div>
                             <div class="text-muted small" t-out="record.description.value"/>
                             <div class="d-flex gap-2 mt-2 small text-muted">

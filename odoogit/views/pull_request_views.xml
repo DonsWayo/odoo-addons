@@ -72,7 +72,7 @@
                         <div class="o_kanban_git_pr_card d-flex flex-column gap-1">
                             <div class="d-flex justify-content-between align-items-start">
                                 <div>
-                                    <span class="badge me-1" t-attf-class="bg-#{'secondary' if record.state.raw_value == 'draft' else 'primary' if record.state.raw_value == 'open' else 'success' if record.state.raw_value == 'merged' else 'danger'}"
+                                    <span class="badge me-1" t-att-class="record.state.raw_value == 'draft' ? 'bg-secondary' : record.state.raw_value == 'open' ? 'bg-primary' : record.state.raw_value == 'merged' ? 'bg-success' : 'bg-danger'"
                                           t-out="record.state.value"/>
                                     <span class="badge bg-dark" t-if="record.number.raw_value" t-out="'#' + record.number.raw_value"/>
                                 </div>
@@ -138,27 +138,19 @@
                         </div>
                     </div>
 
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <div class="d-flex align-items-center gap-2 text-muted small">
-                                <i class="fa fa-user me-1" role="img" aria-label="Author"/>
-                                <field name="author_id" nolabel="1" options="{'no_create': True, 'no_open': True}"/>
-                            </div>
-                        </div>
-                        <div class="col-md-6 text-md-end">
-                            <div class="d-flex align-items-center justify-content-md-end gap-2 text-muted small">
-                                <span class="d-flex align-items-center gap-1">
-                                    <i class="fa fa-code-branch text-info me-1" role="img" aria-label="Source"/>
-                                    <field name="source_branch_id" widget="badge" class="bg-info text-dark" nolabel="1" options="{'no_create': True, 'no_open': True}"/>
-                                </span>
-                                <i class="fa fa-arrow-right text-muted" role="img" aria-label="to"/>
-                                <span class="d-flex align-items-center gap-1">
-                                    <i class="fa fa-code-branch text-primary me-1" role="img" aria-label="Target"/>
-                                    <field name="target_branch_id" widget="badge" class="bg-primary text-dark" nolabel="1" options="{'no_create': True, 'no_open': True}"/>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
+                    <group>
+                        <group>
+                            <field name="repository_id" options="{'no_create': True, 'no_open': True}" readonly="state != 'draft'"/>
+                            <field name="source_branch_id" domain="[('repository_id', '=', repository_id)]" options="{'no_create': True, 'no_open': True}" readonly="state != 'draft'"/>
+                            <field name="target_branch_id" domain="[('repository_id', '=', repository_id)]" options="{'no_create': True, 'no_open': True}" readonly="state != 'draft'"/>
+                        </group>
+                        <group>
+                            <field name="author_id" options="{'no_create': True}"/>
+                            <field name="merge_method" widget="radio" options="{'horizontal': True}"/>
+                        </group>
+                    </group>
+
+
 
                     <notebook>
                         <page string="Description" name="description">
