@@ -46,6 +46,7 @@ class GitWebhook(models.Model):
         ('failed', 'Failed'),
     ])
     failure_count = fields.Integer(default=0)
+    delivery_ids = fields.One2many('git.webhook.delivery', 'webhook_id', string='Recent Deliveries')
 
     def _process_event(self, event_type, payload):
         """Queue webhook delivery"""
