@@ -24,15 +24,37 @@ class GitHTTPController(http.Controller):
         """Get filesystem path for repository"""
         return repository._get_repo_path()
 
+    def _auth_challenge_or_404(self, owner, repo):
+        """Git clients only send credentials after a 401 + WWW-Authenticate.
+        Return a 401 challenge when the repo exists but access failed,
+        a plain 404 when it does not exist (do not leak existence)."""
+        exists = request.env['git.repository'].sudo().search_count([
+            ('name', '=', repo),
+            ('owner_id.login', '=', owner),
+        ])
+        if exists:
+            return request.make_response(
+                b'Authentication required\n',
+                status=401,
+                headers=[('WWW-Authenticate', 'Basic realm="OdooGit"'),
+                         ('Content-Type', 'text/plain')],
+            )
+        return request.not_found()
+
     def _get_repo(self, owner, repo, operation='read'):
-        """Find repository and check access"""
+        """Find repository and check access.
+
+        Returns (repository, user) — user is the authenticated identity
+        (PAT owner, deploy-key context, or session user) so downstream
+        checks (branch protection, webhooks) run as the right user.
+        Returns (None, None) when access is denied."""
         repository = request.env['git.repository'].sudo().search([
             ('name', '=', repo),
             ('owner_id.login', '=', owner),
         ], limit=1)
 
         if not repository:
-            return None
+            return None, None
 
         # Check access via Authorization header (PAT or Deploy Key)
         auth_header = request.httprequest.headers.get('Authorization')
@@ -42,7 +64,7 @@ class GitHTTPController(http.Controller):
                 pat = request.env['git.personal_access_token'].sudo().find_by_token(token)
                 if pat and (not pat.repository_ids or repository in pat.repository_ids):
                     if operation == 'read' or pat.scopes == 'write':
-                        return repository
+                        return repository, pat.user_id
             elif auth_header.startswith('Basic '):
                 try:
                     credentials = base64.b64decode(auth_header[6:]).decode('utf-8')
@@ -51,19 +73,20 @@ class GitHTTPController(http.Controller):
                         pat = request.env['git.personal_access_token'].sudo().find_by_token(password)
                         if pat and (not pat.repository_ids or repository in pat.repository_ids):
                             if operation == 'read' or pat.scopes == 'write':
-                                return repository
+                                return repository, pat.user_id
                         deploy_key = request.env['git.deploy_key'].sudo().find_by_token(password)
                         if deploy_key and deploy_key.repository_id == repository:
                             if operation == 'read' or deploy_key.can_push:
-                                return repository
+                                # deploy keys are not user-bound; act as repo owner
+                                return repository, repository.owner_id
                 except Exception:
                     pass
 
         # Check session user access
         if repository._check_repo_access(request.env.user, operation):
-            return repository
+            return repository, request.env.user
 
-        return None
+        return None, None
 
     def _run_git_command(self, repo_path, command, input_data=None, env=None):
         """Run git command with proper environment"""
@@ -75,11 +98,14 @@ class GitHTTPController(http.Controller):
         if env:
             cmd_env.update(env)
         
-        # Ensure git-daemon-export-ok exists
-        export_ok = os.path.join(repo_path, 'git-daemon-export-ok')
-        if not os.path.exists(export_ok):
-            with open(export_ok, 'w') as f:
-                f.write('')
+        # Ensure git-daemon-export-ok exists (never crash the route on FS issues)
+        try:
+            export_ok = os.path.join(repo_path, 'git-daemon-export-ok')
+            if not os.path.exists(export_ok):
+                with open(export_ok, 'w') as f:
+                    f.write('')
+        except OSError as e:
+            _logger.error('Cannot write git-daemon-export-ok in %s: %s', repo_path, e)
         
         full_cmd = ['git', '-c', 'http.receivepack=true'] + command
         _logger.debug(f"Running git command: {full_cmd}")
@@ -98,9 +124,9 @@ class GitHTTPController(http.Controller):
         """Advertise refs - entry point for clone/fetch"""
         service = kwargs.get('service', 'git-upload-pack')
 
-        repository = self._get_repo(owner, repo, 'read')
+        repository, auth_user = self._get_repo(owner, repo, 'read')
         if not repository:
-            return request.not_found()
+            return self._auth_challenge_or_404(owner, repo)
 
         repo_path = self._get_repo_path(repository)
         
@@ -114,7 +140,7 @@ class GitHTTPController(http.Controller):
                 'QUERY_STRING': f'service={service}',
                 'REQUEST_METHOD': 'GET',
                 'CONTENT_TYPE': '',
-                'REMOTE_USER': request.env.user.login if request.env.user != request.env.ref('base.public_user') else 'anonymous',
+                'REMOTE_USER': auth_user.login or 'anonymous',
             }
         )
 
@@ -136,9 +162,9 @@ class GitHTTPController(http.Controller):
     @http.route('/git/<string:owner>/<string:repo>.git/git-upload-pack', type='http', auth='public', methods=['POST'], csrf=False)
     def upload_pack(self, owner, repo, **kwargs):
         """Handle git fetch/clone (read operation)"""
-        repository = self._get_repo(owner, repo, 'read')
+        repository, auth_user = self._get_repo(owner, repo, 'read')
         if not repository:
-            return request.not_found()
+            return self._auth_challenge_or_404(owner, repo)
 
         repo_path = self._get_repo_path(repository)
         data = request.httprequest.get_data()
@@ -152,7 +178,7 @@ class GitHTTPController(http.Controller):
                 'QUERY_STRING': '',
                 'REQUEST_METHOD': 'POST',
                 'CONTENT_TYPE': 'application/x-git-upload-pack-request',
-                'REMOTE_USER': request.env.user.login if request.env.user != request.env.ref('base.public_user') else 'anonymous',
+                'REMOTE_USER': auth_user.login or 'anonymous',
             }
         )
 
@@ -172,21 +198,20 @@ class GitHTTPController(http.Controller):
     @http.route('/git/<string:owner>/<string:repo>.git/git-receive-pack', type='http', auth='public', methods=['POST'], csrf=False)
     def receive_pack(self, owner, repo, **kwargs):
         """Handle git push (write operation)"""
-        repository = self._get_repo(owner, repo, 'write')
+        repository, auth_user = self._get_repo(owner, repo, 'write')
         if not repository:
-            return request.not_found()
+            return self._auth_challenge_or_404(owner, repo)
 
-        # Check branch protection before processing
-        if not self._check_branch_protection(repository, request.env.user):
+        # Check write access / branch protection before processing
+        if not self._check_branch_protection(repository, auth_user):
             return request.make_response(
-                b'002eERR protected branch push denied\n0000',
-                headers=[('Content-Type', 'application/x-git-receive-pack-result')]
+                b'Access denied: push not permitted on this repository\n',
+                status=403,
+                headers=[('Content-Type', 'text/plain')],
             )
 
         repo_path = self._get_repo_path(repository)
         data = request.httprequest.get_data()
-
-        # Run receive-pack with pre-receive hook for validation
         result = self._run_git_command(
             repo_path,
             ['http-backend'],
@@ -196,7 +221,7 @@ class GitHTTPController(http.Controller):
                 'QUERY_STRING': '',
                 'REQUEST_METHOD': 'POST',
                 'CONTENT_TYPE': 'application/x-git-receive-pack-request',
-                'REMOTE_USER': request.env.user.login if request.env.user != request.env.ref('base.public_user') else 'anonymous',
+                'REMOTE_USER': auth_user.login or 'anonymous',
             }
         )
 
@@ -211,7 +236,7 @@ class GitHTTPController(http.Controller):
         ]
         
         # Trigger post-receive webhooks
-        self._trigger_post_receive_hooks(repository, request.env.user)
+        self._trigger_post_receive_hooks(repository, auth_user)
         
         return request.make_response(body, headers=response_headers)
 
@@ -247,24 +272,9 @@ class GitHTTPController(http.Controller):
     def _trigger_post_receive_hooks(self, repository, user):
         """Trigger webhooks and update branch refs after push"""
         try:
-            # Update branch records with new SHAs
-            repo_path = self._get_repo_path(repository)
-            import git
-            git_repo = git.Repo(repo_path)
-            
-            for ref in git_repo.refs:
-                if ref.name.startswith('refs/heads/'):
-                    branch_name = ref.name[11:]  # Remove 'refs/heads/'
-                    branch = repository.branch_ids.filtered(lambda b: b.name == branch_name)
-                    if branch:
-                        branch.write({'commit_sha': ref.commit.hexsha})
-                    else:
-                        repository.branch_ids.create({
-                            'name': branch_name,
-                            'repository_id': repository.id,
-                            'commit_sha': ref.commit.hexsha,
-                        })
-            
+            # Sync branches + commits from the bare repo into Odoo
+            repository.sudo()._sync_from_git()
+
             # Trigger webhooks
             for webhook in repository.webhook_ids.filtered(lambda w: w.is_active and w.event_push):
                 webhook._process_event('push', {
