@@ -13,4 +13,9 @@
         <field name="name">Git Administrator</field>
         <field name="implied_ids" eval="[(4, ref('odoogit.group_git_manager'))]"/>
     </record>
+
+    <!-- System/admin users automatically manage Git -->
+    <record id="base.group_system" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('odoogit.group_git_admin'))]"/>
+    </record>
 </odoo>
