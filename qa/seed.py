@@ -133,6 +133,10 @@ else:
         'target_branch_id': main_b.id,
         'author_id': admin.id,
     })
+    # bob as member (collaborator E2E path)
+    bob = User.search([('login', '=', 'bob')])
+    if bob:
+        repo.write({'member_ids': [(4, bob.id)]})
     print('SEED: created repo=%s branches=2 commits=%d pr=1' % (repo.name, len(seen)))
 
 env.cr.commit()
