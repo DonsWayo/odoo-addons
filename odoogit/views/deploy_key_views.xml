@@ -19,12 +19,47 @@
         <field name="model">git.deploy_key</field>
         <field name="arch" type="xml">
             <list string="Deploy Keys" sample="1" decoration-muted="is_active == False">
-                <field name="name"/>
+                <field name="name" widget="ellipsis"/>
                 <field name="repository_id" options="{'no_create': True, 'no_open': True}"/>
-                <field name="can_push" string="Write Access" widget="boolean_toggle"/>
-                <field name="last_used" widget="date"/>
+                <field name="can_push" string="Write Access" widget="boolean_toggle" options="{'active': 'fa-check-circle text-success', 'inactive': 'fa-times-circle text-muted'}"/>
+                <field name="last_used" widget="datetime" string="Last Used"/>
                 <field name="is_active" string="Active" widget="boolean_toggle"/>
             </list>
+        </field>
+    </record>
+
+    <!-- Kanban View -->
+    <record id="view_git_deploy_key_kanban" model="ir.ui.view">
+        <field name="name">git.deploy_key.kanban</field>
+        <field name="model">git.deploy_key</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_git_deploy_key" sample="1">
+                <field name="name"/>
+                <field name="repository_id"/>
+                <field name="can_push"/>
+                <field name="last_used"/>
+                <field name="is_active"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="oe_kanban_global_click o_kanban_git_deploy_key_card">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="fa fa-key text-primary fs-4" role="img" aria-label="Deploy Key"/>
+                                    <span class="fw-bold" t-out="record.name.value"/>
+                                </div>
+                                <span class="badge" t-att-class="record.is_active.raw_value ? 'bg-success' : 'bg-secondary'" t-out="record.is_active.raw_value ? 'Active' : 'Inactive'"/>
+                            </div>
+                            <div class="text-muted small mb-1">
+                                <i class="fa fa-database me-1" role="img" aria-label="Repository"/> <t t-out="record.repository_id.value"/>
+                            </div>
+                            <div class="d-flex gap-3 small text-muted mb-2">
+                                <span class="d-flex align-items-center gap-1" t-att-class="record.can_push.raw_value ? 'text-success' : 'text-muted'"><i class="fa fa-upload me-1" role="img" aria-label="Push"/> Push</span>
+                            </div>
+                            <small class="text-muted"><i class="fa fa-clock-o me-1"/> Last used: <t t-out="record.last_used.value"/></small>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
         </field>
     </record>
 
@@ -35,21 +70,27 @@
         <field name="arch" type="xml">
             <form string="Deploy Key" create="false" edit="false">
                 <header>
-                    <button name="action_revoke" type="object" string="Revoke" class="btn-danger" invisible="is_active == False"/>
-                    <button name="action_regenerate" type="object" string="Regenerate" class="btn-primary" invisible="is_active == False"/>
+                    <button name="action_revoke" type="object" string="Revoke" class="btn-danger" invisible="is_active == False" icon="fa-ban" confirm="Are you sure you want to revoke this deploy key?"/>
+                    <button name="action_regenerate" type="object" string="Regenerate" class="btn-primary" invisible="is_active == False" icon="fa-refresh" confirm="Regenerate this deploy key? The old key will be invalidated."/>
+                    <field name="is_active" widget="boolean_toggle" string="Active"/>
                 </header>
                 <sheet>
-                    <group string="Key Info">
+
+
+                    <group string="Key Info" col="2">
                         <field name="name"/>
                         <field name="repository_id" options="{'no_create': True, 'no_open': True}" readonly="1"/>
-                        <field name="can_push" readonly="1"/>
+                        <field name="can_push" readonly="1" widget="boolean_toggle"/>
                     </group>
-                    <group string="Status">
+
+                    <group string="Status" col="2">
                         <field name="is_active" readonly="1" widget="boolean_toggle"/>
-                        <field name="last_used" readonly="1" widget="date"/>
+                        <field name="last_used" readonly="1" widget="datetime"/>
                     </group>
-                    <group string="Token" invisible="is_active == False">
-                        <field name="token" readonly="1" widget="password"/>
+
+                    <group string="Token" invisible="is_active == False" col="1">
+                        <field name="token" readonly="1" widget="password" class="font-monospace"/>
+                        <div class="text-muted small mt-2"><i class="fa fa-info-circle me-1"/> This key will not be shown again. Copy it now.</div>
                     </group>
                 </sheet>
             </form>
@@ -60,7 +101,7 @@
     <record id="action_git_deploy_key" model="ir.actions.act_window">
         <field name="name">Deploy Keys</field>
         <field name="res_model">git.deploy_key</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">list,kanban,form</field>
         <field name="search_view_id" ref="view_git_deploy_key_search"/>
         <field name="context">{'search_default_active': 1}</field>
     </record>

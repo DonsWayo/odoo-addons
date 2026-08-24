@@ -31,19 +31,21 @@
         <field name="model">git.pull_request</field>
         <field name="arch" type="xml">
             <list string="Pull Requests" sample="1" decoration-muted="state == 'closed'" decoration-success="state == 'merged'" decoration-warning="state == 'draft'">
-                <field name="number" string="#"/>
-                <field name="title"/>
-                <field name="state" widget="badge" options="{'classes': {'draft': 'bg-secondary', 'open': 'bg-primary', 'merged': 'bg-success', 'closed': 'bg-danger'}}"/>
+                <field name="number" string="#" widget="badge" options="{'classes': {'': 'bg-dark'}}"/>
+                <field name="title" widget="ellipsis" string="Title"/>
+                <field name="state" widget="badge" string="Status" options="{'classes': {'draft': 'bg-secondary', 'open': 'bg-primary', 'merged': 'bg-success', 'closed': 'bg-danger'}}"/>
                 <field name="repository_id" optional="hide"/>
-                <field name="source_branch_id" string="Source" optional="hide"/>
-                <field name="target_branch_id" string="Target" optional="hide"/>
+                <field name="source_branch_id" string="Source" optional="hide" widget="badge" options="{'classes': {'': 'bg-info'}}"/>
+                <field name="target_branch_id" string="Target" optional="hide" widget="badge" options="{'classes': {'': 'bg-primary'}}"/>
                 <field name="author_id" optional="hide"/>
-                <field name="commit_count" optional="hide" string="Commits"/>
-                <field name="changed_files" optional="hide" string="Files"/>
-                <field name="additions" optional="hide" string="+"/>
-                <field name="deletions" optional="hide" string="-"/>
-                <field name="approval_count" optional="hide" string="✓"/>
-                <field name="create_date" widget="date" optional="hide"/>
+                <field name="commit_count" optional="hide" string="Commits" widget="badge"/>
+                <field name="changed_files" optional="hide" string="Files" widget="badge"/>
+                <field name="additions" optional="hide" string="+" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-success'}}"/>
+                <field name="deletions" optional="hide" string="-" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-warning'}}"/>
+                <field name="approval_count" optional="hide" string="Approvals" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-success'}}"/>
+                <field name="changes_requested" optional="hide" string="Changes Req." widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-danger'}}"/>
+                <field name="is_mergeable" optional="hide" string="Mergeable" widget="boolean_toggle"/>
+                <field name="create_date" widget="datetime" optional="hide"/>
             </list>
         </field>
     </record>
@@ -56,31 +58,47 @@
             <kanban class="o_kanban_git_pr" sample="1">
                 <field name="title"/>
                 <field name="state"/>
-                <field name="repository_id"/>
+                <field name="number"/>
                 <field name="source_branch_id"/>
                 <field name="target_branch_id"/>
                 <field name="author_id"/>
                 <field name="approval_count"/>
                 <field name="changes_requested"/>
                 <field name="is_mergeable"/>
+                <field name="commit_count"/>
+                <field name="changed_files"/>
                 <templates>
-                    <t t-name="kanban-box">
-                        <div class="oe_kanban_global_click o_kanban_git_pr_card">
-                            <div class="d-flex justify-content-between">
-                                <span class="fw-bold" t-out="record.title"/>
-                                <span class="badge" t-att-class="{
-                                    'draft': 'bg-secondary',
-                                    'open': 'bg-primary',
-                                    'merged': 'bg-success',
-                                    'closed': 'bg-danger'
-                                }[record.state]" t-out="record.state"/>
+                    <t t-name="card">
+                        <div class="o_kanban_git_pr_card d-flex flex-column gap-1">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <span class="badge me-1" t-attf-class="bg-#{'secondary' if record.state.raw_value == 'draft' else 'primary' if record.state.raw_value == 'open' else 'success' if record.state.raw_value == 'merged' else 'danger'}"
+                                          t-out="record.state.value"/>
+                                    <span class="badge bg-dark" t-if="record.number.raw_value" t-out="'#' + record.number.raw_value"/>
+                                </div>
+                                <span class="text-success small" t-if="record.is_mergeable.raw_value and record.state.raw_value == 'open'">
+                                    <i class="fa fa-check-circle me-1" role="img" aria-label="Mergeable"/> Ready
+                                </span>
                             </div>
-                            <div class="text-muted small mt-1">
-                                <span t-out="record.source_branch_id.display_name"/> → <span t-out="record.target_branch_id.display_name"/>
+                            <h6 class="mb-0 fw-bold"><field name="title"/></h6>
+                            <div class="d-flex align-items-center gap-1 small text-muted">
+                                <i class="fa fa-code-branch text-info" role="img" aria-label="Source"/>
+                                <field name="source_branch_id" class="badge bg-info text-dark"/>
+                                <i class="fa fa-arrow-right text-muted" role="img" aria-label="to"/>
+                                <i class="fa fa-code-branch text-primary" role="img" aria-label="Target"/>
+                                <field name="target_branch_id" class="badge bg-primary text-dark"/>
                             </div>
-                            <div class="d-flex gap-2 mt-1 small text-muted">
-                                <span><i class="fa fa-code-branch"/> <t t-out="record.commit_count"/></span>
-                                <span><i class="fa fa-check"/> <t t-out="record.approval_count"/></span>
+                            <div class="d-flex gap-3 small text-muted">
+                                <span><i class="fa fa-history me-1" role="img" aria-label="Commits"/><t t-out="record.commit_count.value"/> commits</span>
+                                <span><i class="fa fa-file-code-o me-1" role="img" aria-label="Files"/><t t-out="record.changed_files.value"/> files</span>
+                                <span class="text-success"><i class="fa fa-check me-1" role="img" aria-label="Approvals"/><t t-out="record.approval_count.value"/> approvals</span>
+                                <span class="text-danger" t-if="record.changes_requested.raw_value">
+                                    <i class="fa fa-exclamation-triangle me-1" role="img" aria-label="Changes requested"/> changes requested
+                                </span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-1">
+                                <field name="author_id" widget="many2one_avatar_user" class="small"/>
+                                <small class="text-muted"><t t-out="record.author_id.value"/></small>
                             </div>
                         </div>
                     </t>
@@ -96,62 +114,107 @@
         <field name="arch" type="xml">
             <form string="Pull Request">
                 <header>
-                    <button name="action_merge" type="object" string="Merge" class="btn-primary" groups="odoogit.group_git_manager" invisible="state != 'open' and is_mergeable == False"/>
-                    <button name="action_merge" type="object" string="Squash &amp; Merge" class="btn-primary" context="{'method': 'squash'}" groups="odoogit.group_git_manager" invisible="state != 'open' and is_mergeable == False"/>
-                    <button name="action_merge" type="object" string="Rebase &amp; Merge" class="btn-primary" context="{'method': 'rebase'}" groups="odoogit.group_git_manager" invisible="state != 'open' and is_mergeable == False"/>
-                    <button name="action_close" type="object" string="Close" class="btn-secondary" invisible="state in ['closed', 'merged']"/>
-                    <button name="action_reopen" type="object" string="Reopen" class="btn-secondary" invisible="state not in ['closed', 'merged']"/>
+                    <button name="action_merge" type="object" string="Merge" class="btn-primary" groups="odoogit.group_git_manager" invisible="state != 'open' and is_mergeable == False" icon="fa-check" confirm="Merge this pull request?"/>
+                    <button name="action_merge" type="object" string="Squash &amp; Merge" class="btn-primary" context="{'method': 'squash'}" groups="odoogit.group_git_manager" invisible="state != 'open' and is_mergeable == False" icon="fa-compress" confirm="Squash and merge this pull request?"/>
+                    <button name="action_merge" type="object" string="Rebase &amp; Merge" class="btn-primary" context="{'method': 'rebase'}" groups="odoogit.group_git_manager" invisible="state != 'open' and is_mergeable == False" icon="fa-code-branch" confirm="Rebase and merge this pull request?"/>
+                    <button name="action_close" type="object" string="Close" class="btn-secondary" invisible="state in ['closed', 'merged']" icon="fa-times" confirm="Close this pull request?"/>
+                    <button name="action_reopen" type="object" string="Reopen" class="btn-secondary" invisible="state not in ['closed', 'merged']" icon="fa-refresh"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,open,merged,closed" statusbar_colors='{"draft":"secondary","open":"primary","merged":"success","closed":"danger"}'/>
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
-                        <button type="object" name="action_merge" class="oe_stat_button" icon="fa-check" invisible="state != 'open'">
+                        <button type="object" name="action_merge" class="oe_stat_button" icon="fa-check" invisible="state != 'open'" string="Merge">
                             <field name="approval_count" widget="statinfo" string="Approvals"/>
                         </button>
                     </div>
 
                     <div class="row mb-3">
                         <div class="col-12">
-                            <field name="title" class="oe_inline" placeholder="Pull Request title"/>
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                <field name="state" widget="badge" options="{'classes': {'draft': 'bg-secondary', 'open': 'bg-primary', 'merged': 'bg-success', 'closed': 'bg-danger'}}" class="me-2"/>
+                                <field name="number" widget="badge" class="bg-dark me-2" optional="hide"/>
+                                <h3 class="mb-0 flex-grow-1"><field name="title" nolabel="1"/></h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center gap-2 text-muted small">
+                                <i class="fa fa-user me-1" role="img" aria-label="Author"/>
+                                <field name="author_id" nolabel="1" options="{'no_create': True, 'no_open': True}"/>
+                            </div>
+                        </div>
+                        <div class="col-md-6 text-md-end">
+                            <div class="d-flex align-items-center justify-content-md-end gap-2 text-muted small">
+                                <span class="d-flex align-items-center gap-1">
+                                    <i class="fa fa-code-branch text-info me-1" role="img" aria-label="Source"/>
+                                    <field name="source_branch_id" widget="badge" class="bg-info text-dark" nolabel="1" options="{'no_create': True, 'no_open': True}"/>
+                                </span>
+                                <i class="fa fa-arrow-right text-muted" role="img" aria-label="to"/>
+                                <span class="d-flex align-items-center gap-1">
+                                    <i class="fa fa-code-branch text-primary me-1" role="img" aria-label="Target"/>
+                                    <field name="target_branch_id" widget="badge" class="bg-primary text-dark" nolabel="1" options="{'no_create': True, 'no_open': True}"/>
+                                </span>
+                            </div>
                         </div>
                     </div>
 
                     <notebook>
                         <page string="Description" name="description">
-                            <field name="description" placeholder="Pull Request description (supports Markdown)"/>
+                            <field name="description" placeholder="Pull Request description (supports Markdown)" class="o_monospace p-3 bg-light rounded"/>
                         </page>
                         <page string="Changes" name="changes">
                             <field name="file_ids" mode="list,form" readonly="1">
-                                <list string="Changed Files">
-                                    <field name="filename"/>
-                                    <field name="status" widget="badge" options="{'classes': {'added': 'bg-success', 'modified': 'bg-primary', 'removed': 'bg-danger', 'renamed': 'bg-warning'}}"/>
-                                    <field name="additions"/>
-                                    <field name="deletions"/>
+                                <list string="Changed Files" decoration-success="status == 'added'" decoration-danger="status == 'removed'" decoration-warning="status == 'renamed'" decoration-info="status == 'modified'">
+                                    <field name="filename" widget="ellipsis"/>
+                                    <field name="status" widget="badge" string="Status" options="{'classes': {'added': 'bg-success', 'modified': 'bg-primary', 'removed': 'bg-danger', 'renamed': 'bg-warning'}}"/>
+                                    <field name="additions" string="+" widget="badge" options="{'classes': {'0': 'bg-secondary'}}"/>
+                                    <field name="deletions" string="-" widget="badge" options="{'classes': {'0': 'bg-secondary'}}"/>
                                 </list>
                             </field>
                         </page>
                         <page string="Reviews" name="reviews">
                             <field name="review_ids" mode="list,form" readonly="1">
-                                <list string="Reviews">
+                                <list string="Reviews" decoration-success="state == 'approve'" decoration-danger="state == 'request_changes'" decoration-info="state == 'comment'" decoration-muted="state == 'pending'">
                                     <field name="reviewer_id"/>
-                                    <field name="state" widget="badge" options="{'classes': {'pending': 'bg-secondary', 'comment': 'bg-info', 'approve': 'bg-success', 'request_changes': 'bg-danger'}}"/>
-                                    <field name="commit_id"/>
+                                    <field name="state" widget="badge" string="Review" options="{'classes': {'pending': 'bg-secondary', 'comment': 'bg-info', 'approve': 'bg-success', 'request_changes': 'bg-danger'}}"/>
+                                    <field name="commit_id" widget="badge" options="{'classes': {'': 'bg-dark'}}"/>
+                                    <field name="create_date" widget="datetime"/>
                                 </list>
                             </field>
                         </page>
                         <page string="Commits" name="commits">
-                            <field name="commit_ids" mode="list" readonly="1">
+                            <field name="commit_ids" mode="list,kanban" readonly="1">
                                 <list string="Commits">
-                                    <field name="short_sha" string="SHA"/>
+                                    <field name="short_sha" string="SHA" widget="badge" options="{'classes': {'': 'bg-dark'}}"/>
                                     <field name="message_short" string="Message"/>
                                     <field name="author_name" string="Author"/>
-                                    <field name="committed_date" widget="date"/>
+                                    <field name="committed_date" widget="datetime"/>
                                 </list>
+                                <kanban>
+                                    <field name="short_sha"/>
+                                    <field name="message_short"/>
+                                    <field name="author_name"/>
+                                    <field name="committed_date"/>
+                                    <templates>
+                                        <t t-name="card">
+                                            <div class="p-2 d-flex flex-column gap-1">
+                                                <div class="d-flex justify-content-between">
+                                                    <span class="badge bg-dark font-monospace" t-out="record.short_sha.value"/>
+                                                    <small class="text-muted" t-out="record.committed_date.value"/>
+                                                </div>
+                                                <div class="fw-bold mt-1" t-out="record.message_short.value"/>
+                                                <small class="text-muted"><t t-out="record.author_name.value"/></small>
+                                            </div>
+                                        </t>
+                                    </templates>
+                                </kanban>
                             </field>
                         </page>
                         <page string="Settings" name="settings" groups="base.group_system">
                             <group>
-                                <field name="merge_method"/>
+                                <field name="merge_method" widget="radio" options="{'horizontal': True}"/>
                             </group>
                         </page>
                     </notebook>

@@ -19,13 +19,49 @@
         <field name="model">git.personal_access_token</field>
         <field name="arch" type="xml">
             <list string="Personal Access Tokens" sample="1" decoration-muted="is_active == False" decoration-danger="expires_at &lt; context_today()">
-                <field name="name"/>
-                <field name="scopes" widget="badge"/>
+                <field name="name" widget="ellipsis"/>
+                <field name="scopes" widget="badge" string="Scopes" options="{'classes': {'': 'bg-info'}}"/>
                 <field name="repository_ids" widget="many2many_tags" options="{'no_create_edit': True}"/>
-                <field name="last_used" widget="date"/>
-                <field name="expires_at" widget="date"/>
+                <field name="last_used" widget="datetime" string="Last Used"/>
+                <field name="expires_at" widget="date" string="Expires" options="{'format': 'date'}"/>
                 <field name="is_active" string="Active" widget="boolean_toggle"/>
             </list>
+        </field>
+    </record>
+
+    <!-- Kanban View -->
+    <record id="view_git_pat_kanban" model="ir.ui.view">
+        <field name="name">git.personal_access_token.kanban</field>
+        <field name="model">git.personal_access_token</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_git_pat" sample="1">
+                <field name="name"/>
+                <field name="scopes"/>
+                <field name="repository_ids"/>
+                <field name="last_used"/>
+                <field name="expires_at"/>
+                <field name="is_active"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="oe_kanban_global_click o_kanban_git_pat_card">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="fa fa-key text-primary fs-4" role="img" aria-label="Token"/>
+                                    <span class="fw-bold" t-out="record.name.value"/>
+                                </div>
+                                <span class="badge" t-att-class="record.is_active.raw_value ? 'bg-success' : 'bg-secondary'" t-out="record.is_active.raw_value ? 'Active' : 'Inactive'"/>
+                            </div>
+                            <div class="text-muted small mb-1">
+                                <i class="fa fa-tags me-1" role="img" aria-label="Scopes"/> <t t-out="record.scopes.value"/>
+                            </div>
+                            <div class="d-flex gap-3 small text-muted">
+                                <span><i class="fa fa-clock-o me-1"/> Last: <t t-out="record.last_used.value"/></span>
+                                <span><i class="fa fa-calendar me-1"/> Expires: <t t-out="record.expires_at.value"/></span>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
         </field>
     </record>
 
@@ -36,23 +72,29 @@
         <field name="arch" type="xml">
             <form string="Personal Access Token" create="false" edit="false">
                 <header>
-                    <button name="action_revoke" type="object" string="Revoke" class="btn-danger" invisible="is_active == False"/>
-                    <button name="action_regenerate" type="object" string="Regenerate" class="btn-primary" invisible="is_active == False"/>
+                    <button name="action_revoke" type="object" string="Revoke" class="btn-danger" invisible="is_active == False" icon="fa-ban" confirm="Are you sure you want to revoke this token?"/>
+                    <button name="action_regenerate" type="object" string="Regenerate" class="btn-primary" invisible="is_active == False" icon="fa-refresh" confirm="Regenerate this token? The old token will be invalidated."/>
+                    <field name="is_active" widget="boolean_toggle" string="Active"/>
                 </header>
                 <sheet>
-                    <group string="Token Info">
+
+
+                    <group string="Token Info" col="2">
                         <field name="name"/>
                         <field name="user_id" options="{'no_create': True, 'no_open': True}" readonly="1"/>
-                        <field name="scopes" readonly="1"/>
+                        <field name="scopes" readonly="1" widget="badge" options="{'classes': {'': 'bg-info'}}"/>
                         <field name="repository_ids" widget="many2many_tags" options="{'no_create_edit': True}" readonly="1"/>
                     </group>
-                    <group string="Status">
+
+                    <group string="Status" col="2">
                         <field name="is_active" readonly="1" widget="boolean_toggle"/>
-                        <field name="last_used" readonly="1" widget="date"/>
+                        <field name="last_used" readonly="1" widget="datetime"/>
                         <field name="expires_at" readonly="1" widget="date"/>
                     </group>
-                    <group string="Token" invisible="is_active == False">
-                        <field name="token" readonly="1" widget="password"/>
+
+                    <group string="Token" invisible="is_active == False" col="1">
+                        <field name="token" readonly="1" widget="password" class="font-monospace"/>
+                        <div class="text-muted small mt-2"><i class="fa fa-info-circle me-1"/> This token will not be shown again. Copy it now.</div>
                     </group>
                 </sheet>
             </form>
@@ -63,7 +105,7 @@
     <record id="action_git_personal_access_token" model="ir.actions.act_window">
         <field name="name">Personal Access Tokens</field>
         <field name="res_model">git.personal_access_token</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">list,kanban,form</field>
         <field name="search_view_id" ref="view_git_pat_search"/>
         <field name="context">{'search_default_active': 1}</field>
     </record>

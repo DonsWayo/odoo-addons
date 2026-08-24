@@ -19,17 +19,68 @@
         <field name="model">git.webhook</field>
         <field name="arch" type="xml">
             <list string="Webhooks" sample="1" decoration-muted="is_active == False" decoration-danger="failure_count > 5">
-                <field name="name"/>
-                <field name="url"/>
+                <field name="name" widget="ellipsis"/>
+                <field name="url" widget="url" string="URL"/>
                 <field name="repository_id" options="{'no_create': True, 'no_open': True}"/>
-                <field name="event_push" string="Push" widget="boolean_toggle"/>
-                <field name="event_pull_request" string="PR" widget="boolean_toggle"/>
-                <field name="event_pull_request_review" string="PR Review" widget="boolean_toggle"/>
-                <field name="last_delivery" widget="date"/>
-                <field name="last_status" widget="badge" options="{'classes': {'success': 'bg-success', 'failed': 'bg-danger'}}"/>
-                <field name="failure_count" string="Failures"/>
+                <field name="event_push" string="Push" widget="boolean_toggle" options="{'active': 'fa-check-circle text-success', 'inactive': 'fa-times-circle text-muted'}"/>
+                <field name="event_pull_request" string="PR" widget="boolean_toggle" options="{'active': 'fa-check-circle text-success', 'inactive': 'fa-times-circle text-muted'}"/>
+                <field name="event_pull_request_review" string="PR Review" widget="boolean_toggle" options="{'active': 'fa-check-circle text-success', 'inactive': 'fa-times-circle text-muted'}"/>
+                <field name="event_branch" string="Branch" widget="boolean_toggle" options="{'active': 'fa-check-circle text-success', 'inactive': 'fa-times-circle text-muted'}"/>
+                <field name="event_tag" string="Tag" widget="boolean_toggle" options="{'active': 'fa-check-circle text-success', 'inactive': 'fa-times-circle text-muted'}"/>
+                <field name="last_delivery" widget="datetime" string="Last Delivery"/>
+                <field name="last_status" widget="badge" string="Last Status" options="{'classes': {'success': 'bg-success', 'failed': 'bg-danger', 'pending': 'bg-warning'}}"/>
+                <field name="failure_count" string="Failures" widget="badge" options="{'classes': {'0': 'bg-success', '1': 'bg-warning', '5': 'bg-danger'}}"/>
                 <field name="is_active" string="Active" widget="boolean_toggle"/>
             </list>
+        </field>
+    </record>
+
+    <!-- Kanban View -->
+    <record id="view_git_webhook_kanban" model="ir.ui.view">
+        <field name="name">git.webhook.kanban</field>
+        <field name="model">git.webhook</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_git_webhook" sample="1">
+                <field name="name"/>
+                <field name="url"/>
+                <field name="repository_id"/>
+                <field name="event_push"/>
+                <field name="event_pull_request"/>
+                <field name="event_pull_request_review"/>
+                <field name="event_branch"/>
+                <field name="event_tag"/>
+                <field name="last_delivery"/>
+                <field name="last_status"/>
+                <field name="failure_count"/>
+                <field name="is_active"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="oe_kanban_global_click o_kanban_git_webhook_card">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="fa fa-webhook text-primary fs-4" role="img" aria-label="Webhook"/>
+                                    <span class="fw-bold" t-out="record.name.value"/>
+                                </div>
+                                <span class="badge" t-att-class="record.is_active.raw_value ? 'bg-success' : 'bg-secondary'" t-out="record.is_active.raw_value ? 'Active' : 'Inactive'"/>
+                            </div>
+                            <div class="text-muted small mb-1 text-truncate" style="max-width: 100%;">
+                                <i class="fa fa-link me-1" role="img" aria-label="URL"/> <t t-out="record.url.value"/>
+                            </div>
+                            <div class="d-flex gap-2 small text-muted mb-2">
+                                <span class="d-flex align-items-center gap-1" t-att-class="record.event_push.raw_value ? 'text-success' : 'text-muted'"><i class="fa fa-upload me-1" role="img" aria-label="Push"/> Push</span>
+                                <span class="d-flex align-items-center gap-1" t-att-class="record.event_pull_request.raw_value ? 'text-success' : 'text-muted'"><i class="fa fa-git-pull-request me-1" role="img" aria-label="PR"/> PR</span>
+                                <span class="d-flex align-items-center gap-1" t-att-class="record.event_pull_request_review.raw_value ? 'text-success' : 'text-muted'"><i class="fa fa-eye me-1" role="img" aria-label="Review"/> Review</span>
+                                <span class="d-flex align-items-center gap-1" t-att-class="record.event_branch.raw_value ? 'text-success' : 'text-muted'"><i class="fa fa-code-branch me-1" role="img" aria-label="Branch"/> Branch</span>
+                                <span class="d-flex align-items-center gap-1" t-att-class="record.event_tag.raw_value ? 'text-success' : 'text-muted'"><i class="fa fa-tag me-1" role="img" aria-label="Tag"/> Tag</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center small text-muted">
+                                <span><i class="fa fa-clock-o me-1"/> Last: <t t-out="record.last_delivery.value"/></span>
+<span class="badge" t-att-class="record.last_status.raw_value == 'success' ? 'bg-success' : record.last_status.raw_value == 'failed' ? 'bg-danger' : record.last_status.raw_value == 'pending' ? 'bg-warning' : 'bg-secondary'" t-out="record.last_status.raw_value or 'Never'"/>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
         </field>
     </record>
 
@@ -40,32 +91,54 @@
         <field name="arch" type="xml">
             <form string="Webhook">
                 <header>
-                    <button name="action_test_delivery" type="object" string="Test" class="btn-primary" invisible="is_active == False"/>
+                    <button name="action_test_delivery" type="object" string="Test Delivery" class="btn-primary" invisible="is_active == False" icon="fa-paper-plane" confirm="Send a test payload to this webhook?"/>
+
+                    <field name="is_active" widget="boolean_toggle" string="Active"/>
                 </header>
                 <sheet>
-                    <group string="Configuration">
+
+
+                    <group string="Configuration" col="2">
                         <field name="name"/>
                         <field name="repository_id" options="{'no_create': True, 'no_open': True}"/>
-                        <field name="url"/>
-                        <field name="secret_token" readonly="1" widget="password"/>
+                        <field name="url" widget="url" placeholder="https://example.com/webhook"/>
+                        <field name="secret_token" readonly="1" widget="password" class="font-monospace"/>
                     </group>
-                    <group string="Events">
-                        <field name="event_push"/>
-                        <field name="event_pull_request"/>
-                        <field name="event_pull_request_review"/>
-                        <field name="event_branch"/>
-                        <field name="event_tag"/>
+
+                    <group string="Events" col="2">
+                        <field name="event_push" widget="boolean_toggle" options="{'active': 'fa-check-circle text-success', 'inactive': 'fa-times-circle text-muted'}"/>
+                        <field name="event_pull_request" widget="boolean_toggle" options="{'active': 'fa-check-circle text-success', 'inactive': 'fa-times-circle text-muted'}"/>
+                        <field name="event_pull_request_review" widget="boolean_toggle" options="{'active': 'fa-check-circle text-success', 'inactive': 'fa-times-circle text-muted'}"/>
+                        <field name="event_branch" widget="boolean_toggle" options="{'active': 'fa-check-circle text-success', 'inactive': 'fa-times-circle text-muted'}"/>
+                        <field name="event_tag" widget="boolean_toggle" options="{'active': 'fa-check-circle text-success', 'inactive': 'fa-times-circle text-muted'}"/>
                     </group>
-                    <group string="Options">
+
+                    <group string="Options" col="2">
                         <field name="content_type"/>
-                        <field name="ssl_verify"/>
-                        <field name="is_active"/>
+                        <field name="ssl_verify" widget="boolean_toggle"/>
+                        <field name="is_active" widget="boolean_toggle"/>
                     </group>
-                    <group string="Delivery Stats">
-                        <field name="last_delivery" readonly="1" widget="date"/>
-                        <field name="last_status" readonly="1" widget="badge" options="{'classes': {'success': 'bg-success', 'failed': 'bg-danger'}}"/>
-                        <field name="failure_count" readonly="1"/>
+
+                    <group string="Delivery Stats" col="4">
+                        <field name="last_delivery" readonly="1" widget="datetime"/>
+                        <field name="last_status" readonly="1" widget="badge" options="{'classes': {'success': 'bg-success', 'failed': 'bg-danger', 'pending': 'bg-warning'}}"/>
+                        <field name="failure_count" readonly="1" widget="badge" options="{'classes': {'0': 'bg-success', '1': 'bg-warning', '5': 'bg-danger'}}"/>
                     </group>
+
+                    <notebook>
+                        <page string="Recent Deliveries" name="deliveries">
+                            <field name="delivery_ids" mode="list,form" readonly="1" limit="20">
+                                <list string="Recent Deliveries" decoration-danger="status == 'failed'" decoration-success="status == 'success'" decoration-warning="status == 'pending'">
+                                    <field name="event_type" widget="badge" options="{'classes': {'push': 'bg-primary', 'pull_request': 'bg-info', 'pull_request_review': 'bg-warning', 'branch': 'bg-secondary', 'tag': 'bg-success'}}"/>
+                                    <field name="status" widget="badge" options="{'classes': {'pending': 'bg-warning', 'success': 'bg-success', 'failed': 'bg-danger'}}"/>
+                                    <field name="response_code"/>
+                                    <field name="duration" string="Duration (s)"/>
+                                    <field name="error_message" widget="ellipsis"/>
+                                    <field name="create_date" widget="datetime"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
                 </sheet>
             </form>
         </field>
@@ -76,14 +149,14 @@
         <field name="name">git.webhook.delivery.list</field>
         <field name="model">git.webhook.delivery</field>
         <field name="arch" type="xml">
-            <list string="Webhook Deliveries" sample="1" decoration-danger="status == 'failed'" decoration-success="status == 'success'">
+            <list string="Webhook Deliveries" sample="1" decoration-danger="status == 'failed'" decoration-success="status == 'success'" decoration-warning="status == 'pending'">
                 <field name="webhook_id" options="{'no_create': True, 'no_open': True}"/>
-                <field name="event_type"/>
+                <field name="event_type" widget="badge" options="{'classes': {'push': 'bg-primary', 'pull_request': 'bg-info', 'pull_request_review': 'bg-warning', 'branch': 'bg-secondary', 'tag': 'bg-success'}}"/>
                 <field name="status" widget="badge" options="{'classes': {'pending': 'bg-warning', 'success': 'bg-success', 'failed': 'bg-danger'}}"/>
                 <field name="response_code" optional="hide"/>
                 <field name="duration" optional="hide" string="Duration (s)"/>
-                <field name="error_message" optional="hide"/>
-                <field name="create_date" widget="date"/>
+                <field name="error_message" optional="hide" widget="ellipsis"/>
+                <field name="create_date" widget="datetime"/>
             </list>
         </field>
     </record>
@@ -95,23 +168,27 @@
         <field name="arch" type="xml">
             <form string="Webhook Delivery" create="false" edit="false">
                 <header>
-                    <button name="action_retry" type="object" string="Retry" class="btn-primary" invisible="status != 'failed'"/>
+                    <button name="action_retry" type="object" string="Retry" class="btn-primary" invisible="status != 'failed'" icon="fa-refresh" confirm="Retry this delivery?"/>
                 </header>
                 <sheet>
-                    <group string="Delivery Info">
+
+
+                    <group string="Delivery Info" col="4">
                         <field name="webhook_id" options="{'no_create': True, 'no_open': True}"/>
-                        <field name="event_type"/>
+                        <field name="event_type" widget="badge" options="{'classes': {'push': 'bg-primary', 'pull_request': 'bg-info', 'pull_request_review': 'bg-warning', 'branch': 'bg-secondary', 'tag': 'bg-success'}}"/>
                         <field name="status" widget="badge" options="{'classes': {'pending': 'bg-warning', 'success': 'bg-success', 'failed': 'bg-danger'}}"/>
-                        <field name="response_code"/>
+                        <field name="response_code" widget="badge" options="{'classes': {'200': 'bg-success', '201': 'bg-success', '202': 'bg-success', '400': 'bg-danger', '401': 'bg-danger', '403': 'bg-danger', '404': 'bg-danger', '500': 'bg-danger', '502': 'bg-danger', '503': 'bg-danger', '504': 'bg-danger'}}"/>
                         <field name="duration" string="Duration (s)"/>
                     </group>
-                    <group string="Request">
-                        <field name="payload" widget="text" class="o_monospace" readonly="1"/>
-                        <field name="signature" readonly="1"/>
+
+                    <group string="Request" col="1">
+                        <field name="payload" widget="text" class="o_monospace p-3 bg-light rounded" readonly="1" options="{'language': 'json'}"/>
+                        <field name="signature" readonly="1" class="font-monospace"/>
                     </group>
-                    <group string="Response" invisible="response_body == False">
-                        <field name="response_body" widget="text" class="o_monospace" readonly="1"/>
-                        <field name="error_message" widget="text" readonly="1"/>
+
+                    <group string="Response" invisible="response_body == False" col="1">
+                        <field name="response_body" widget="text" class="o_monospace p-3 bg-light rounded" readonly="1" options="{'language': 'json'}"/>
+                        <field name="error_message" widget="text" readonly="1" class="text-danger"/>
                     </group>
                 </sheet>
             </form>
@@ -122,7 +199,7 @@
     <record id="action_git_webhook" model="ir.actions.act_window">
         <field name="name">Webhooks</field>
         <field name="res_model">git.webhook</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">list,kanban,form</field>
         <field name="search_view_id" ref="view_git_webhook_search"/>
         <field name="context">{'search_default_active': 1}</field>
     </record>
@@ -132,4 +209,5 @@
         <field name="res_model">git.webhook.delivery</field>
         <field name="view_mode">list,form</field>
     </record>
+
 </odoo>

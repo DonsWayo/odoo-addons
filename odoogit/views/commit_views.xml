@@ -25,13 +25,55 @@
         <field name="model">git.commit</field>
         <field name="arch" type="xml">
             <list string="Commits" sample="1">
-                <field name="short_sha" string="SHA"/>
+                <field name="short_sha" string="SHA" widget="badge" options="{'classes': {'': 'bg-dark'}}"/>
                 <field name="message_short" string="Message"/>
                 <field name="author_name" string="Author"/>
-                <field name="committed_date" widget="date"/>
+                <field name="committed_date" widget="datetime"/>
                 <field name="repository_id" optional="hide"/>
-                <field name="is_signed" string="Signed" widget="boolean_toggle"/>
+                <field name="is_signed" string="Signed" widget="boolean_toggle" decoration-success="is_signed == True"/>
+                <field name="additions" optional="hide" string="+" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-success', '2': 'bg-success', '3': 'bg-success', '4': 'bg-success', '5': 'bg-success', '10': 'bg-primary', '50': 'bg-warning', '100': 'bg-danger'}}"/>
+                <field name="deletions" optional="hide" string="-" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-warning', '2': 'bg-warning', '3': 'bg-warning', '5': 'bg-warning', '10': 'bg-warning', '50': 'bg-danger', '100': 'bg-danger'}}"/>
+                <field name="files_changed" optional="hide" string="Files" widget="badge"/>
             </list>
+        </field>
+    </record>
+
+    <!-- Kanban View -->
+    <record id="view_git_commit_kanban" model="ir.ui.view">
+        <field name="name">git.commit.kanban</field>
+        <field name="model">git.commit</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_git_commit" sample="1">
+                <field name="short_sha"/>
+                <field name="message_short"/>
+                <field name="author_name"/>
+                <field name="committed_date"/>
+                <field name="repository_id"/>
+                <field name="is_signed"/>
+                <field name="additions"/>
+                <field name="deletions"/>
+                <field name="files_changed"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="oe_kanban_global_click o_kanban_git_commit_card">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-dark font-monospace" t-out="record.short_sha.value"/>
+                                    <i class="fa fa-check-circle text-success" t-if="record.is_signed.raw_value" role="img" aria-label="Signed" title="Signed"/>
+                                </div>
+                                <small class="text-muted" t-out="record.committed_date.value"/>
+                            </div>
+                            <div class="fw-bold text-truncate" t-out="record.message_short.value"/>
+                            <div class="d-flex gap-3 mt-2 small text-muted">
+                                <span><i class="fa fa-user me-1"/> <t t-out="record.author_name.value"/></span>
+                                <span><i class="fa fa-plus text-success me-1"/> <t t-out="record.additions.value"/></span>
+                                <span><i class="fa fa-minus text-danger me-1"/> <t t-out="record.deletions.value"/></span>
+                                <span><i class="fa fa-file-code-o me-1"/> <t t-out="record.files_changed.value"/></span>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
         </field>
     </record>
 
@@ -41,44 +83,77 @@
         <field name="model">git.commit</field>
         <field name="arch" type="xml">
             <form string="Commit">
+                <header>
+                    <field name="is_signed" widget="boolean_toggle" string="Signed"/>
+                </header>
                 <sheet>
-                    <group string="Commit Info">
-                        <field name="sha" readonly="1"/>
+
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge bg-dark font-monospace fs-6 p-2">
+                                    <field name="sha" readonly="1" widget="monospace" nolabel="1"/>
+                                </span>
+                                <div>
+                                    <h3 class="mb-1"><field name="message_short" readonly="1" nolabel="1"/></h3>
+                                    <small class="text-muted"><field name="author_name" readonly="1" nolabel="1"/> • <field name="committed_date" readonly="1" widget="datetime" nolabel="1"/></small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <group string="Commit Info" col="4" invisible="1">
+                        <field name="sha" readonly="1" widget="monospace"/>
                         <field name="repository_id" readonly="1" options="{'no_create': True, 'no_open': True}"/>
                         <field name="author_name" readonly="1"/>
                         <field name="author_email" readonly="1"/>
-                        <field name="author_date" readonly="1"/>
+                        <field name="author_date" readonly="1" widget="datetime"/>
                         <field name="committer_name" readonly="1"/>
                         <field name="committer_email" readonly="1"/>
-                        <field name="committed_date" readonly="1"/>
+                        <field name="committed_date" readonly="1" widget="datetime"/>
                     </group>
-                    <group string="Stats">
-                        <field name="additions" readonly="1" string="Lines Added"/>
-                        <field name="deletions" readonly="1" string="Lines Deleted"/>
-                        <field name="files_changed" readonly="1" string="Files Changed"/>
+
+                    <group string="Stats" col="4">
+                        <field name="additions" readonly="1" string="Lines Added" widget="badge" options="{'classes': {'0': 'bg-secondary'}}"/>
+                        <field name="deletions" readonly="1" string="Lines Deleted" widget="badge" options="{'classes': {'0': 'bg-secondary'}}"/>
+                        <field name="files_changed" readonly="1" string="Files Changed" widget="badge"/>
+                        <field name="is_signed" readonly="1" widget="boolean_toggle"/>
                     </group>
-                    <group string="Signature">
-                        <field name="is_signed" readonly="1"/>
-                        <field name="signature_verification" readonly="1"/>
+
+                    <group string="Signature" col="2" invisible="is_signed == False">
+                        <field name="signature_verification" readonly="1" widget="text"/>
                     </group>
+
                     <notebook>
                         <page string="Message" name="message">
-                            <field name="message" readonly="1" widget="text" class="o_monospace"/>
+                            <field name="message" readonly="1" widget="text" class="o_monospace p-3 bg-light rounded"/>
                         </page>
                         <page string="Parents" name="parents">
                             <field name="parent_ids" mode="list" readonly="1">
-                                <list string="Parents">
-                                    <field name="short_sha" string="SHA"/>
+                                <list string="Parent Commits">
+                                    <field name="short_sha" string="SHA" widget="badge" options="{'classes': {'': 'bg-dark'}}"/>
                                     <field name="message_short" string="Message"/>
                                 </list>
                             </field>
                         </page>
                         <page string="Branches" name="branches">
-                            <field name="branch_ids" mode="list" readonly="1">
-                                <list string="Branches">
+                            <field name="branch_ids" mode="list,kanban" readonly="1">
+                                <list string="Branches containing this commit">
+                                    <field name="name" widget="badge" options="{'classes': {'': 'bg-primary'}}"/>
+                                    <field name="is_default" widget="boolean_toggle" string="Default"/>
+                                </list>
+                                <kanban>
                                     <field name="name"/>
                                     <field name="is_default"/>
-                                </list>
+                                    <templates>
+                                        <t t-name="card">
+                                            <div class="oe_kanban_global_click">
+                                                <span class="badge bg-primary me-1" t-out="record.name.value"/>
+                                                <i class="fa fa-home text-info" t-if="record.is_default.raw_value" role="img" aria-label="Default branch"/>
+                                            </div>
+                                        </t>
+                                    </templates>
+                                </kanban>
                             </field>
                         </page>
                     </notebook>
@@ -91,7 +166,7 @@
     <record id="action_git_commit" model="ir.actions.act_window">
         <field name="name">Commits</field>
         <field name="res_model">git.commit</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">list,kanban,form</field>
         <field name="search_view_id" ref="view_git_commit_search"/>
     </record>
 </odoo>
