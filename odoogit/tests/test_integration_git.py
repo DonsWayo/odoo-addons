@@ -119,10 +119,13 @@ class TestGitHttpEndpoints(HttpCase):
         self.authenticate(None, None)
         url = f'/git/{self.user.login}/{self.repo.name}.git/info/refs'
         res = self.url_open(url, timeout=30)
-        # public unauthenticated: either 404 (hidden) or redirect to login — never 200 with refs
-        self.assertIn(res.status_code, (200, 303, 404))
+        # unauthenticated: 401 challenge (git clients need it to send creds),
+        # or 404/303 — never 200 leaking refs
+        self.assertIn(res.status_code, (401, 303, 404))
         if res.status_code == 200:
             self.assertNotIn(b'refs/heads', res.content)
+        if res.status_code == 401:
+            self.assertIn('WWW-Authenticate', res.headers)
 
     def test_webhook_signature_format(self):
         """Webhook payload signing uses HMAC-SHA256."""
