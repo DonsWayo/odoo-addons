@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import os
+import os as _os
 import re
 import secrets
 import logging
@@ -200,13 +200,13 @@ class GitRepository(models.Model):
             'odoogit.repo_base_path',
             '/var/lib/odoo/git/repos'
         )
-        return os.path.join(base_path, self.owner_id.login, f"{self.name}.git")
+        return _os.path.join(base_path, self.owner_id.login, f"{self.name}.git")
 
     def _init_git_repo(self):
         """Initialize bare Git repository on filesystem"""
         self.ensure_one()
         repo_path = self._get_repo_path()
-        if not os.path.exists(repo_path):
+        if not _os.path.exists(repo_path):
             os.makedirs(repo_path, exist_ok=True)
             try:
                 import git
@@ -223,7 +223,7 @@ class GitRepository(models.Model):
         """Get all refs for Git Smart HTTP advertisement"""
         self.ensure_one()
         repo_path = self._get_repo_path()
-        if not os.path.exists(repo_path):
+        if not _os.path.exists(repo_path):
             return {}
         try:
             import git
@@ -285,6 +285,59 @@ class GitRepository(models.Model):
             'domain': [('repository_id', '=', self.id)],
             'context': {'default_repository_id': self.id},
         }
+
+    def _sync_from_git(self):
+        """Sync branches and commits from the on-disk git repo into Odoo."""
+        self.ensure_one()
+        import os as _os
+        import git as git_lib
+        path = self._get_repo_path()
+        if not _os.path.isdir(path):
+            return
+        repo = git_lib.Repo(path)
+        Branch = self.env['git.branch'].sudo()
+        Commit = self.env['git.commit'].sudo()
+        from datetime import datetime
+        for head in repo.heads:
+            sha = head.commit.hexsha
+            branch = Branch.search([
+                ('name', '=', head.name),
+                ('repository_id', '=', self.id),
+            ], limit=1)
+            if branch:
+                branch.write({'commit_sha': sha})
+            else:
+                Branch.create({
+                    'name': head.name,
+                    'repository_id': self.id,
+                    'commit_sha': sha,
+                })
+            for gc in repo.iter_commits(head, max_count=50):
+                if Commit.search_count([('sha', '=', gc.hexsha),
+                                        ('repository_id', '=', self.id)]):
+                    continue
+                Commit.create({
+                    'sha': gc.hexsha,
+                    'message': (gc.message or '').strip(),
+                    'author_name': gc.author.name if gc.author else '',
+                    'author_email': gc.author.email if gc.author else '',
+                    'committed_date': datetime.fromtimestamp(gc.committed_date),
+                    'repository_id': self.id,
+                })
+        self.env.cr.commit()
+
+    def write(self, vals):
+        """Migrate the bare repo on disk when owner/name changes the path."""
+        import shutil
+        for repo in self:
+            old_path = repo._get_repo_path()
+            res = super(GitRepository, repo).write(vals)
+            new_path = repo._get_repo_path()
+            if old_path != new_path and _os.path.isdir(old_path):
+                _os.makedirs(_os.path.dirname(new_path), exist_ok=True)
+                if not _os.path.exists(new_path):
+                    shutil.move(old_path, new_path)
+        return True
 
     def _check_repo_access(self, user, operation='read'):
         """Check if user has access to repository"""
