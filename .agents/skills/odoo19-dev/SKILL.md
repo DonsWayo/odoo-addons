@@ -98,3 +98,34 @@ Unit tests: `--test-enable --test-tags /odoogit --http-port=8070` (54 tests).
   `__manifest__.py` assets paths match real files.
 - Stale browser tabs hold old bundles after upgrades — hard-refresh before
   trusting a JS error report.
+
+## Dogfood findings (round 2 — every button, multi-user, real git)
+
+- `t-attf-class="x-#{'a' if cond else 'b'}"` breaks the Owl template
+  compiler (`Missing } in template expression`). Use `t-att-class` with
+  ternary chains.
+- Granting groups is not enough: `implied_ids` on `base.group_system`
+  applies to NEW users only on install; existing DBs need the group added
+  per user (odoo shell) after upgrading.
+- Record rules: a global rule (no `groups`) is ALWAYS ANDed — group rules
+  can never bypass it. Restrictive rules must be group rules; make every
+  internal employee a member of the base module group via
+  `base.group_user.implied_ids`.
+- Git smart HTTP: clients only send credentials AFTER a 401 with
+  `WWW-Authenticate: Basic`. A 404 on `/info/refs` makes clone/push fail
+  silently. Denials must be 401 (auth) / 403 (forbidden) — never 200 with
+  an error payload.
+- Token auth must propagate the identity: return `(repository, user)` and
+  run branch-protection/webhook logic as that user, or member pushes fail.
+- GitPython on bare repos: `repo.refs[].name` is `main`, NOT
+  `refs/heads/main`; `checkout` fails ("must be run in a work tree") —
+  merge via `merge-tree --write-tree` + `commit-tree` + `update-ref`;
+  rebase via temp `worktree add`.
+- Stored computed fields WITHOUT `@api.depends` never compute on create
+  (silently NULL).
+- Deleting an x2many-referenced record raises the constraint AFTER your
+  transaction already did the important work — guard deletions.
+- `repo.git.execute([...])` bypasses `custom_environment`; use mapped
+  calls (`repo.git.commit_tree(...)`) inside the context manager.
+- Migrating file-backed records when a path key changes (owner/name):
+  implement in `write()` or the storage diverges from the DB.
