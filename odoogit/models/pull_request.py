@@ -92,7 +92,8 @@ class GitPullRequest(models.Model):
     @api.depends('number', 'title')
     def _compute_name(self):
         for pr in self:
-            pr.name = f"#{pr.number}: {pr.title}" if pr.number else pr.title
+            title = pr.title or ''
+            pr.name = f"#{pr.number}: {title}" if pr.number else title
 
     @api.depends('commit_ids')
     def _compute_commit_count(self):
@@ -106,6 +107,9 @@ class GitPullRequest(models.Model):
             pr.deletions = sum(pr.file_ids.mapped('deletions'))
             pr.changed_files = len(pr.file_ids)
 
+    @api.depends('state', 'source_branch_id.commit_sha', 'target_branch_id.commit_sha',
+                 'target_branch_id.is_protected', 'target_branch_id.require_pr_reviews',
+                 'target_branch_id.required_approving_reviews', 'approval_count')
     def _compute_mergeable(self):
         """Check if PR can be merged (no conflicts, target branch not protected, etc.)"""
         for pr in self:
@@ -159,35 +163,69 @@ class GitPullRequest(models.Model):
         })
 
         if self.repository_id.auto_delete_head_branch and not self.source_branch_id.is_default:
-            self.source_branch_id.unlink()
+            # only safe to delete when no other PR still references the branch
+            still_used = self.search_count([
+                ('source_branch_id', '=', self.source_branch_id.id),
+                ('id', '!=', self.id),
+            ])
+            target_still_used = self.search_count([
+                '|', ('source_branch_id', '=', self.target_branch_id.id),
+                ('target_branch_id', '=', self.source_branch_id.id),
+            ])
+            if not still_used and not target_still_used:
+                try:
+                    self.source_branch_id.unlink()
+                except Exception:
+                    pass  # branch kept — referenced elsewhere or protected
 
         return True
 
     def _perform_git_merge(self, method):
+        """Merge using plumbing commands — works on bare repos (no work tree)."""
         import git
+
         repo = git.Repo(self.repository_id._get_repo_path())
+        target = self.target_branch_id.name
+        source = self.source_branch_id.name
+        ref = f'refs/heads/{target}'
+        msg = f"Merge PR #{self.number}: {self.title}"
+        author = self.env.user.partner_id
 
-        if method == 'squash':
-            index = repo.index
-            index.merge_tree(repo.commit(self.source_branch_id.commit_sha))
-            commit = index.commit(
-                f"Merge PR #{self.number}: {self.title}",
-                parent_commits=(repo.commit(self.target_branch_id.commit_sha),),
-                author=self.env.user.partner_id.name,
-                committer=self.env.user.partner_id.name,
-            )
-        elif method == 'rebase':
-            repo.git.rebase(self.target_branch_id.name, self.source_branch_id.name)
-            commit = repo.commit(self.source_branch_id.name)
-            repo.git.checkout(self.target_branch_id.name)
-            repo.git.merge('--ff-only', self.source_branch_id.name)
-        else:
-            repo.git.checkout(self.target_branch_id.name)
-            repo.git.merge(self.source_branch_id.name, '--no-ff', '-m',
-                          f"Merge PR #{self.number}: {self.title}")
-            commit = repo.head.commit
+        env = {
+            'GIT_AUTHOR_NAME': author.name or 'OdooGit',
+            'GIT_AUTHOR_EMAIL': author.email or 'odoogit@localhost',
+            'GIT_COMMITTER_NAME': author.name or 'OdooGit',
+            'GIT_COMMITTER_EMAIL': author.email or 'odoogit@localhost',
+        }
 
-        return commit
+        if method == 'rebase':
+            # linear history: fast-forward when possible, else rebase in a
+            # temporary work tree (bare repos have none of their own)
+            if repo.is_ancestor(target, source):
+                sha = repo.commit(source).hexsha
+                repo.git.update_ref(ref, sha)
+                return repo.commit(sha)
+            import tempfile
+            with tempfile.TemporaryDirectory() as td:
+                repo.git.worktree('add', '--detach', td, source)
+                try:
+                    wt = git.Repo(td)
+                    wt.git.rebase(target)
+                    sha = wt.head.commit.hexsha
+                    repo.git.update_ref(ref, sha)
+                    return repo.commit(sha)
+                finally:
+                    repo.git.worktree('remove', '--force', td)
+
+        # merge / squash: build the merged tree, then commit it explicitly
+        tree = repo.git.merge_tree('--write-tree', target, source).strip()
+        cmd = ['-m', msg, '-p', target]
+        if method != 'squash':
+            cmd += ['-p', source]
+        with repo.git.custom_environment(**env):
+            sha = repo.git.commit_tree(tree, *cmd).strip()
+        repo.git.update_ref(ref, sha)
+        return repo.commit(sha)
 
     def action_close(self):
         self.write({'state': 'closed', 'closed_at': fields.Datetime.now()})
