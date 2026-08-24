@@ -1,0 +1,24 @@
+name: Repositories list renders with styles and menu
+session: qa-repos
+steps:
+  - open: /web/login
+  - wait_load: true
+  - fill_label: "Email"
+    value: $USER
+  - fill_label: "Password"
+    value: $PASS
+  - press: Enter
+  - wait: 3000
+  - open: /odoo/action-odoogit.action_git_repository
+  - wait: 3500
+  - assert_url: "*action*"
+  - assert_text: "Repositories"
+  - assert_text: "Git"
+  - assert_text: "Visibility"
+  - assert_no_text: "A css error occured"
+  - assert_no_text: "Traceback"
+  - snapshot: true
+  - screenshot: repositories_list.png
+  - sleep_console_mark: true
+  - wait: 2000
+  - console_clean: true

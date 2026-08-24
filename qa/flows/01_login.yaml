@@ -1,0 +1,15 @@
+name: Login to Odoo backend
+session: qa-login
+steps:
+  - open: /web/login
+  - wait_load: true
+  - screenshot: login_page.png
+  - fill_label: "Email"
+    value: $USER
+  - fill_label: "Password"
+    value: $PASS
+  - press: Enter
+  - wait: 3000
+  - assert_url: "*/odoo*"
+  - assert_no_text: "Wrong login credentials"
+  - screenshot: logged_in.png

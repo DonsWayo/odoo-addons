@@ -1,0 +1,10 @@
+name: Asset bundles compile without CSS error placeholder
+session: qa-assets
+steps:
+  - open: /web/login
+  - wait_load: true
+  - wait: 2000
+  - eval: "window.__cssText = ''; fetch(document.querySelector('link[href*=\"assets_frontend.min.css\"]').href).then(function(r){return r.text()}).then(function(t){window.__cssText = t})"
+  - wait: 3000
+  - assert_eval: "window.__cssText.length > 1000 && window.__cssText.indexOf('css error occured') === -1"
+  - screenshot: assets_ok.png

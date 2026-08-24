@@ -1,0 +1,27 @@
+name: Configuration menu holds webhooks, PATs, deploy keys
+session: qa-config
+steps:
+  - open: /web/login
+  - wait_load: true
+  - fill_label: "Email"
+    value: $USER
+  - fill_label: "Password"
+    value: $PASS
+  - press: Enter
+  - wait: 3000
+  - open: /odoo/action-odoogit.action_git_webhook
+  - wait: 3500
+  - assert_text: "Webhooks"
+  - assert_no_text: "A css error occured"
+  - screenshot: webhooks_list.png
+  - open: /odoo/action-odoogit.action_git_personal_access_token
+  - wait: 3500
+  - assert_text: "Personal Access Tokens"
+  - screenshot: pats_list.png
+  - open: /odoo/action-odoogit.action_git_deploy_key
+  - wait: 3500
+  - assert_text: "Deploy Keys"
+  - screenshot: deploy_keys_list.png
+  - sleep_console_mark: true
+  - wait: 2000
+  - console_clean: true
