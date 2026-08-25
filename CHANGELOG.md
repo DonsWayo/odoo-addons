@@ -119,6 +119,21 @@ Audit release. Full findings and evidence in
 - New `odoogit/tests/test_regressions.py`: one test per defect above.
 - Added `docker-compose.override.yml.example` for a bind-mounted dev loop.
 
+### Project
+
+- GitHub Actions CI: static checks (XML, Python, manifest, declared data
+  files), clean install with demo data, and the full suite. The install step
+  fails the build on `Invalid field`, `Template not found`,
+  `have no access rules` or `unknown parameter` — four audit findings
+  announced themselves as exactly one of those lines while the suite stayed
+  green.
+- Release workflow: tag `v19.0.*` verifies the tag matches the manifest
+  version, extracts the matching `CHANGELOG.md` section as release notes, and
+  attaches a packaged addon zip.
+- `CONTRIBUTING.md`, `SECURITY.md` (with the 19.0.1.0.0 advisory and the
+  required token rotation), issue and pull-request templates, `CODEOWNERS`,
+  and Dependabot for Actions and Docker.
+
 ## [19.0.1.0.0] — 2026-08-24
 
 First working release: repositories, branches, commits, pull requests with

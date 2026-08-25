@@ -1,0 +1,78 @@
+name: Bug report
+description: Something in OdooGit behaves incorrectly
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, please check [docs/LIMITATIONS.md](https://github.com/DonsWayo/odoogit/blob/main/docs/LIMITATIONS.md).
+        Webhook delivery, SSH transport and push-time branch protection are
+        **known to be absent** — those are not bugs.
+
+  - type: input
+    id: version
+    attributes:
+      label: OdooGit version
+      description: The `version` in `odoogit/__manifest__.py`, or the release tag.
+      placeholder: 19.0.1.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: odoo
+    attributes:
+      label: Odoo version
+      description: "From the log line: `odoo: Odoo version ...`"
+      placeholder: 19.0-20260817
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: How is it running?
+      options:
+        - Docker (this repo's compose stack)
+        - Existing Odoo install, module copied into addons_path
+        - Other (describe below)
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, what you got instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Create a repository as user A
+        2. Clone it with user B's PAT
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: >
+        The traceback, plus any `Invalid field`, `Template not found` or
+        `have no access rules` lines from the install log. Rendered as a code
+        block — no backticks needed.
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I read docs/LIMITATIONS.md and this is not a documented gap
+          required: true
+        - label: I have redacted any tokens, passwords or customer data from the logs above
+          required: true

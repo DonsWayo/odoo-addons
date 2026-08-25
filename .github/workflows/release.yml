@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v19.0.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v19.0.1.1.0)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Publish GitHub release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve tag and version
+        id: v
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$TAG"             >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}"     >> "$GITHUB_OUTPUT"
+
+      - name: Tag must match the manifest version
+        run: |
+          MANIFEST=$(python3 -c "
+          import ast
+          src = open('odoogit/__manifest__.py').read()
+          print(ast.literal_eval(src[src.index('{'):])['version'])
+          ")
+          if [ "$MANIFEST" != "${{ steps.v.outputs.version }}" ]; then
+            echo "::error::tag ${{ steps.v.outputs.tag }} does not match manifest version $MANIFEST"
+            exit 1
+          fi
+          echo "version $MANIFEST"
+
+      - name: Extract this version's changelog section
+        run: |
+          awk -v v="${{ steps.v.outputs.version }}" '
+            $0 ~ "^## \\[" v "\\]" { f = 1; next }
+            f && /^## \[/          { exit }
+            f                      { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::error::CHANGELOG.md has no section for ${{ steps.v.outputs.version }}"
+            exit 1
+          fi
+          cat notes.md
+
+      - name: Package the addon
+        run: |
+          zip -r "odoogit-${{ steps.v.outputs.version }}.zip" odoogit \
+            -x '*.pyc' -x '*__pycache__*'
+          ls -lh odoogit-*.zip
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.v.outputs.tag }}" \
+            --title "OdooGit ${{ steps.v.outputs.version }}" \
+            --notes-file notes.md \
+            "odoogit-${{ steps.v.outputs.version }}.zip"

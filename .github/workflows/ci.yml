@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static:
+    name: Static checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Every XML file parses
+        run: |
+          python -c "
+          from xml.etree import ElementTree as ET
+          import glob, sys
+          files = glob.glob('odoogit/**/*.xml', recursive=True)
+          assert files, 'no XML files found'
+          for f in files:
+              ET.parse(f)
+          print(f'XML OK ({len(files)} files)')
+          "
+
+      - name: Every Python file parses
+        run: |
+          python -c "
+          import ast, glob
+          files = glob.glob('odoogit/**/*.py', recursive=True)
+          assert files, 'no Python files found'
+          for f in files:
+              ast.parse(open(f).read(), filename=f)
+          print(f'PY OK ({len(files)} files)')
+          "
+
+      - name: Manifest is a valid literal and declares a version
+        run: |
+          python -c "
+          import ast
+          src = open('odoogit/__manifest__.py').read()
+          m = ast.literal_eval(src[src.index('{'):])
+          assert m['version'].startswith('19.0.'), m['version']
+          assert m['author'] and 'Your Company' not in m['author']
+          assert m['license'] == 'LGPL-3'
+          print('manifest OK', m['version'])
+          "
+
+      - name: Declared data files exist
+        run: |
+          python -c "
+          import ast, os, sys
+          src = open('odoogit/__manifest__.py').read()
+          m = ast.literal_eval(src[src.index('{'):])
+          missing = [f for f in m.get('data', []) + m.get('demo', [])
+                     if not os.path.isfile(os.path.join('odoogit', f))]
+          if missing:
+              sys.exit('declared but absent: ' + ', '.join(missing))
+          print('data files OK')
+          "
+
+  tests:
+    name: Install + test suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker compose build odoo
+
+      - name: Start stack
+        run: |
+          docker compose up -d
+          for i in $(seq 1 60); do
+            if docker compose exec -T postgres pg_isready -U odoo >/dev/null 2>&1; then
+              echo "postgres ready"; break
+            fi
+            sleep 2
+          done
+
+      - name: Install module into a clean database (with demo data)
+        run: |
+          docker compose exec -T odoo odoo -d ci -i odoogit --stop-after-init \
+            --db_host=postgres --db_user=odoo --db_password=odoo --workers=0 \
+            2>&1 | tee install.log
+
+      - name: Install log is free of latent failures
+        run: |
+          # Odoo boots straight through these; each one hid a real defect
+          # in the August 2026 audit.
+          for pattern in "Invalid field" "Template not found" "have no access rules" "unknown parameter" "CRITICAL"; do
+            if grep -q "$pattern" install.log; then
+              echo "::error::install log contains '$pattern'"
+              grep "$pattern" install.log
+              exit 1
+            fi
+          done
+          echo "install log clean"
+
+      - name: Run the test suite
+        run: |
+          docker compose exec -T odoo odoo -d ci --test-enable --test-tags /odoogit \
+            --stop-after-init --http-port=8070 \
+            --db_host=postgres --db_user=odoo --db_password=odoo --workers=0 \
+            2>&1 | tee test.log
+
+      - name: Assert the suite was green and actually ran
+        run: |
+          grep -E "odoo.tests.stats: odoogit: [0-9]+ tests" test.log || {
+            echo "::error::no odoogit tests ran"; exit 1; }
+          if ! grep -q "0 failed, 0 error(s)" test.log; then
+            echo "::error::test failures"
+            grep -E "^(FAIL|ERROR): |tests when loading" test.log || true
+            exit 1
+          fi
+          grep -oE "odoogit: [0-9]+ tests" test.log | tail -1
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: odoo-logs
+          path: |
+            install.log
+            test.log
+          retention-days: 7
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

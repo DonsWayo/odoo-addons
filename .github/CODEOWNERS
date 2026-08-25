@@ -1,0 +1,11 @@
+# Default owner for everything.
+*                       @DonsWayo
+
+# Anything that decides who can read or write what.
+/odoogit/security/      @DonsWayo
+/odoogit/controllers/   @DonsWayo
+
+# The contract this project keeps with its operators.
+/docs/                  @DonsWayo
+/CHANGELOG.md           @DonsWayo
+/SECURITY.md            @DonsWayo

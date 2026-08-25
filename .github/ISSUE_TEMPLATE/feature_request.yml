@@ -1,0 +1,41 @@
+name: Feature request
+description: Suggest something OdooGit should do
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Several features are deliberately unimplemented and already have a
+        rationale in [docs/LIMITATIONS.md](https://github.com/DonsWayo/odoogit/blob/main/docs/LIMITATIONS.md)
+        — webhook delivery, SSH transport, push-time branch protection, file
+        browser. Arguing for a specific design of one of those is welcome;
+        just say so below rather than reporting it as missing.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: The situation, not the solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What should OdooGit do instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What have you tried or considered?
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - label: This would need a new model or field (schema change)
+        - label: This would change existing access or permission behaviour
+        - label: I am willing to open a pull request for it
