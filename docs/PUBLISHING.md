@@ -27,6 +27,33 @@ A white cube instead of the icon means the file is at the wrong path or is not
 genuinely PNG. Renaming `icon.ico` to `icon.png` does not convert it; ours is
 a real PNG, checked in CI.
 
+### How images actually get published
+
+**There is no image upload in the Apps Store.** Every asset comes out of the
+repository on each scan:
+
+| What you see on the listing | Where it comes from |
+|---|---|
+| App icon | `odoogit/static/description/icon.png` — must genuinely be PNG |
+| Cover / thumbnail | the **first** entry in the manifest's `images` list |
+| Large screenshot | the first `images` entry whose filename ends in `_screenshot` |
+| Description body | `odoogit/static/description/index.html` |
+| Documentation tab | `odoogit/doc/index.rst` |
+
+So to change any of them: edit the file, push to `main`, mirror to `19.0`,
+and rescan from *My Repos*. Nothing is typed into the store.
+
+Two traps confirmed against Odoo's own `theme_enark`, which the FAQ cites as
+the reference implementation:
+
+- Its `images` are `static/description/*` — the FAQ's `images/main_screenshot.png`
+  example is illustrative, not a required folder.
+- The `_screenshot` slot is deliberately **not** the branding image. Odoo's
+  words: *"the purpose of this screenshot format is to show a full demo page
+  and not your company logo larger."* Ours is therefore
+  `repositories_screenshot.png`, a real screenshot of the repository list;
+  the banner is `cover.png` and serves as the thumbnail.
+
 ### Rules for `index.html`
 
 Odoo strips things. Keep to them or the page renders wrong:

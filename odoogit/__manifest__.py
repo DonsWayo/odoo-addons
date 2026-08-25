@@ -21,11 +21,13 @@ what is deliberately not implemented yet.
     'author': 'Juan Jose Carracedo',
     'website': 'https://github.com/DonsWayo/odoogit',
     'license': 'LGPL-3',
-    # Apps Store listing: the first name ending in _screenshot is shown large.
-    # Paths are module-relative and must live under static/description.
+    # Apps Store listing. The first entry is the cover/thumbnail; the first
+    # whose name ends in _screenshot is blown up as the large image, which
+    # Odoo intends for "a full demo page and not your company logo larger" —
+    # so that slot is a real screenshot of the UI, not the banner.
     'images': [
-        'static/description/main_screenshot.png',
-        'static/description/repositories.png',
+        'static/description/cover.png',
+        'static/description/repositories_screenshot.png',
         'static/description/pull_requests.png',
         'static/description/repository_form.png',
     ],

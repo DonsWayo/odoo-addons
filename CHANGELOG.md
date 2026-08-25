@@ -18,6 +18,13 @@ Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
 
 ### Fixed
 
+- **The Apps Store cover and large screenshot were the same branding image.**
+  Odoo blows up the first `images` entry whose name ends in `_screenshot`, and
+  intends that slot for "a full demo page and not your company logo larger".
+  The banner is now `cover.png` (thumbnail) and the large image is
+  `repositories_screenshot.png`, a real screenshot of the UI — matching the
+  shape of Odoo's own `theme_enark`, which also confirmed that
+  `static/description/` is the right home for these files.
 - `docs/PUBLISHING.md` gave the wrong registration URL. The Apps Store
   normalises every repository to the SSH URI scheme
   (`ssh://git@github.com/DonsWayo/odoogit#main`) and rejects an `https://`
