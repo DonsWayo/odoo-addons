@@ -54,14 +54,14 @@
                         <div class="oe_kanban_global_click o_kanban_git_branch_card">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <div class="d-flex align-items-center gap-2">
-                                    <i class="fa fa-code-branch text-primary fs-5" role="img" aria-label="Branch"/>
+                                    <i class="fa fa-code-fork text-primary fs-5" role="img" aria-label="Branch"/>
                                     <span class="fw-bold" t-out="record.name.value"/>
                                     <span t-if="record.is_default.raw_value" class="badge bg-info">Default</span>
                                 </div>
                                 <span t-if="record.is_protected.raw_value" class="badge bg-warning"><i class="fa fa-shield"/> Protected</span>
                             </div>
                             <div class="text-muted small">
-                                <i class="fa fa-commit me-1"/> Latest: <t t-out="record.commit_id.value"/>
+                                <i class="fa fa-history me-1"/> Latest: <t t-out="record.commit_id.value"/>
                             </div>
                             <div class="d-flex gap-3 mt-2 small text-muted">
                                 <span t-if="record.ahead_commits.raw_value > 0" class="text-success"><i class="fa fa-arrow-up me-1"/> <t t-out="record.ahead_commits.value"/> ahead</span>
@@ -88,7 +88,7 @@
                     <div class="row mb-3">
                         <div class="col-12">
                             <div class="d-flex align-items-center gap-2">
-                                <i class="fa fa-code-branch text-primary fs-4" role="img" aria-label="Branch"/>
+                                <i class="fa fa-code-fork text-primary fs-4" role="img" aria-label="Branch"/>
                                 <field name="name" class="oe_inline" placeholder="Branch name" style="font-size: 1.5rem;"/>
                                 <span class="badge bg-info ms-2" invisible="not is_default"><i class="fa fa-home me-1"/> Default</span>
                             </div>

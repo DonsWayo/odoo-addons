@@ -1,13 +1,13 @@
 <section class="oe_container">
   <div class="oe_row oe_spaced">
     <div class="oe_span12">
-      <h2 class="oe_slogan" style="color:#714B67;">OdooGit</h2>
-      <h3 class="oe_slogan">Git repository hosting inside Odoo 19</h3>
+      <h2 class="oe_slogan" style="color:#714B67;">Git repository hosting, inside Odoo</h2>
+      <h3 class="oe_slogan">Real Git repositories as first-class Odoo records</h3>
       <p class="oe_mt32 text-center">
-        Self-hosted Git repositories as first-class Odoo records. Real bare
-        repositories on disk, served over Git Smart HTTP, with pull requests,
-        reviews, access tokens and webhooks wired into Odoo's own users,
-        groups and record rules.
+        Clone, push and review code against your own Odoo server. No separate
+        Git service to run, no second set of accounts to manage, no SSO to
+        wire up &mdash; access is decided by the users, groups and record
+        rules you already have.
       </p>
       <div class="oe_row_img oe_centered">
         <img class="oe_picture oe_screenshot" src="cover.png"
@@ -20,13 +20,62 @@
 <section class="oe_container oe_dark">
   <div class="oe_row oe_spaced">
     <div class="oe_span12">
-      <h3 class="oe_slogan">Clone and push with a Personal Access Token</h3>
+      <h3 class="oe_slogan">Why host Git in Odoo?</h3>
       <p class="oe_mt32 text-center">
-        Every repository is a real bare Git repository. Developers clone and
-        push over HTTPS with a token they generate themselves &mdash; no shell
-        accounts, no SSH keys to distribute.
+        Most teams running Odoo already have every developer in the database,
+        organised into groups, with a permission model somebody has carefully
+        tuned. Running GitLab or Gitea alongside means maintaining that model
+        twice &mdash; and reconciling it every time somebody joins or leaves.
+      </p>
+    </div>
+  </div>
+  <div class="oe_row">
+    <div class="oe_span4">
+      <div class="oe_row_img">
+        <h4 class="text-center"><i class="fa fa-users"/> One directory</h4>
+        <p class="text-center">
+          Repository access follows Odoo record rules. Add somebody to a group
+          and their Git access follows. Deactivate the user and it is gone.
+        </p>
+      </div>
+    </div>
+    <div class="oe_span4">
+      <div class="oe_row_img">
+        <h4 class="text-center"><i class="fa fa-server"/> One server</h4>
+        <p class="text-center">
+          No extra service, container or database. Repositories are bare Git
+          repos on the Odoo filesystem, served by the Odoo process.
+        </p>
+      </div>
+    </div>
+    <div class="oe_span4">
+      <div class="oe_row_img">
+        <h4 class="text-center"><i class="fa fa-comments"/> One record</h4>
+        <p class="text-center">
+          Repositories and pull requests carry Odoo chatter, followers and
+          activities. Discussion lives beside the code, not in another inbox.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="oe_container">
+  <div class="oe_row oe_spaced">
+    <div class="oe_span12">
+      <h3 class="oe_slogan">It is a real Git server</h3>
+      <p class="oe_mt32 text-center">
+        Every repository is a genuine bare Git repository on disk, served over
+        the Git Smart HTTP protocol by <code>git http-backend</code>.
+        <code>git clone</code>, <code>git push</code>, <code>git fetch</code>
+        and <code>git pull</code> all work exactly as they do anywhere else.
       </p>
       <pre class="text-center">git clone https://alice:&lt;token&gt;@your-odoo/git/alice/payments-api.git</pre>
+      <p class="text-center">
+        Developers authenticate with a Personal Access Token they generate
+        themselves. No shell accounts on the server, no SSH keys to
+        distribute, no credentials shared between people.
+      </p>
       <p class="text-center">
         A push syncs branches and commits straight back into Odoo, so the
         records you see always reflect what is on disk.
@@ -35,19 +84,59 @@
   </div>
 </section>
 
-<section class="oe_container">
+<section class="oe_container oe_dark">
   <div class="oe_row oe_spaced">
     <div class="oe_span12">
-      <h3 class="oe_slogan">Repositories your team already has access to</h3>
+      <h3 class="oe_slogan">Your repositories at a glance</h3>
       <p class="oe_mt32 text-center">
-        Visibility is <b>private</b> (members only) or <b>internal</b> (all
-        employees). Access is decided by Odoo record rules, so a repository
-        obeys the same permission model as the rest of your database.
+        Branches, commits, open pull requests, stars and last activity, in the
+        list and kanban views you already know how to filter, group and share.
       </p>
       <div class="oe_row_img oe_centered">
         <img class="oe_picture oe_screenshot" src="repositories_screenshot.png"
-             alt="Repository list with branches, commits and open pull requests"/>
+             alt="Repository list with branches, commits, open pull requests and last activity"/>
       </div>
+      <div class="oe_row_img oe_centered">
+        <img class="oe_picture oe_screenshot" src="kanban.png"
+             alt="Repository kanban cards showing visibility, branches, commits, pull requests and stars"/>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="oe_container">
+  <div class="oe_row oe_spaced">
+    <div class="oe_span12">
+      <h3 class="oe_slogan">Pull requests and code review</h3>
+      <p class="oe_mt32 text-center">
+        Draft, open, merged or closed. Merge, squash or rebase. Conflicts are
+        detected against the real repository, not guessed &mdash; and merges
+        are performed with Git plumbing that works on bare repos.
+      </p>
+      <div class="oe_row_img oe_centered">
+        <img class="oe_picture oe_screenshot" src="pull_requests.png"
+             alt="Pull request list showing source and target branch, author, approvals and mergeable state"/>
+      </div>
+    </div>
+  </div>
+  <div class="oe_row">
+    <div class="oe_span6">
+      <h4><i class="fa fa-check-circle"/> Reviews that count</h4>
+      <ul>
+        <li>Approve, comment, or request changes</li>
+        <li>A "request changes" review blocks the merge</li>
+        <li>Protected branches can require N approvals</li>
+        <li>Approvals are pinned to the reviewed commit</li>
+      </ul>
+    </div>
+    <div class="oe_span6">
+      <h4><i class="fa fa-code-fork"/> Merge strategies</h4>
+      <ul>
+        <li><b>Merge</b> &mdash; a merge commit with both parents</li>
+        <li><b>Squash</b> &mdash; one commit, one parent</li>
+        <li><b>Rebase</b> &mdash; fast-forward when possible</li>
+        <li>Merged head branches are cleaned up automatically</li>
+      </ul>
     </div>
   </div>
 </section>
@@ -55,16 +144,19 @@
 <section class="oe_container oe_dark">
   <div class="oe_row oe_spaced">
     <div class="oe_span12">
-      <h3 class="oe_slogan">Pull requests, reviews and merges</h3>
+      <h3 class="oe_slogan">Branches and history, synced from disk</h3>
       <p class="oe_mt32 text-center">
-        Draft to open to merged, with merge, squash or rebase strategies.
-        Conflicts are detected against the real repository, a
-        "request changes" review blocks the merge, and protected branches can
-        require a number of approvals before anyone can complete one.
+        Every push updates the branch records and imports new commits &mdash;
+        SHA, author, message and date &mdash; so you can search, filter and
+        group commit history with ordinary Odoo tools.
       </p>
       <div class="oe_row_img oe_centered">
-        <img class="oe_picture oe_screenshot" src="pull_requests.png"
-             alt="Pull request list showing source and target branches"/>
+        <img class="oe_picture oe_screenshot" src="commits.png"
+             alt="Commit history synced from the bare repository"/>
+      </div>
+      <div class="oe_row_img oe_centered">
+        <img class="oe_picture oe_screenshot" src="branches.png"
+             alt="Branches tab on a repository, with protection settings"/>
       </div>
     </div>
   </div>
@@ -74,14 +166,9 @@
   <div class="oe_row oe_spaced">
     <div class="oe_span12">
       <h3 class="oe_slogan">Everything on the repository record</h3>
-      <p class="oe_mt32 text-center">
-        Branches with protection settings, synced commit history, members,
-        clone URLs and full chatter &mdash; discussions and activities on the
-        repository itself, like any other Odoo document.
-      </p>
       <div class="oe_row_img oe_centered">
         <img class="oe_picture oe_screenshot" src="repository_form.png"
-             alt="Repository form with branches, commits and pull request counters"/>
+             alt="Repository form with clone URL, counters, members and chatter"/>
       </div>
     </div>
   </div>
@@ -89,42 +176,119 @@
 
 <section class="oe_container oe_dark">
   <div class="oe_row oe_spaced">
+    <div class="oe_span12">
+      <h3 class="oe_slogan">Access and credentials</h3>
+    </div>
+  </div>
+  <div class="oe_row">
     <div class="oe_span6">
+      <h4><i class="fa fa-lock"/> Two independent layers</h4>
+      <p>
+        Record rules govern the ORM and the backend UI.
+        <code>_check_repo_access()</code> governs the Git transport, the
+        JSON-RPC API and the portal. Both must allow an operation.
+      </p>
+      <p>
+        Visibility is <b>private</b> (owner, members and groups) or
+        <b>internal</b> (readable by every employee, writable by members).
+      </p>
+    </div>
+    <div class="oe_span6">
+      <h4><i class="fa fa-key"/> Tokens you cannot leak</h4>
+      <p>
+        Personal Access Tokens and deploy keys are stored <b>only</b> as
+        SHA-256 hashes. The secret is shown once, on the form that creates it,
+        and there is no database column holding it afterwards &mdash; a dump
+        or a backup discloses nothing usable.
+      </p>
+      <p>
+        A token never grants more than its owner already has: it resolves to
+        the owning user, and that user's access is what gets checked.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="oe_container">
+  <div class="oe_row oe_spaced">
+    <div class="oe_span12">
       <h3 class="oe_slogan">What is included</h3>
+    </div>
+  </div>
+  <div class="oe_row">
+    <div class="oe_span4">
       <ul>
-        <li>Git Smart HTTP: clone, fetch and push</li>
-        <li>Personal Access Tokens, stored only as SHA-256 hashes</li>
-        <li>Deploy keys scoped to a single repository</li>
-        <li>Branches with ahead/behind counters and protection settings</li>
-        <li>Commit history synced from disk on every push</li>
-        <li>Pull requests with merge, squash and rebase</li>
-        <li>Reviews: approve, comment, request changes</li>
-        <li>Webhook payloads signed with HMAC-SHA256</li>
-        <li>Portal pages for repositories and commits</li>
-        <li>JSON-RPC API</li>
+        <li>Git Smart HTTP: clone, fetch, push</li>
+        <li>Personal Access Tokens with scopes and expiry</li>
+        <li>Deploy keys scoped to one repository</li>
         <li>Repository mirroring and one-shot import</li>
       </ul>
     </div>
-    <div class="oe_span6">
-      <h3 class="oe_slogan">Before you install</h3>
-      <p>
-        OdooGit is honest about what it does not do yet. Webhook payloads are
-        built and signed but <b>not delivered</b> &mdash; there is no delivery
-        worker. There is <b>no SSH transport</b>; only HTTPS. Branch
-        protection is enforced on merges performed in Odoo, <b>not</b> on
-        <code>git push</code>.
-      </p>
-      <p>
-        The full list ships with the module in
-        <code>docs/LIMITATIONS.md</code>.
-      </p>
-      <h3 class="oe_slogan">Requirements</h3>
+    <div class="oe_span4">
       <ul>
-        <li>Odoo 19.0</li>
-        <li>The <code>git</code> binary on the server</li>
-        <li><code>GitPython</code> (<code>pip install GitPython</code>)</li>
-        <li>A writable storage path owned by the Odoo user</li>
+        <li>Branches with ahead/behind counters</li>
+        <li>Branch protection settings</li>
+        <li>Commit history synced on every push</li>
+        <li>Pull requests, reviews and merge strategies</li>
       </ul>
+    </div>
+    <div class="oe_span4">
+      <ul>
+        <li>Webhook payloads signed with HMAC-SHA256</li>
+        <li>Portal pages for repositories and commits</li>
+        <li>JSON-RPC API</li>
+        <li>Chatter and activities on repos and PRs</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="oe_container oe_dark">
+  <div class="oe_row oe_spaced">
+    <div class="oe_span12">
+      <h3 class="oe_slogan">Read this before you install</h3>
+      <p class="oe_mt32 text-center">
+        This module tells you where its edges are. Four things it does
+        <b>not</b> do yet:
+      </p>
+    </div>
+  </div>
+  <div class="oe_row">
+    <div class="oe_span6">
+      <ul>
+        <li>
+          <b>Webhooks are recorded, not delivered.</b> Payloads are built and
+          signed, and delivery rows are created &mdash; but no worker sends
+          them. Adding one needs an SSRF policy for the user-supplied URL.
+        </li>
+        <li>
+          <b>No SSH transport.</b> HTTPS only. The SSH clone URL shown in the
+          UI is informational.
+        </li>
+      </ul>
+    </div>
+    <div class="oe_span6">
+      <ul>
+        <li>
+          <b>Branch protection applies to merges made in Odoo</b>, not to
+          <code>git push</code>. Anyone with repository write access can push
+          to a protected branch.
+        </li>
+        <li>
+          <b>No file browser or diff viewer</b> in the backend, and commit
+          sync keeps the most recent commits per branch rather than all
+          history.
+        </li>
+      </ul>
+    </div>
+  </div>
+  <div class="oe_row oe_spaced">
+    <div class="oe_span12">
+      <p class="text-center">
+        The full list ships with the module as
+        <code>docs/LIMITATIONS.md</code>, and the Documentation tab above
+        repeats it. Nothing here is a surprise you find after installing.
+      </p>
     </div>
   </div>
 </section>
@@ -134,14 +298,34 @@
     <div class="oe_span12">
       <h3 class="oe_slogan">Tested, and the tests are the point</h3>
       <p class="oe_mt32 text-center">
-        130 automated tests: unit tests, integration tests against the real
-        <code>git</code> binary, HTTP tests of every endpoint, and an
-        end-to-end suite that clones over HTTP with a token, pushes a commit,
-        opens a pull request and merges it &mdash; then checks the bare repository
-        on disk agrees.
+        <b>130 automated tests</b> run on every change: unit tests, integration
+        tests against the real <code>git</code> binary, HTTP tests of every
+        endpoint, browser tours, and an end-to-end suite that clones over HTTP
+        with a token, pushes a commit, opens a pull request, merges it, and
+        checks the bare repository on disk agrees.
       </p>
       <p class="text-center">
-        Licensed LGPL-3, the same as Odoo.
+        Continuous integration also fails the build on the warnings Odoo
+        happily boots through &mdash; <code>Invalid field</code>,
+        <code>Template not found</code>, <code>have no access rules</code>
+        &mdash; because each one hid a real defect during the module's
+        August 2026 audit. The audit report ships in the repository.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="oe_container oe_dark">
+  <div class="oe_row oe_spaced">
+    <div class="oe_span12">
+      <h3 class="oe_slogan">Requirements</h3>
+      <p class="oe_mt32 text-center">
+        Odoo 19.0 &middot; the <code>git</code> binary on the server &middot;
+        <code>GitPython</code> &middot; a storage path owned by the Odoo user.
+      </p>
+      <p class="text-center">
+        Licensed <b>LGPL-3</b>, the same licence as Odoo. Issues and questions
+        go to the support link above.
       </p>
     </div>
   </div>

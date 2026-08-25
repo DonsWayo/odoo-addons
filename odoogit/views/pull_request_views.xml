@@ -82,10 +82,10 @@
                             </div>
                             <h6 class="mb-0 fw-bold"><field name="title"/></h6>
                             <div class="d-flex align-items-center gap-1 small text-muted">
-                                <i class="fa fa-code-branch text-info" role="img" aria-label="Source"/>
+                                <i class="fa fa-code-fork text-info" role="img" aria-label="Source"/>
                                 <field name="source_branch_id" class="badge bg-info text-dark"/>
                                 <i class="fa fa-arrow-right text-muted" role="img" aria-label="to"/>
-                                <i class="fa fa-code-branch text-primary" role="img" aria-label="Target"/>
+                                <i class="fa fa-code-fork text-primary" role="img" aria-label="Target"/>
                                 <field name="target_branch_id" class="badge bg-primary text-dark"/>
                             </div>
                             <div class="d-flex gap-3 small text-muted">
@@ -116,7 +116,7 @@
                 <header>
                     <button name="action_merge" type="object" string="Merge" class="btn-primary" groups="odoogit.group_git_manager" invisible="state != 'open' and is_mergeable == False" icon="fa-check" confirm="Merge this pull request?"/>
                     <button name="action_merge" type="object" string="Squash &amp; Merge" class="btn-primary" context="{'method': 'squash'}" groups="odoogit.group_git_manager" invisible="state != 'open' and is_mergeable == False" icon="fa-compress" confirm="Squash and merge this pull request?"/>
-                    <button name="action_merge" type="object" string="Rebase &amp; Merge" class="btn-primary" context="{'method': 'rebase'}" groups="odoogit.group_git_manager" invisible="state != 'open' and is_mergeable == False" icon="fa-code-branch" confirm="Rebase and merge this pull request?"/>
+                    <button name="action_merge" type="object" string="Rebase &amp; Merge" class="btn-primary" context="{'method': 'rebase'}" groups="odoogit.group_git_manager" invisible="state != 'open' and is_mergeable == False" icon="fa-code-fork" confirm="Rebase and merge this pull request?"/>
                     <button name="action_close" type="object" string="Close" class="btn-secondary" invisible="state in ['closed', 'merged']" icon="fa-times" confirm="Close this pull request?"/>
                     <button name="action_reopen" type="object" string="Reopen" class="btn-secondary" invisible="state not in ['closed', 'merged']" icon="fa-refresh"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,open,merged,closed" statusbar_colors='{"draft":"secondary","open":"primary","merged":"success","closed":"danger"}'/>

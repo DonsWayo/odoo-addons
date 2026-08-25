@@ -1,6 +1,6 @@
 {
     'name': 'OdooGit',
-    'version': '19.0.1.3.0',
+    'version': '19.0.1.4.0',
     'category': 'Tools/Development',
     'summary': 'OdooGit — private Git repository hosting with native Odoo integration',
     'description': """
@@ -28,7 +28,9 @@ what is deliberately not implemented yet.
     'images': [
         'static/description/cover.png',
         'static/description/repositories_screenshot.png',
+        'static/description/kanban.png',
         'static/description/pull_requests.png',
+        'static/description/commits.png',
         'static/description/repository_form.png',
     ],
     'support': 'https://github.com/DonsWayo/odoogit/issues',

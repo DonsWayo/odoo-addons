@@ -5,7 +5,7 @@
             <div class="col-12 col-lg-6 mb-4">
                 <div class="card h-100">
                     <div class="card-header">
-                        <h5><i class="fa fa-code-branch me-2"/> My Repositories</h5>
+                        <h5><i class="fa fa-code-fork me-2"/> My Repositories</h5>
                     </div>
                     <div class="card-body">
                         <t t-if="repositories">
@@ -48,9 +48,9 @@
                                     <div t-out="repository.description" class="mb-3"/>
                                 </t>
                                 <div class="d-flex gap-3 text-muted small">
-                                    <span><i class="fa fa-code-branch"/> <t t-out="repository.branch_count"/> branches</span>
+                                    <span><i class="fa fa-code-fork"/> <t t-out="repository.branch_count"/> branches</span>
                                     <span><i class="fa fa-history"/> <t t-out="repository.commit_count"/> commits</span>
-                                    <span><i class="fa fa-git-pull-request"/> <t t-out="repository.open_pr_count"/> PRs</span>
+                                    <span><i class="fa fa-share-alt"/> <t t-out="repository.open_pr_count"/> PRs</span>
                                     <span><i class="fa fa-star"/> <t t-out="repository.star_count"/> stars</span>
                                 </div>
                             </div>

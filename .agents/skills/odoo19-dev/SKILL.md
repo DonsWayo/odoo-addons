@@ -201,3 +201,95 @@ A green suite proves nothing about code it never calls. Before trusting it:
   set)? That one omission hid a renamed field.
 - Does any test act as **a second user** against the first user's data? That
   is the only way authorisation bugs surface.
+
+
+## Font Awesome is 4.7 — FA5/6 names render as NOTHING (audit round 4)
+
+Odoo ships Font Awesome **4.7**. An FA5/6 class produces an empty `<i>`: no
+icon, no console error, no view-validation failure. It looks like a spacing
+bug. This repo shipped four of them across five view files.
+
+| used (FA5/6, blank) | use instead (FA4.7) |
+|---|---|
+| `fa-code-branch` | `fa-code-fork` |
+| `fa-git-pull-request` | `fa-share-alt` (node-graph glyph) |
+| `fa-commit` | `fa-history` |
+| `fa-webhook` | `fa-plug` |
+
+Verify every icon before shipping — paste into `agent-browser eval` against a
+running Odoo, and it prints exactly which classes are dead:
+
+```js
+(() => {
+  const names = "code-fork history share-alt plug star".split(' ');
+  const missing = [];
+  for (const n of names) {
+    const i = document.createElement('i');
+    i.className = 'fa fa-' + n;
+    document.body.appendChild(i);
+    const c = getComputedStyle(i, '::before').content;
+    if (!c || c === 'none' || c === '""') missing.push('fa-' + n);
+    i.remove();
+  }
+  return {missing};
+})()
+```
+
+Collect the module's icons first:
+`grep -rhoE 'fa fa-[a-z0-9-]+' odoogit/views/ | sed 's/fa fa-//' | sort -u`
+
+## List/kanban views ship the defaults you set, not the fields you declared
+
+- **`optional="hide"` is a default, not a toggle hint.** `git.repository`
+  declared owner, counters, activity and stars — all `optional="hide"` — so
+  the list rendered with **two** columns and looked empty. Only hide what is
+  genuinely secondary.
+- **`sample="1"` renders greyed Lorem-ipsum rows when the model is empty.**
+  Fine in-product, but never screenshot it for a store listing or README: it
+  looks like broken data.
+- Kanban card heads need explicit spacing. `<span name/><span badge/>` with no
+  `d-flex … gap-2` butts the badge against the name.
+- Bare counters (`3  6  0`) are unreadable. Give each an icon **and** a
+  `title` attribute.
+
+## Driving an external process against the test HTTP server
+
+Odoo's in-test server answers **400 "Request ignored during test as it does
+not contain the required cookie"** to anything without its test-cursor cookie.
+An external `git`, `curl` or CLI therefore cannot reach it — and a *negative*
+test will pass for the wrong reason, proving nothing.
+
+```python
+from odoo.tests.common import TEST_CURSOR_COOKIE_NAME
+
+with self.allow_requests():                       # mints a key, releases the lock
+    header = f'http.extraHeader=Cookie: {TEST_CURSOR_COOKIE_NAME}={self.http_request_key}'
+    subprocess.run(['git', '-c', header, 'clone', url, dest], ...)
+```
+
+Two more traps in the same tests:
+
+- The server starts refusing with **403** after a few `allow_requests()` round
+  trips in one test method. Verify late steps against the bare repo on disk
+  instead of a further HTTP call.
+- **The filesystem does not roll back with the transaction.** Point
+  `odoogit.repo_base_path` at a `tempfile.mkdtemp()` per test class and create
+  a fresh repository per test, or run N sees the commits run N-1 pushed.
+
+## Odoo Apps Store (learned by publishing this module)
+
+- Register the **SSH URI** with a `.git` suffix and the **series** as branch:
+  `ssh://git@github.com/DonsWayo/odoogit.git#19.0`. An `https://` URL is
+  rejected; `#main` does not map to a series. Keep that branch pushed or the
+  store serves stale code silently.
+- `static/description/index.html` is **not decoded as UTF-8**. A literal `—`
+  publishes as `â€`. Keep the file pure ASCII and use `&mdash;`. Check:
+  `python3 -c "s=open(F,encoding='utf-8').read(); print(sorted({c for c in s if ord(c)>127}) or 'ASCII')"`
+- `images` in the manifest: **first entry = thumbnail**, first entry whose name
+  ends `_screenshot` = the enlarged image, which Odoo intends for "a full demo
+  page and not your company logo larger". Put a real UI screenshot there, not
+  the banner. Paths live under `static/description/` (confirmed against
+  `odoo/design-themes` `theme_enark`).
+- `doc/index.rst` becomes the Documentation tab and must be pure valid RST.
+- The dashboard's `Scan` **checkbox** is `auto_scan` (a setting); the `Scan`
+  **link** is the trigger. A scan completes in about a minute.

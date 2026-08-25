@@ -59,15 +59,16 @@
                 <templates>
                     <t t-name="card">
                         <div class="oe_kanban_global_click o_kanban_git_repo_card">
-                            <div class="o_kanban_record_head">
-                                <span class="fw-bold" t-out="record.name.value"/>
-                                <span class="badge" t-att-class="record.visibility.raw_value == 'internal' ? 'bg-success' : 'bg-secondary'" t-out="record.visibility.value"/>
+                            <div class="o_kanban_record_head d-flex align-items-center justify-content-between gap-2">
+                                <span class="fw-bold text-truncate" t-out="record.name.value"/>
+                                <span class="badge flex-shrink-0" t-att-class="record.visibility.raw_value == 'internal' ? 'bg-success' : 'bg-secondary'" t-out="record.visibility.value"/>
                             </div>
-                            <div class="text-muted small" t-out="record.description.value"/>
-                            <div class="d-flex gap-2 mt-2 small text-muted">
-                                <span><i class="fa fa-code-branch"/> <t t-out="record.branch_count.value"/></span>
-                                <span><i class="fa fa-star"/> <t t-out="record.star_count.value"/></span>
-                                <span><i class="fa fa-git-pull-request"/> <t t-out="record.open_pr_count.value"/></span>
+                            <div class="text-muted small text-truncate" t-out="record.description.value"/>
+                            <div class="d-flex gap-3 mt-2 small text-muted">
+                                <span title="Branches"><i class="fa fa-code-fork me-1"/><t t-out="record.branch_count.value"/></span>
+                                <span title="Commits"><i class="fa fa-history me-1"/><t t-out="record.commit_count.value"/></span>
+                                <span title="Open pull requests"><i class="fa fa-share-alt me-1"/><t t-out="record.open_pr_count.value"/></span>
+                                <span title="Stars"><i class="fa fa-star me-1"/><t t-out="record.star_count.value"/></span>
                             </div>
                         </div>
                     </t>
@@ -90,13 +91,13 @@
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
-                        <button name="action_open_branches" type="object" class="oe_stat_button" icon="fa-code-branch">
+                        <button name="action_open_branches" type="object" class="oe_stat_button" icon="fa-code-fork">
                             <field name="branch_count" widget="statinfo" string="Branches"/>
                         </button>
                         <button name="action_open_commits" type="object" class="oe_stat_button" icon="fa-history">
                             <field name="commit_count" widget="statinfo" string="Commits"/>
                         </button>
-                        <button name="action_open_pull_requests" type="object" class="oe_stat_button" icon="fa-git-pull-request">
+                        <button name="action_open_pull_requests" type="object" class="oe_stat_button" icon="fa-share-alt">
                             <field name="open_pr_count" widget="statinfo" string="Pull Requests"/>
                         </button>
                     </div>

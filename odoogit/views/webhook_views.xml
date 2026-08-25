@@ -58,7 +58,7 @@
                         <div class="oe_kanban_global_click o_kanban_git_webhook_card">
                             <div class="d-flex justify-content-between align-items-start mb-2">
                                 <div class="d-flex align-items-center gap-2">
-                                    <i class="fa fa-webhook text-primary fs-4" role="img" aria-label="Webhook"/>
+                                    <i class="fa fa-plug text-primary fs-4" role="img" aria-label="Webhook"/>
                                     <span class="fw-bold" t-out="record.name.value"/>
                                 </div>
                                 <span class="badge" t-att-class="record.is_active.raw_value ? 'bg-success' : 'bg-secondary'" t-out="record.is_active.raw_value ? 'Active' : 'Inactive'"/>
@@ -68,9 +68,9 @@
                             </div>
                             <div class="d-flex gap-2 small text-muted mb-2">
                                 <span class="d-flex align-items-center gap-1" t-att-class="record.event_push.raw_value ? 'text-success' : 'text-muted'"><i class="fa fa-upload me-1" role="img" aria-label="Push"/> Push</span>
-                                <span class="d-flex align-items-center gap-1" t-att-class="record.event_pull_request.raw_value ? 'text-success' : 'text-muted'"><i class="fa fa-git-pull-request me-1" role="img" aria-label="PR"/> PR</span>
+                                <span class="d-flex align-items-center gap-1" t-att-class="record.event_pull_request.raw_value ? 'text-success' : 'text-muted'"><i class="fa fa-share-alt me-1" role="img" aria-label="PR"/> PR</span>
                                 <span class="d-flex align-items-center gap-1" t-att-class="record.event_pull_request_review.raw_value ? 'text-success' : 'text-muted'"><i class="fa fa-eye me-1" role="img" aria-label="Review"/> Review</span>
-                                <span class="d-flex align-items-center gap-1" t-att-class="record.event_branch.raw_value ? 'text-success' : 'text-muted'"><i class="fa fa-code-branch me-1" role="img" aria-label="Branch"/> Branch</span>
+                                <span class="d-flex align-items-center gap-1" t-att-class="record.event_branch.raw_value ? 'text-success' : 'text-muted'"><i class="fa fa-code-fork me-1" role="img" aria-label="Branch"/> Branch</span>
                                 <span class="d-flex align-items-center gap-1" t-att-class="record.event_tag.raw_value ? 'text-success' : 'text-muted'"><i class="fa fa-tag me-1" role="img" aria-label="Tag"/> Tag</span>
                             </div>
                             <div class="d-flex justify-content-between align-items-center small text-muted">

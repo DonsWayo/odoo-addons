@@ -8,6 +8,39 @@ Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
 
 ## [Unreleased]
 
+## [19.0.1.4.0] - 2026-08-25
+
+### Fixed
+
+- **Four icons rendered as blank space throughout the UI.** Odoo ships Font
+  Awesome 4.7; the views used the Font Awesome 5/6 names `fa-code-branch`,
+  `fa-git-pull-request`, `fa-commit` and `fa-webhook`, which produce an empty
+  `<i>` with no console error and no view-validation failure. Replaced with
+  `fa-code-fork`, `fa-share-alt`, `fa-history` and `fa-plug` across five view
+  files, each verified to resolve to a real glyph in the browser.
+- **The repository kanban card was unreadable.** The visibility badge butted
+  straight against the repository name, and the counter row was three
+  unlabelled digits - two of which had no icon because of the bug above. The
+  head is now a spaced flex row and the counters are four labelled figures
+  (branches, commits, open pull requests, stars).
+
+### Changed
+
+- Apps Store description rewritten from ~450 to ~890 words with a structure
+  benchmarked against the most-downloaded 19.0 module: why the module exists,
+  what it is, screenshots per capability, access model, an explicit "read this
+  before you install" section, and the test story. Seven screenshots, up from
+  three.
+- Added kanban and commit-history screenshots to the listing.
+
+### Added
+
+- `.agents/skills/odoo19-dev/SKILL.md` gains four sections of findings from
+  this round: the Font Awesome 4.7 trap with a browser snippet that reports
+  dead icon classes, list/kanban view defaults (`optional="hide"`,
+  `sample="1"`), how to drive an external process against Odoo's test HTTP
+  server, and the Apps Store rules learned by publishing.
+
 ### Added
 
 - `odoogit/doc/index.rst` — the Apps Store loads a module's documentation tab
@@ -280,7 +313,8 @@ First working release: repositories, branches, commits, pull requests with
 reviews and merge strategies, personal access tokens, deploy keys, webhooks,
 portal pages, and Git Smart HTTP transport.
 
-[Unreleased]: https://github.com/DonsWayo/odoogit/compare/v19.0.1.3.0...HEAD
+[Unreleased]: https://github.com/DonsWayo/odoogit/compare/v19.0.1.4.0...HEAD
+[19.0.1.4.0]: https://github.com/DonsWayo/odoogit/compare/v19.0.1.3.0...v19.0.1.4.0
 [19.0.1.3.0]: https://github.com/DonsWayo/odoogit/compare/v19.0.1.2.0...v19.0.1.3.0
 [19.0.1.2.0]: https://github.com/DonsWayo/odoogit/compare/v19.0.1.1.0...v19.0.1.2.0
 [19.0.1.1.0]: https://github.com/DonsWayo/odoogit/compare/v19.0.1.0.0...v19.0.1.1.0
