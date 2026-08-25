@@ -15,9 +15,9 @@ jobs:
     name: Static checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
@@ -43,6 +43,13 @@ jobs:
               ast.parse(open(f).read(), filename=f)
           print(f'PY OK ({len(files)} files)')
           "
+
+      - name: Lint (ruff)
+        # F821 (undefined name) would have caught the NameError that shipped
+        # in 19.0.1.0.0: `import os as _os` at the top, `os.makedirs(...)` in
+        # the body. That is why this is a gate, not advisory.
+        run: |
+          pipx run ruff check --config ruff.toml odoogit/ --output-format=github
 
       - name: Manifest is a valid literal and declares a version
         run: |
@@ -74,7 +81,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build image
         run: docker compose build odoo
@@ -128,7 +135,7 @@ jobs:
 
       - name: Upload logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: odoo-logs
           path: |

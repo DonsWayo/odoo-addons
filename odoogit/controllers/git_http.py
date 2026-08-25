@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
+import base64
+import logging
 import os
 import subprocess
-import logging
-import hashlib
-import base64
 
 from odoo import http
 from odoo.http import request
@@ -124,7 +122,7 @@ class GitHTTPController(http.Controller):
         })
         if env:
             cmd_env.update(env)
-        
+
         # Ensure git-daemon-export-ok exists (never crash the route on FS issues)
         try:
             export_ok = os.path.join(repo_path, 'git-daemon-export-ok')
@@ -133,10 +131,10 @@ class GitHTTPController(http.Controller):
                     f.write('')
         except OSError as e:
             _logger.error('Cannot write git-daemon-export-ok in %s: %s', repo_path, e)
-        
+
         full_cmd = ['git', '-c', 'http.receivepack=true'] + command
         _logger.debug(f"Running git command: {full_cmd}")
-        
+
         result = subprocess.run(
             full_cmd,
             cwd=repo_path,
@@ -156,7 +154,7 @@ class GitHTTPController(http.Controller):
             return self._auth_challenge_or_404(owner, repo)
 
         repo_path = self._get_repo_path(repository)
-        
+
         # Use git-http-backend for proper protocol handling
         result = self._run_git_command(
             repo_path,
@@ -177,13 +175,13 @@ class GitHTTPController(http.Controller):
 
         # Parse CGI response
         headers, body = self._parse_cgi_response(result.stdout)
-        
+
         response_headers = [
             ('Content-Type', headers.get('Content-Type', f'application/x-{service}-advertisement')),
             ('Cache-Control', 'no-cache'),
             ('Expires', 'Fri, 01 Jan 1980 00:00:00 GMT'),
         ]
-        
+
         return request.make_response(body, headers=response_headers)
 
     @http.route('/git/<string:owner>/<string:repo>.git/git-upload-pack', type='http', auth='public', methods=['POST'], csrf=False)
@@ -214,12 +212,12 @@ class GitHTTPController(http.Controller):
             return request.not_found()
 
         headers, body = self._parse_cgi_response(result.stdout)
-        
+
         response_headers = [
             ('Content-Type', headers.get('Content-Type', 'application/x-git-upload-pack-result')),
             ('Cache-Control', 'no-cache'),
         ]
-        
+
         return request.make_response(body, headers=response_headers)
 
     @http.route('/git/<string:owner>/<string:repo>.git/git-receive-pack', type='http', auth='public', methods=['POST'], csrf=False)
@@ -256,22 +254,22 @@ class GitHTTPController(http.Controller):
             _logger.error(f"receive-pack failed: {result.stderr.decode()}")
 
         headers, body = self._parse_cgi_response(result.stdout)
-        
+
         response_headers = [
             ('Content-Type', headers.get('Content-Type', 'application/x-git-receive-pack-result')),
             ('Cache-Control', 'no-cache'),
         ]
-        
+
         # Trigger post-receive webhooks
         self._trigger_post_receive_hooks(repository, auth_user)
-        
+
         return request.make_response(body, headers=response_headers)
 
     def _parse_cgi_response(self, output):
         """Parse CGI response into headers and body"""
         if not output:
             return {}, b''
-        
+
         # Headers may be separated from the body by CRLFCRLF or LFLF.
         separator = b'\r\n\r\n'
         header_end = output.find(separator)
@@ -289,7 +287,7 @@ class GitHTTPController(http.Controller):
             if b':' in line:
                 key, value = line.split(b':', 1)
                 headers[key.decode().strip()] = value.decode().strip()
-        
+
         return headers, body
 
     def _check_push_permission(self, repository, user):

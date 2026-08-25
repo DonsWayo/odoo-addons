@@ -22,25 +22,26 @@ unbumped module will not re-run its data files on `-u`.
 
 ## Before tagging
 
-Run all four. Do not tag on a red result.
+Run the gate. Do not tag on a red result.
 
 ```bash
-# 1. every XML file parses — a bad view is an install-time failure
-python3 -c "from xml.etree import ElementTree as ET; import glob; \
-[ET.parse(f) for f in glob.glob('odoogit/**/*.xml', recursive=True)]; print('XML OK')"
+make release-check
+```
 
-# 2. clean install into a fresh database, demo data included
-docker compose exec odoo odoo -d release_check -i odoogit --stop-after-init \
-  --db_host=postgres --db_user=odoo --db_password=odoo --workers=0
+That is: XML parse, ruff, a clean install into a throwaway database, the
+upgrade path on the populated one, the full suite, and the browser flows —
+dropping the throwaway database before the browser pass, because a second
+database makes Odoo serve `/web/database/selector` and every flow fails at
+"Password: element never appeared".
 
-# 3. upgrade path on a populated database
-docker compose exec odoo odoo -d odoo -u odoogit --stop-after-init \
-  --db_host=postgres --db_user=odoo --db_password=odoo --workers=0
+The individual steps, if you need them:
 
-# 4. the suite
-docker compose exec odoo odoo -d odoo --test-enable --test-tags /odoogit \
-  --stop-after-init --http-port=8070 \
-  --db_host=postgres --db_user=odoo --db_password=odoo --workers=0
+```bash
+make xml lint
+make install DB=release_check
+make upgrade
+make test
+make qa
 ```
 
 Expect `0 failed, 0 error(s)`, and no `Invalid field`, `Template not found` or

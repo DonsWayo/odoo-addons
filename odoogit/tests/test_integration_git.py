@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 """INTEGRATION tests — real git binary + HTTP layer against live Odoo."""
 import os
-import tempfile
 import shutil
+import tempfile
 
-from odoo.tests import tagged, HttpCase
+from odoo.tests import HttpCase, tagged
 
 from .common import OdooGitCommon
 
@@ -129,7 +128,9 @@ class TestGitHttpEndpoints(HttpCase):
 
     def test_webhook_signature_format(self):
         """Webhook payload signing uses HMAC-SHA256."""
-        import hmac, hashlib, json
+        import hashlib
+        import hmac
+        import json
         wh = self.env['git.webhook'].sudo().create({
             'name': 'wh', 'url': 'https://example.com/hook',
             'repository_id': self.repo.id})

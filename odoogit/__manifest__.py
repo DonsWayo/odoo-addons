@@ -1,7 +1,6 @@
-# -*- coding: utf-8 -*-
 {
     'name': 'OdooGit',
-    'version': '19.0.1.1.0',
+    'version': '19.0.1.2.0',
     'category': 'Tools/Development',
     'summary': 'OdooGit — private Git repository hosting with native Odoo integration',
     'description': """

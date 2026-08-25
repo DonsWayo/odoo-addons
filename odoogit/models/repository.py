@@ -1,11 +1,9 @@
-# -*- coding: utf-8 -*-
+import logging
 import os
 import re
-import secrets
-import logging
 
-from odoo import models, fields, api, _
-from odoo.exceptions import ValidationError, UserError
+from odoo import _, api, fields, models
+from odoo.exceptions import UserError, ValidationError
 
 _logger = logging.getLogger(__name__)
 
@@ -253,7 +251,7 @@ class GitRepository(models.Model):
         except Exception as e:
             _logger.error("Failed to init git repo at %s: %s", repo_path, e)
             raise UserError(
-                _("Failed to initialize Git repository: %s", e))
+                _("Failed to initialize Git repository: %s", e)) from e
         return True
 
     def _get_git_refs(self):
@@ -344,6 +342,7 @@ class GitRepository(models.Model):
         """Sync branches and commits from the on-disk git repo into Odoo."""
         self.ensure_one()
         import os
+
         import git as git_lib
         path = self._get_repo_path()
         if not os.path.isdir(path):
@@ -409,9 +408,8 @@ class GitRepository(models.Model):
             return True
         if self.group_ids & user.group_ids:
             return True
-        if operation == 'read' and self.visibility == 'internal' and not user.share:
-            return True
-        return False
+        return bool(operation == 'read' and self.visibility == 'internal'
+                    and not user.share)
 
     def _check_portal_access(self, user):
         """Check if user has portal access to repository"""
@@ -424,13 +422,9 @@ class GitRepository(models.Model):
             'write': False,
             'admin': False,
         }
-        if user.has_group('odoogit.group_git_manager'):
+        if user.has_group('odoogit.group_git_manager') or user == self.owner_id:
             perms = {'read': True, 'write': True, 'admin': True}
-        elif user == self.owner_id:
-            perms = {'read': True, 'write': True, 'admin': True}
-        elif user in self.member_ids:
-            perms = {'read': True, 'write': True, 'admin': False}
-        elif self.group_ids & user.group_ids:
+        elif user in self.member_ids or self.group_ids & user.group_ids:
             perms = {'read': True, 'write': True, 'admin': False}
         elif self.visibility == 'internal' and not user.share:
             perms = {'read': True, 'write': False, 'admin': False}
@@ -452,13 +446,23 @@ class GitRepository(models.Model):
         self.ensure_one()
         if not self.mirror_url:
             return False
-        url = (self.mirror_url or '').strip()
-        # Re-validate here, not only in the constraint: this runs from a cron
-        # against whatever is in the database, including rows written before
-        # the constraint existed or through raw SQL.
+        self._fetch_refs_from(self.mirror_url)
+        self.mirror_last_sync = fields.Datetime.now()
+        return True
+
+    def _fetch_refs_from(self, url):
+        """Fetch every branch from `url` into this repository's bare repo.
+
+        Shared by mirroring and one-shot import. The URL is re-validated
+        here and not only in the field constraint, because this runs against
+        whatever is in the database — including rows written before the
+        constraint existed, or through raw SQL.
+        """
+        self.ensure_one()
+        url = (url or '').strip()
         if not MIRROR_URL_RE.match(url):
             raise UserError(_(
-                "Refusing to fetch from an unsupported mirror URL: %(url)s",
+                "Refusing to fetch from an unsupported remote URL: %(url)s",
                 url=url))
         import git
         path = self._get_repo_path()
@@ -474,8 +478,6 @@ class GitRepository(models.Model):
         with repo.git.custom_environment(
                 GIT_ALLOW_PROTOCOL=MIRROR_ALLOWED_PROTOCOLS,
                 GIT_TERMINAL_PROMPT='0'):
-            repo.git.fetch('--prune', 'origin',
-                           '+refs/heads/*:refs/heads/*')
-        self.mirror_last_sync = fields.Datetime.now()
+            repo.git.fetch('--prune', 'origin', '+refs/heads/*:refs/heads/*')
         self._sync_from_git()
         return True

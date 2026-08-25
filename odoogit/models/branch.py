@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
-import os
 import logging
 
-from odoo import models, fields, api, _
-from odoo.exceptions import ValidationError, UserError
+from odoo import _, api, fields, models
+from odoo.exceptions import ValidationError
 
 _logger = logging.getLogger(__name__)
 
@@ -134,9 +132,7 @@ class GitBranch(models.Model):
             return True
         if user in self.restricted_push_user_ids:
             return True
-        if user.has_group('odoogit.group_git_manager'):
-            return True
-        return False
+        return user.has_group('odoogit.group_git_manager')
 
     def can_user_merge(self, user=None):
         """Check if user can merge to this branch"""
@@ -145,9 +141,7 @@ class GitBranch(models.Model):
             return True
         if user in self.restricted_merge_user_ids:
             return True
-        if user.has_group('odoogit.group_git_manager'):
-            return True
-        return False
+        return user.has_group('odoogit.group_git_manager')
 
     @api.constrains('name', 'repository_id')
     def _check_branch_unique(self):

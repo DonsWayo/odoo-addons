@@ -1,8 +1,7 @@
-# -*- coding: utf-8 -*-
 """E2E tests — full browser tours through the real web client."""
 import itertools
 
-from odoo.tests import tagged, HttpCase
+from odoo.tests import HttpCase, tagged
 
 _e2e_counter = itertools.count(1)
 

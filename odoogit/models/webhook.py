@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
-import json
-import hmac
 import hashlib
+import hmac
+import json
 import secrets
 
-from odoo import models, fields, api, _
+from odoo import _, fields, models
 from odoo.exceptions import UserError
 
 

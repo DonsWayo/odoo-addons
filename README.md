@@ -14,7 +14,8 @@
   <a href="https://github.com/DonsWayo/odoogit/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/DonsWayo/odoogit"></a>
   <a href="LICENSE"><img alt="License: LGPL-3.0" src="https://img.shields.io/badge/license-LGPL--3.0-blue"></a>
   <img alt="Odoo 19.0" src="https://img.shields.io/badge/odoo-19.0-714B67">
-  <img alt="105 tests" src="https://img.shields.io/badge/tests-105%20passing-brightgreen">
+  <img alt="115 tests" src="https://img.shields.io/badge/tests-115%20passing-brightgreen">
+  <img alt="PostgreSQL 18" src="https://img.shields.io/badge/postgres-18-336791">
 </p>
 
 <p align="center">
@@ -57,16 +58,17 @@ Not included: issues, wiki, labels, forks, SSH, file browser UI.
 ```bash
 git clone https://github.com/DonsWayo/odoogit.git
 cd odoogit
-docker compose build && docker compose up -d
-docker compose exec odoo odoo -d odoo -i odoogit --stop-after-init \
-  --db_host=postgres --db_user=odoo --db_password=odoo --workers=0
+make build up install
 ```
 
-Log in at http://localhost:8069 — `admin` / `admin`.
+Log in at http://localhost:8069 — `admin` / `admin`. `make help` lists every
+target; `make versions` prints what is actually running.
 
-The module source is baked into the image, so **code changes need
-`docker compose build odoo && docker compose up -d --force-recreate odoo`**.
-To iterate without rebuilding, enable the bind mount:
+Stack: Odoo 19 · PostgreSQL 18 · GitPython 3.1.59.
+
+The module source is baked into the image, so code changes need
+`make upgrade` (rebuild + recreate + upgrade). To iterate without rebuilding,
+enable the bind mount:
 
 ```bash
 cp docker-compose.override.yml.example docker-compose.override.yml
@@ -119,13 +121,11 @@ owning user, and that user's access to the repository is what gets checked.
 ## Testing
 
 ```bash
-# 105 Python tests: unit, integration against a real git binary, HTTP, regression
-docker compose exec odoo odoo -d odoo --test-enable --test-tags /odoogit \
-  --stop-after-init --http-port=8070 \
-  --db_host=postgres --db_user=odoo --db_password=odoo --workers=0
-
-# browser QA: 6 deterministic YAML flows (needs the stack up)
-python3 qa/run.py
+make check          # xml + lint + upgrade + tests — what CI runs
+make test           # 115 tests: unit, real-git integration, HTTP, regression
+make test-one T=TestJsonApi
+make qa             # 6 deterministic browser flows
+make release-check  # the full pre-tag gate, including a clean install
 ```
 
 `odoogit/tests/test_regressions.py` holds one test per defect found in the

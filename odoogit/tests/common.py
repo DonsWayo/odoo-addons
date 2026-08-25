@@ -1,10 +1,8 @@
-# -*- coding: utf-8 -*-
 """Shared helpers for odoogit test suite."""
-import subprocess
 import itertools
+import subprocess
 
 from odoo.tests import TransactionCase
-
 
 _counter = itertools.count(1)
 
@@ -17,7 +15,7 @@ class OdooGitCommon(TransactionCase):
         self.User = self.env['res.users']
         self.Repo = self.env['git.repository']
         self.Branch = self.env['git.branch']
-        self.Commit = env_commit = self.env['git.commit']
+        self.Commit = self.env['git.commit']
         try:
             self.PR = self.env['git.pull_request']
         except KeyError:

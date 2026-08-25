@@ -1,0 +1,39 @@
+# Lint config for the odoogit addon.
+#
+# Ruff's F821 (undefined name) would have caught the NameError that shipped
+# in 19.0.1.0.0 — `import os as _os` at the top, `os.makedirs(...)` in the
+# body — before it ever reached a database. That is why lint is a CI gate.
+
+line-length = 100
+target-version = "py312"
+
+[lint]
+select = [
+    "F",    # pyflakes — undefined names, unused imports, f-string bugs
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "I",    # import ordering
+    "UP",   # pyupgrade
+    "B",    # bugbear — mutable defaults, loop-variable capture
+    "C4",   # comprehensions
+    "SIM",  # simplifications
+]
+
+ignore = [
+    "E501",    # line length: reported by W505 style rules we do not enable
+    "B008",    # Odoo field definitions are function calls in class bodies
+    "SIM105",  # contextlib.suppress reads worse than try/except in Odoo code
+    "SIM102",  # nested ifs: each branch here is a separate access rule
+    "SIM117",  # nested with: assertRaises around a savepoint is intentional
+]
+
+[lint.per-file-ignores]
+# The manifest is a bare dict literal; that is the file format.
+"**/__manifest__.py" = ["B018"]
+# Odoo's __init__.py files exist to import submodules for the registry.
+"**/__init__.py" = ["F401"]
+# Tests read more clearly with explicit setup than with fixtures.
+"**/tests/*.py" = ["B011"]
+
+[lint.isort]
+known-first-party = ["odoo"]

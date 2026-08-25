@@ -8,6 +8,52 @@ Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
 
 ## [Unreleased]
 
+## [19.0.1.2.0] — 2026-08-25
+
+### Added
+
+- **Repository import actually imports.** `git.import.wizard` had a required
+  `source_url` that nothing read: it created an empty record and told the user
+  import "is not yet implemented". It now initialises the bare repo and
+  fetches the source's branches through a new
+  `git.repository._fetch_refs_from()`, shared with mirroring so the import
+  path gets the same URL allowlist — `ext::` is a shell command to git, and
+  `file://` a local path.
+- `Makefile` with the full task set (`make help`). The documented commands
+  were 120-character `docker compose exec` invocations repeated in four files;
+  they are now `make install`, `make test`, `make check`, `make qa`,
+  `make release-check`, `make versions`.
+- Ruff lint, wired into CI as a gate rather than advice. F821 (undefined name)
+  would have caught the `NameError` that shipped in 19.0.1.0.0.
+- `.editorconfig`.
+
+### Changed
+
+- **PostgreSQL 16 → 18.** Verified, not assumed: clean install, upgrade path,
+  115 tests and the browser flows all pass on 18.6. PostgreSQL 18 also
+  relocated its recommended mount point, so the compose volume moved from
+  `/var/lib/postgresql/data` to `/var/lib/postgresql`.
+  **This needs a fresh volume — run `make clean` before `make up`**, or
+  Postgres refuses to start on a version-16 data directory.
+- GitPython 3.1.44 → 3.1.59.
+- GitHub Actions bumped to `checkout@v7`, `setup-python@v7`,
+  `upload-artifact@v7`.
+- `zip()` over record ids and freshly generated secrets is now `strict=True`.
+  A length mismatch there would have silently handed somebody another user's
+  token instead of raising.
+
+### Removed
+
+- `websocket-client` from the image: nothing in the module imported it. It was
+  left over from the `bus` dependency dropped in 19.0.1.1.0.
+- Nine unused imports, two unused locals, and the redundant
+  `# -*- coding: utf-8 -*-` lines (Python 3 is UTF-8 by default).
+
+### Fixed
+
+- `_init_git_repo()` re-raises with `from e`, so the original OSError survives
+  in the traceback instead of being masked by the `UserError`.
+
 ## [19.0.1.1.0] — 2026-08-25
 
 Audit release. Full findings and evidence in
@@ -154,6 +200,7 @@ First working release: repositories, branches, commits, pull requests with
 reviews and merge strategies, personal access tokens, deploy keys, webhooks,
 portal pages, and Git Smart HTTP transport.
 
-[Unreleased]: https://github.com/DonsWayo/odoogit/compare/v19.0.1.1.0...HEAD
+[Unreleased]: https://github.com/DonsWayo/odoogit/compare/v19.0.1.2.0...HEAD
+[19.0.1.2.0]: https://github.com/DonsWayo/odoogit/compare/v19.0.1.1.0...v19.0.1.2.0
 [19.0.1.1.0]: https://github.com/DonsWayo/odoogit/compare/v19.0.1.0.0...v19.0.1.1.0
 [19.0.1.0.0]: https://github.com/DonsWayo/odoogit/releases/tag/v19.0.1.0.0

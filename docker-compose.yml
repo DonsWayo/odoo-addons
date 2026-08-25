@@ -1,12 +1,14 @@
 services:
   postgres:
-    image: postgres:16
+    image: postgres:18
     environment:
       POSTGRES_DB: odoo
       POSTGRES_USER: odoo
       POSTGRES_PASSWORD: odoo
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # PG18+ wants a single mount at /var/lib/postgresql; it places the
+      # data directory in a subdirectory so pg_upgrade --link can work.
+      - postgres_data:/var/lib/postgresql
     ports:
       - "5432:5432"
     healthcheck:

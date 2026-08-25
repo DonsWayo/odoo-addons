@@ -18,14 +18,15 @@ has already broken this repo:
 ## Commands
 
 ```bash
-docker compose build odoo && docker compose up -d          # rebuild stack
-docker compose exec odoo odoo -d odoo -i odoogit --stop-after-init \
-  --db_host=postgres --db_user=odoo --db_password=odoo --workers=0   # install (-u to upgrade)
-python3 qa/run.py                                          # browser QA (must stay green)
-docker compose exec odoo odoo -d odoo --test-enable --test-tags /odoogit \
-  --stop-after-init --http-port=8070 --db_host=postgres --db_user=odoo \
-  --db_password=odoo --workers=0                           # tests (105)
+make build up install   # first run
+make check              # xml + lint + upgrade + tests — do this before pushing
+make test               # tests (115)
+make qa                 # browser QA (must stay green)
+make help               # everything else
 ```
+
+`make lint` is a gate, not advice: ruff's F821 would have caught the
+`NameError` that shipped in 19.0.1.0.0.
 
 Login: http://localhost:8069 — admin/admin.
 

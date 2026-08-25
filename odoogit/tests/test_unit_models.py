@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """UNIT tests — pure model logic. No HTTP, no filesystem git."""
 import hashlib
 from datetime import date, timedelta

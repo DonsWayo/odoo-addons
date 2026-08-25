@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
 import hashlib
 import hmac
 import secrets
 
-from odoo import models, fields, api, _
+from odoo import _, api, fields, models
 
 
 class GitDeployKey(models.Model):
@@ -49,7 +48,7 @@ class GitDeployKey(models.Model):
             raw_tokens.append(raw_token)
         records = super().create(vals_list)
         return records.with_context(
-            git_fresh_tokens=tuple(zip(records.ids, raw_tokens)))
+            git_fresh_tokens=tuple(zip(records.ids, raw_tokens, strict=True)))
 
     def _verify_token(self, raw_token):
         """Constant-time comparison against the stored hash."""

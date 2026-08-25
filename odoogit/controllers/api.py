@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """JSON-RPC API for OdooGit.
 
 All routes are `type='jsonrpc'` (Odoo 19 renamed `type='json'`), which means

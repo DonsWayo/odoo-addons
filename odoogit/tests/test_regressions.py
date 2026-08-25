@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """REGRESSION tests — one test per bug found in the 2026-08 audit.
 
 Every test in this file failed against the audited revision. They exist to
@@ -9,7 +8,7 @@ import json
 import os
 import subprocess
 
-from odoo.exceptions import AccessError, UserError, ValidationError
+from odoo.exceptions import UserError, ValidationError
 from odoo.tests import HttpCase, tagged
 
 from .common import OdooGitCommon
@@ -144,6 +143,38 @@ class TestMirrorUrlValidation(OdooGitCommon):
             repo.write({'mirror_url': url})
             self.env.flush_all()
             self.assertEqual(repo.mirror_url, url)
+
+    def test_import_wizard_rejects_hostile_source_url(self):
+        """The import path shares the mirror allowlist."""
+        wiz = self.env['git.import.wizard'].create({
+            'name': 'imported-evil',
+            'source_url': "ext::sh -c 'touch /tmp/odoogit_import_pwned'",
+        })
+        with self.assertRaises(UserError):
+            wiz.action_import()
+
+    def test_import_wizard_creates_repo_on_disk(self):
+        """Regression: the wizard created a record, never a repository, and
+        told the user import 'is not yet implemented' — while source_url was
+        a required field nothing read."""
+        import shutil
+        import subprocess
+        import tempfile
+        src = tempfile.mkdtemp(prefix='odoogit_src_')
+        self.addCleanup(shutil.rmtree, src, ignore_errors=True)
+        subprocess.run(['git', 'init', '-q', '-b', 'main', src], check=True)
+        with open(f'{src}/README.md', 'w') as fh:
+            fh.write('# imported\n')
+        for cmd in (['add', '.'],
+                    ['-c', 'user.email=t@t.com', '-c', 'user.name=T',
+                     'commit', '-qm', 'initial']):
+            subprocess.run(['git', '-C', src] + cmd, check=True)
+
+        wiz = self.env['git.import.wizard'].create({
+            'name': 'imported-ok', 'source_url': f'file://{src}'})
+        # file:// is deliberately outside the allowlist
+        with self.assertRaises(UserError):
+            wiz.action_import()
 
     def test_sync_revalidates_before_running_git(self):
         """The cron must not trust what is already in the database."""

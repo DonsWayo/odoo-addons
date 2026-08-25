@@ -17,9 +17,7 @@ ignoring them costs a rebuild cycle per mistake.
 ```bash
 git clone https://github.com/DonsWayo/odoogit.git
 cd odoogit
-docker compose build && docker compose up -d
-docker compose exec odoo odoo -d odoo -i odoogit --stop-after-init \
-  --db_host=postgres --db_user=odoo --db_password=odoo --workers=0
+make build up install
 ```
 
 The module is baked into the image, so code changes normally need a rebuild.
@@ -41,22 +39,16 @@ docker compose exec odoo ls /mnt/extra-addons/odoogit
 ## The loop
 
 ```bash
-# 1. XML must parse before you build — a bad view fails the install
-python3 -c "from xml.etree import ElementTree as ET; import glob; \
-[ET.parse(f) for f in glob.glob('odoogit/**/*.xml', recursive=True)]; print('XML OK')"
-
-# 2. upgrade
-docker compose exec odoo odoo -d odoo -u odoogit --stop-after-init \
-  --db_host=postgres --db_user=odoo --db_password=odoo --workers=0
-
-# 3. tests
-docker compose exec odoo odoo -d odoo --test-enable --test-tags /odoogit \
-  --stop-after-init --http-port=8070 \
-  --db_host=postgres --db_user=odoo --db_password=odoo --workers=0
-
-# 4. browser QA, if you touched a view or template
-python3 qa/run.py
+make check     # xml parse + ruff + upgrade + tests. Run this before pushing.
+make qa        # browser flows, if you touched a view or template
 ```
+
+Individually: `make xml`, `make lint`, `make fmt`, `make upgrade`,
+`make test`, `make test-one T=TestJsonApi`. `make help` lists everything.
+
+`make lint` is a gate. Ruff's F821 (undefined name) would have caught the
+`NameError` that shipped in 19.0.1.0.0 — `import os as _os` at the top,
+`os.makedirs(...)` in the body — before it reached a database.
 
 ### Read the install log, not just the test result
 
