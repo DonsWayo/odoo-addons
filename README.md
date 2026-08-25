@@ -160,4 +160,5 @@ not public issues. See [SECURITY.md](SECURITY.md) — **if you ever ran
 
 ## License
 
-[LGPL-3](LICENSE), same as Odoo.
+[LGPL-3](LICENSE), same as Odoo. Copyright © 2026 Juan Jose Carracedo — see
+[NOTICE](NOTICE).
