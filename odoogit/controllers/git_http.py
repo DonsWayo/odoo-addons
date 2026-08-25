@@ -59,34 +59,61 @@ class GitHTTPController(http.Controller):
         # Check access via Authorization header (PAT or Deploy Key)
         auth_header = request.httprequest.headers.get('Authorization')
         if auth_header:
+            secret = None
             if auth_header.startswith('Bearer '):
-                token = auth_header[7:]
-                pat = request.env['git.personal_access_token'].sudo().find_by_token(token)
-                if pat and (not pat.repository_ids or repository in pat.repository_ids):
-                    if operation == 'read' or pat.scopes == 'write':
-                        return repository, pat.user_id
+                secret = auth_header[7:]
             elif auth_header.startswith('Basic '):
                 try:
-                    credentials = base64.b64decode(auth_header[6:]).decode('utf-8')
+                    credentials = base64.b64decode(
+                        auth_header[6:]).decode('utf-8')
                     if ':' in credentials:
-                        _, password = credentials.split(':', 1)
-                        pat = request.env['git.personal_access_token'].sudo().find_by_token(password)
-                        if pat and (not pat.repository_ids or repository in pat.repository_ids):
-                            if operation == 'read' or pat.scopes == 'write':
-                                return repository, pat.user_id
-                        deploy_key = request.env['git.deploy_key'].sudo().find_by_token(password)
-                        if deploy_key and deploy_key.repository_id == repository:
-                            if operation == 'read' or deploy_key.can_push:
-                                # deploy keys are not user-bound; act as repo owner
-                                return repository, repository.owner_id
+                        _username, secret = credentials.split(':', 1)
                 except Exception:
-                    pass
+                    secret = None
+            if secret:
+                identity = self._identity_for_token(
+                    repository, secret, operation)
+                if identity:
+                    return repository, identity
 
         # Check session user access
         if repository._check_repo_access(request.env.user, operation):
             return repository, request.env.user
 
         return None, None
+
+    def _identity_for_token(self, repository, secret, operation):
+        """Resolve a PAT / deploy-key secret to the user it authorises.
+
+        A token never grants more than its owner already has. Before this
+        check, any valid PAT unlocked any repository: the token was looked up
+        globally and `repository_ids` — documented as "empty = all accessible
+        repositories" — was implemented as "empty = all repositories".
+
+        Returns a res.users record, or None when the secret does not
+        authorise `operation` on `repository`.
+        """
+        pat = request.env['git.personal_access_token'].sudo().find_by_token(
+            secret)
+        if pat:
+            scoped = not pat.repository_ids or repository in pat.repository_ids
+            allowed_scope = operation == 'read' or pat.scopes == 'write'
+            # the decisive check: what may the token's OWNER do here?
+            owner_may = repository._check_repo_access(pat.user_id, operation)
+            if scoped and allowed_scope and owner_may:
+                return pat.user_id
+            _logger.info(
+                "PAT %s of %s refused for %s on %s/%s",
+                pat.id, pat.user_id.login, operation,
+                repository.owner_id.login, repository.name)
+            return None
+
+        deploy_key = request.env['git.deploy_key'].sudo().find_by_token(secret)
+        if deploy_key and deploy_key.repository_id == repository:
+            if operation == 'read' or deploy_key.can_push:
+                # deploy keys are bound to one repository, not to a user
+                return repository.owner_id
+        return None
 
     def _run_git_command(self, repo_path, command, input_data=None, env=None):
         """Run git command with proper environment"""
@@ -203,7 +230,7 @@ class GitHTTPController(http.Controller):
             return self._auth_challenge_or_404(owner, repo)
 
         # Check write access / branch protection before processing
-        if not self._check_branch_protection(repository, auth_user):
+        if not self._check_push_permission(repository, auth_user):
             return request.make_response(
                 b'Access denied: push not permitted on this repository\n',
                 status=403,
@@ -245,28 +272,35 @@ class GitHTTPController(http.Controller):
         if not output:
             return {}, b''
         
-        # Find end of headers
-        header_end = output.find(b'\r\n\r\n')
+        # Headers may be separated from the body by CRLFCRLF or LFLF.
+        separator = b'\r\n\r\n'
+        header_end = output.find(separator)
         if header_end == -1:
-            header_end = output.find(b'\n\n')
+            separator = b'\n\n'
+            header_end = output.find(separator)
             if header_end == -1:
                 return {}, output
-        
+
         header_data = output[:header_end]
-        body = output[header_end + 4:]  # skip \r\n\r\n
-        
+        body = output[header_end + len(separator):]
+
         headers = {}
-        for line in header_data.split(b'\r\n'):
+        for line in header_data.replace(b'\r\n', b'\n').split(b'\n'):
             if b':' in line:
                 key, value = line.split(b':', 1)
                 headers[key.decode().strip()] = value.decode().strip()
         
         return headers, body
 
-    def _check_branch_protection(self, repository, user):
-        """Check if push is allowed based on branch protection rules"""
-        # The actual protection is enforced via git pre-receive hook
-        # Here we just do a basic check
+    def _check_push_permission(self, repository, user):
+        """Repository-level write check for git-receive-pack.
+
+        Per-branch protection (git.branch.is_protected,
+        restricted_push_user_ids) is NOT enforced here: deciding it requires
+        parsing the ref updates out of the pack, which this controller does
+        not do. Those rules currently apply to merges performed through the
+        Odoo UI only. See docs/LIMITATIONS.md.
+        """
         return repository._check_repo_access(user, 'write')
 
     def _trigger_post_receive_hooks(self, repository, user):
@@ -274,6 +308,10 @@ class GitHTTPController(http.Controller):
         try:
             # Sync branches + commits from the bare repo into Odoo
             repository.sudo()._sync_from_git()
+
+            # Report the repository's current default ref rather than a
+            # hardcoded refs/heads/main.
+            ref = f'refs/heads/{repository.default_branch or "main"}'
 
             # Trigger webhooks
             for webhook in repository.webhook_ids.filtered(lambda w: w.is_active and w.event_push):
@@ -287,7 +325,7 @@ class GitHTTPController(http.Controller):
                         'name': user.name,
                         'email': user.email,
                     },
-                    'ref': 'refs/heads/main',  # Simplified
+                    'ref': ref,
                 })
         except Exception as e:
             _logger.error(f"Post-receive hook failed: {e}")

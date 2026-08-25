@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-import secrets
 import hashlib
+import hmac
+import secrets
 
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
@@ -14,9 +15,12 @@ class GitPersonalAccessToken(models.Model):
     name = fields.Char(required=True, help="Token identifier (e.g., 'CI token', 'Laptop token')")
     token = fields.Char(
         string='Token',
+        compute='_compute_token',
         readonly=True,
         copy=False,
-        help="The actual token (shown only once on creation)"
+        help="The generated token. Not stored: it is readable only on the "
+             "recordset returned by create()/action_regenerate(), which is "
+             "what the form view renders once."
     )
     token_hash = fields.Char(
         string='Token Hash',
@@ -42,18 +46,39 @@ class GitPersonalAccessToken(models.Model):
     expires_at = fields.Date()
     is_active = fields.Boolean(default=True)
 
+    @api.depends_context('git_fresh_tokens')
+    def _compute_token(self):
+        """Surface the raw token only for the request that generated it.
+
+        The secret lives in the context of the recordset returned by create()
+        or action_regenerate() and is never written to a database column, so
+        it cannot be recovered later — by an admin, a backup, or an attacker
+        with read access to the table.
+        """
+        # tuple of (id, secret) pairs — context values are hashed into the
+        # field cache key, so a dict here raises TypeError on every read
+        fresh = dict(self.env.context.get('git_fresh_tokens') or ())
+        for rec in self:
+            rec.token = fresh.get(rec.id) or False
+
     @api.model_create_multi
     def create(self, vals_list):
+        raw_tokens = []
         for vals in vals_list:
-            if not vals.get('token'):
-                raw_token = secrets.token_urlsafe(32)
-                vals['token'] = raw_token
-                vals['token_hash'] = hashlib.sha256(raw_token.encode()).hexdigest()
-        return super().create(vals_list)
+            raw_token = vals.pop('token', None) or secrets.token_urlsafe(32)
+            vals['token_hash'] = hashlib.sha256(raw_token.encode()).hexdigest()
+            raw_tokens.append(raw_token)
+        records = super().create(vals_list)
+        return records.with_context(
+            git_fresh_tokens=tuple(zip(records.ids, raw_tokens)))
 
     def _verify_token(self, raw_token):
-        """Verify a raw token against stored hash"""
-        return self.token_hash == hashlib.sha256(raw_token.encode()).hexdigest()
+        """Constant-time comparison of a raw token against the stored hash."""
+        self.ensure_one()
+        if not self.token_hash:
+            return False
+        return hmac.compare_digest(
+            self.token_hash, hashlib.sha256(raw_token.encode()).hexdigest())
 
     @api.model
     def find_by_token(self, raw_token):
@@ -69,9 +94,9 @@ class GitPersonalAccessToken(models.Model):
         self.write({'is_active': False})
 
     def action_regenerate(self):
+        self.ensure_one()
         raw_token = secrets.token_urlsafe(32)
         self.write({
-            'token': raw_token,
             'token_hash': hashlib.sha256(raw_token.encode()).hexdigest(),
             'last_used': False,
         })

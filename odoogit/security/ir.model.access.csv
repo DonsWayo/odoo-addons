@@ -14,3 +14,10 @@ access_git_webhook_manager,Git Webhook Manager,model_git_webhook,odoogit.group_g
 access_git_pr_file_user,Git PR File User,model_git_pr_file,base.group_user,1,0,0,0
 access_git_pr_review_user,Git PR Review User,model_git_pr_review,base.group_user,1,1,1,0
 access_git_webhook_delivery_user,Git Webhook Delivery User,model_git_webhook_delivery,base.group_user,1,0,0,0
+access_git_pr_file_manager,Git PR File Manager,model_git_pr_file,odoogit.group_git_manager,1,1,1,1
+access_git_pr_review_manager,Git PR Review Manager,model_git_pr_review,odoogit.group_git_manager,1,1,1,1
+access_git_webhook_delivery_manager,Git Webhook Delivery Manager,model_git_webhook_delivery,odoogit.group_git_manager,1,1,1,1
+access_git_clone_wizard,Git Clone Wizard,model_git_clone_wizard,base.group_user,1,1,1,1
+access_git_import_wizard,Git Import Wizard,model_git_import_wizard,base.group_user,1,1,1,1
+access_git_mirror_wizard,Git Mirror Wizard,model_git_mirror_wizard,odoogit.group_git_manager,1,1,1,1
+access_git_release_wizard,Git Release Wizard,model_git_release_wizard,base.group_user,1,1,1,1

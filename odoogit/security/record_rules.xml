@@ -9,7 +9,7 @@
                 ('owner_id', '=', user.id),
                 ('member_ids', 'in', [user.id]),
                 ('group_ids', 'in', user.group_ids.ids),
-                '&amp;', ('visibility', '=', 'internal'), ('create_uid.share', '=', False)
+                ('visibility', '=', 'internal')
             ]
         </field>
         <field name="perm_read" eval="1"/>
@@ -22,7 +22,6 @@
     <record id="git_repo_rule_manager" model="ir.rule">
         <field name="name">Git Repository: Manager Access</field>
         <field name="model_id" ref="model_git_repository"/>
-        <field name="global" eval="True"/>
         <field name="groups" eval="[(4, ref('odoogit.group_git_manager'))]"/>
         <field name="domain_force">[(1, '=', 1)]</field>
     </record>
@@ -87,7 +86,7 @@
                 ('repository_id.member_ids', 'in', [user.id])
             ]
         </field>
-        <field name="groups" eval="[(4, ref('odoogit.group_git_manager'))]"/>
+        <field name="groups" eval="[(4, ref('odoogit.group_git_user'))]"/>
     </record>
 
     <!-- Webhook: Repo members with write access -->
@@ -100,28 +99,97 @@
                 ('repository_id.member_ids', 'in', [user.id])
             ]
         </field>
+        <field name="groups" eval="[(4, ref('odoogit.group_git_user'))]"/>
+    </record>
+
+    <!-- Sub-records of a pull request follow the repository's visibility.
+         Without these, any employee could read every review body, every
+         changed-file patch, and every webhook delivery payload. -->
+    <record id="git_pr_file_rule_user" model="ir.rule">
+        <field name="groups" eval="[(4, ref('odoogit.group_git_user'))]"/>
+        <field name="name">Git PR File: Repo Access</field>
+        <field name="model_id" ref="model_git_pr_file"/>
+        <field name="domain_force">
+            ['|', '|',
+                ('pull_request_id.repository_id.owner_id', '=', user.id),
+                ('pull_request_id.repository_id.member_ids', 'in', [user.id]),
+                ('pull_request_id.repository_id.group_ids', 'in', user.group_ids.ids)
+            ]
+        </field>
+    </record>
+
+    <record id="git_pr_review_rule_user" model="ir.rule">
+        <field name="groups" eval="[(4, ref('odoogit.group_git_user'))]"/>
+        <field name="name">Git PR Review: Repo Access</field>
+        <field name="model_id" ref="model_git_pr_review"/>
+        <field name="domain_force">
+            ['|', '|',
+                ('pull_request_id.repository_id.owner_id', '=', user.id),
+                ('pull_request_id.repository_id.member_ids', 'in', [user.id]),
+                ('pull_request_id.repository_id.group_ids', 'in', user.group_ids.ids)
+            ]
+        </field>
+    </record>
+
+    <record id="git_webhook_delivery_rule_user" model="ir.rule">
+        <field name="groups" eval="[(4, ref('odoogit.group_git_user'))]"/>
+        <field name="name">Git Webhook Delivery: Repo Access</field>
+        <field name="model_id" ref="model_git_webhook_delivery"/>
+        <field name="domain_force">
+            ['|',
+                ('webhook_id.repository_id.owner_id', '=', user.id),
+                ('webhook_id.repository_id.member_ids', 'in', [user.id])
+            ]
+        </field>
+    </record>
+
+    <record id="git_deploy_key_rule_manager" model="ir.rule">
+        <field name="name">Git Deploy Key: Manager Access</field>
+        <field name="model_id" ref="model_git_deploy_key"/>
         <field name="groups" eval="[(4, ref('odoogit.group_git_manager'))]"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
+    <record id="git_webhook_rule_manager" model="ir.rule">
+        <field name="name">Git Webhook: Manager Access</field>
+        <field name="model_id" ref="model_git_webhook"/>
+        <field name="groups" eval="[(4, ref('odoogit.group_git_manager'))]"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
+    <record id="git_pr_file_rule_manager" model="ir.rule">
+        <field name="name">Git PR File: Manager Access</field>
+        <field name="model_id" ref="model_git_pr_file"/>
+        <field name="groups" eval="[(4, ref('odoogit.group_git_manager'))]"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
+    <record id="git_pr_review_rule_manager" model="ir.rule">
+        <field name="name">Git PR Review: Manager Access</field>
+        <field name="model_id" ref="model_git_pr_review"/>
+        <field name="groups" eval="[(4, ref('odoogit.group_git_manager'))]"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
+    <record id="git_webhook_delivery_rule_manager" model="ir.rule">
+        <field name="name">Git Webhook Delivery: Manager Access</field>
+        <field name="model_id" ref="model_git_webhook_delivery"/>
+        <field name="groups" eval="[(4, ref('odoogit.group_git_manager'))]"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
     </record>
 
     <!-- Managers see everything (per-model bypass of the global user rules) -->
     <record id="git_branch_rule_manager" model="ir.rule">
         <field name="name">Git Branch: Manager Access</field>
         <field name="model_id" ref="model_git_branch"/>
-        <field name="global" eval="True"/>
         <field name="groups" eval="[(4, ref('odoogit.group_git_manager'))]"/>
         <field name="domain_force">[(1, '=', 1)]</field>
     </record>
     <record id="git_commit_rule_manager" model="ir.rule">
         <field name="name">Git Commit: Manager Access</field>
         <field name="model_id" ref="model_git_commit"/>
-        <field name="global" eval="True"/>
         <field name="groups" eval="[(4, ref('odoogit.group_git_manager'))]"/>
         <field name="domain_force">[(1, '=', 1)]</field>
     </record>
     <record id="git_pr_rule_manager" model="ir.rule">
         <field name="name">Git Pull Request: Manager Access</field>
         <field name="model_id" ref="model_git_pull_request"/>
-        <field name="global" eval="True"/>
         <field name="groups" eval="[(4, ref('odoogit.group_git_manager'))]"/>
         <field name="domain_force">[(1, '=', 1)]</field>
     </record>
