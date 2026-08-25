@@ -73,13 +73,18 @@ never appeared". That is the extra database, not a regression.
 4. Tag and push, **including the series branch**:
 
    ```bash
-   git tag -a v19.0.x.y.z -m "OdooGit 19.0.x.y.z"
+   git tag -a odoogit-v19.0.x.y.z -m "OdooGit 19.0.x.y.z"
    git push origin main --follow-tags
    git branch -f 19.0 main && git push origin 19.0
    ```
 
+   Tags are prefixed with the module name because this repository holds more
+   than one addon and each versions independently. Tags cut before the
+   rename (`v19.0.1.0.0` … `v19.0.1.4.0`) predate the convention and stay as
+   they are.
+
    `19.0` is the branch registered with the Odoo Apps Store
-   (`ssh://git@github.com/DonsWayo/odoogit.git#19.0`), because Odoo requires
+   (`ssh://git@github.com/DonsWayo/odoo-addons.git#19.0`), because Odoo requires
    the branch name to match the series. Forget this and the store keeps
    serving the previous release, with nothing to tell you it has gone stale.
 

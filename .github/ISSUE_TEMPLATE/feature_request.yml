@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Several features are deliberately unimplemented and already have a
-        rationale in [docs/LIMITATIONS.md](https://github.com/DonsWayo/odoogit/blob/main/docs/LIMITATIONS.md)
+        rationale in [docs/LIMITATIONS.md](https://github.com/DonsWayo/odoo-addons/blob/main/docs/LIMITATIONS.md)
         — webhook delivery, SSH transport, push-time branch protection, file
         browser. Arguing for a specific design of one of those is welcome;
         just say so below rather than reporting it as missing.

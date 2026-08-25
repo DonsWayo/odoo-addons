@@ -15,7 +15,7 @@ ignoring them costs a rebuild cycle per mistake.
 ## Setup
 
 ```bash
-git clone https://github.com/DonsWayo/odoogit.git
+git clone https://github.com/DonsWayo/odoo-addons.git
 cd odoogit
 make build up install
 ```

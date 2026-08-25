@@ -1,8 +1,11 @@
 {
-    'name': 'OdooGit',
+    'name': 'OdooGit - Git Hosting',
     'version': '19.0.1.4.0',
     'category': 'Tools/Development',
-    'summary': 'OdooGit — private Git repository hosting with native Odoo integration',
+    'summary': 'Self-hosted Git repository hosting and code review inside Odoo: '
+               'clone and push over HTTPS, pull requests, branch protection, '
+               'access tokens, deploy keys and webhooks. A real Git server, '
+               'no external service to run.',
     'description': """
 Self-hosted Git repository management inside Odoo 19:
 
@@ -19,7 +22,7 @@ See README.md for the supported feature set and docs/LIMITATIONS.md for
 what is deliberately not implemented yet.
 """,
     'author': 'Juan Jose Carracedo',
-    'website': 'https://github.com/DonsWayo/odoogit',
+    'website': 'https://github.com/DonsWayo/odoo-addons',
     'license': 'LGPL-3',
     # Apps Store listing. The first entry is the cover/thumbnail; the first
     # whose name ends in _screenshot is blown up as the large image, which
@@ -33,7 +36,7 @@ what is deliberately not implemented yet.
         'static/description/commits.png',
         'static/description/repository_form.png',
     ],
-    'support': 'https://github.com/DonsWayo/odoogit/issues',
+    'support': 'https://github.com/DonsWayo/odoo-addons/issues',
     'depends': [
         'base',
         'mail',

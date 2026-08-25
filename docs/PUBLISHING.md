@@ -87,7 +87,7 @@ stripped and the listing would show broken images.
 2. **Register this exact URL** (already done — it is listed under *My Repos*):
 
    ```
-   ssh://git@github.com/DonsWayo/odoogit.git#19.0
+   ssh://git@github.com/DonsWayo/odoo-addons.git#19.0
    ```
 
    Three things about that string, each of which will fail the form if you
@@ -188,7 +188,7 @@ implement webhook delivery — it is the gap most users will notice first.
 
 `docs/images/social-preview.png` is 1280×640, the size GitHub asks for. It has
 to be attached by hand at
-<https://github.com/DonsWayo/odoogit/settings> → **Social preview** → **Edit**
+<https://github.com/DonsWayo/odoo-addons/settings> → **Social preview** → **Edit**
 → *Upload an image…*, or by dragging the file onto that box.
 
 There is no API for it, and browser automation does not work either: GitHub

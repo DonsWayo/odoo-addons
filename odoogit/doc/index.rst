@@ -80,7 +80,7 @@ These are deliberate, and documented so nobody is surprised by them:
 Support
 =======
 
-Issues and questions: https://github.com/DonsWayo/odoogit/issues
+Issues and questions: https://github.com/DonsWayo/odoo-addons/issues
 
 License
 =======

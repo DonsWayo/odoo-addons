@@ -84,7 +84,7 @@ Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
   `static/description/` is the right home for these files.
 - `docs/PUBLISHING.md` gave the wrong registration URL. The Apps Store
   normalises every repository to the SSH URI scheme
-  (`ssh://git@github.com/DonsWayo/odoogit#main`) and rejects an `https://`
+  (`ssh://git@github.com/DonsWayo/odoo-addons#main`) and rejects an `https://`
   URL as badly formatted — and the branch must be the series name (`19.0`),
   not the default branch, with a `.git` suffix. It also listed authorising
   `online-odoo` as a
@@ -334,9 +334,9 @@ First working release: repositories, branches, commits, pull requests with
 reviews and merge strategies, personal access tokens, deploy keys, webhooks,
 portal pages, and Git Smart HTTP transport.
 
-[Unreleased]: https://github.com/DonsWayo/odoogit/compare/v19.0.1.4.0...HEAD
-[19.0.1.4.0]: https://github.com/DonsWayo/odoogit/compare/v19.0.1.3.0...v19.0.1.4.0
-[19.0.1.3.0]: https://github.com/DonsWayo/odoogit/compare/v19.0.1.2.0...v19.0.1.3.0
-[19.0.1.2.0]: https://github.com/DonsWayo/odoogit/compare/v19.0.1.1.0...v19.0.1.2.0
-[19.0.1.1.0]: https://github.com/DonsWayo/odoogit/compare/v19.0.1.0.0...v19.0.1.1.0
-[19.0.1.0.0]: https://github.com/DonsWayo/odoogit/releases/tag/v19.0.1.0.0
+[Unreleased]: https://github.com/DonsWayo/odoo-addons/compare/v19.0.1.4.0...HEAD
+[19.0.1.4.0]: https://github.com/DonsWayo/odoo-addons/compare/v19.0.1.3.0...v19.0.1.4.0
+[19.0.1.3.0]: https://github.com/DonsWayo/odoo-addons/compare/v19.0.1.2.0...v19.0.1.3.0
+[19.0.1.2.0]: https://github.com/DonsWayo/odoo-addons/compare/v19.0.1.1.0...v19.0.1.2.0
+[19.0.1.1.0]: https://github.com/DonsWayo/odoo-addons/compare/v19.0.1.0.0...v19.0.1.1.0
+[19.0.1.0.0]: https://github.com/DonsWayo/odoo-addons/releases/tag/v19.0.1.0.0

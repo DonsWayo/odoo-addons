@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Before filing, please check [docs/LIMITATIONS.md](https://github.com/DonsWayo/odoogit/blob/main/docs/LIMITATIONS.md).
+        Before filing, please check [docs/LIMITATIONS.md](https://github.com/DonsWayo/odoo-addons/blob/main/docs/LIMITATIONS.md).
         Webhook delivery, SSH transport and push-time branch protection are
         **known to be absent** — those are not bugs.
 

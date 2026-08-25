@@ -2,6 +2,16 @@
   <img src="docs/images/social-preview.png" alt="OdooGit — Git repository hosting inside Odoo 19" width="820">
 </p>
 
+<h1 align="center">odoo-addons</h1>
+
+<p align="center"><i>Odoo 19 modules by DonsWayo. One folder per module.</i></p>
+
+| Module | What it does | Version |
+|---|---|---|
+| [`odoogit`](odoogit/) | Git repository hosting inside Odoo — the module documented below | [19.0.1.4.0](https://apps.odoo.com/apps/modules/19.0/odoogit) |
+
+---
+
 <h1 align="center">OdooGit</h1>
 
 <p align="center">
@@ -14,8 +24,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DonsWayo/odoogit/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/DonsWayo/odoogit/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://github.com/DonsWayo/odoogit/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/DonsWayo/odoogit"></a>
+  <a href="https://github.com/DonsWayo/odoo-addons/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/DonsWayo/odoo-addons/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/DonsWayo/odoo-addons/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/DonsWayo/odoo-addons"></a>
   <a href="LICENSE"><img alt="License: LGPL-3.0" src="https://img.shields.io/badge/license-LGPL--3.0-blue"></a>
   <img alt="Odoo 19.0" src="https://img.shields.io/badge/odoo-19.0-714B67">
   <img alt="130 tests" src="https://img.shields.io/badge/tests-130%20passing-brightgreen">
@@ -69,7 +79,7 @@ Not included: issues, wiki, labels, forks, SSH, file browser UI.
 ## Install (Docker)
 
 ```bash
-git clone https://github.com/DonsWayo/odoogit.git
+git clone https://github.com/DonsWayo/odoo-addons.git
 cd odoogit
 make build up install
 ```
@@ -173,7 +183,7 @@ way.
 ## Security
 
 Report vulnerabilities privately via
-[GitHub Security Advisories](https://github.com/DonsWayo/odoogit/security/advisories/new),
+[GitHub Security Advisories](https://github.com/DonsWayo/odoo-addons/security/advisories/new),
 not public issues. See [SECURITY.md](SECURITY.md) — **if you ever ran
 19.0.1.0.0, rotate every access token and deploy key.**
 

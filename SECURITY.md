@@ -4,7 +4,7 @@
 
 **Do not open a public issue.** Use GitHub's private reporting:
 
-➡️ **[Report a vulnerability](https://github.com/DonsWayo/odoogit/security/advisories/new)**
+➡️ **[Report a vulnerability](https://github.com/DonsWayo/odoo-addons/security/advisories/new)**
 
 Please include the OdooGit and Odoo versions, whether the issue is reachable
 from the Git Smart HTTP endpoints, the JSON-RPC API, the portal or the backend

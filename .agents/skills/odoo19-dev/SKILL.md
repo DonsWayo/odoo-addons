@@ -279,7 +279,7 @@ Two more traps in the same tests:
 ## Odoo Apps Store (learned by publishing this module)
 
 - Register the **SSH URI** with a `.git` suffix and the **series** as branch:
-  `ssh://git@github.com/DonsWayo/odoogit.git#19.0`. An `https://` URL is
+  `ssh://git@github.com/DonsWayo/odoo-addons.git#19.0`. An `https://` URL is
   rejected; `#main` does not map to a series. Keep that branch pushed or the
   store serves stale code silently.
 - `static/description/index.html` is **not decoded as UTF-8**. A literal `—`
