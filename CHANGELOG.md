@@ -8,6 +8,22 @@ Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
 
 ## [Unreleased]
 
+### Added
+
+- `odoogit/doc/index.rst` — the Apps Store loads a module's documentation tab
+  from this path and requires pure, valid RST.
+
+### Fixed
+
+- `docs/PUBLISHING.md` gave the wrong registration URL. The Apps Store
+  normalises every repository to the SSH URI scheme
+  (`ssh://git@github.com/DonsWayo/odoogit#main`) and rejects an `https://`
+  URL as badly formatted. It also listed authorising `online-odoo` as a
+  required step; that applies to **private** repositories only, and this one
+  is public. Added the store's author rules, the licence compatibility
+  constraints for LGPL-3, and why the GitHub social preview cannot be uploaded
+  by automation.
+
 ## [19.0.1.3.0] — 2026-08-25
 
 ### Fixed

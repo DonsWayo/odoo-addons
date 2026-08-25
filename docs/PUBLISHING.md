@@ -16,10 +16,16 @@ to hear about it. The store is a checklist; the rest is not.
 | Cover image via the `images` manifest key | ✅ 4 images | manifest |
 | One app per folder at the repository root | ✅ `odoogit/` | — |
 | No downloading or executing external code | ✅ | — |
-| Odoo has read access to the repository | ⬜ **you must do this** | see below |
+| Documentation at `doc/index.rst`, valid pure RST | ✅ | `odoogit/doc/index.rst` |
+| Odoo has read access to the repository | ✅ nothing to do — the repo is public | see below |
 
 An RST description instead of HTML counts against the listing's score, which
-is why `index.html` exists.
+is why `index.html` exists. Separately, `doc/index.rst` **must** be pure valid
+RST — it is loaded as the module's documentation tab.
+
+A white cube instead of the icon means the file is at the wrong path or is not
+genuinely PNG. Renaming `icon.ico` to `icon.png` does not convert it; ours is
+a real PNG, checked in CI.
 
 ### Rules for `index.html`
 
@@ -37,17 +43,65 @@ stripped and the listing would show broken images.
 
 ### Submitting
 
-1. Go to <https://apps.odoo.com/apps/upload>, signed in with your Odoo account.
-2. Grant read access to the repository: on GitHub, add the user **`online-odoo`**
-   as a collaborator (read is enough), or make the repository public — it
-   already is.
-3. Point the upload form at `https://github.com/DonsWayo/odoogit`, branch
-   `main`, and let it scan.
-4. Set the price. LGPL-3 code can be listed free or paid; free is the honest
-   default for a module whose value is partly that people read and audit it.
+1. Sign in at <https://apps.odoo.com>, then go to
+   <https://apps.odoo.com/apps/upload>. The registration form does not render
+   at all until you are signed in.
+
+2. **Register this exact URL:**
+
+   ```
+   ssh://git@github.com/DonsWayo/odoogit#main
+   ```
+
+   Odoo normalises every repository to the **SSH URI scheme**
+   `ssh://git@gitServer(:port)/mypath#version` — it strips passwords from URLs
+   and avoids duplicate registrations. An `https://github.com/...` URL is
+   rejected as badly formatted. The `#main` suffix is the branch.
+
+   If registration fails on the URL, check that a colon appears only before a
+   port number; with no port, `gitServer` and `mypath` are separated by a
+   slash.
+
+3. **Access:** nothing to do. `online-odoo` only needs authorising for
+   **private** repositories, and this one is public. If you ever make it
+   private, authorise **`online-odoo`** — note the order, `odoo-online` is a
+   different account — on the repository specifically, not the whole
+   organisation.
+
+4. Set the price. LGPL-3 can be listed free or paid; Odoo suggests €100 as a
+   starting point for paid modules and takes a **30% commission**. Free is the
+   honest default here — much of this module's value is that people can read
+   and audit it.
+
 5. Publish, then re-scan once or twice if it reports "no icon" or "no
-   thumbnail". Those errors are frequently spurious — if the assets render on
+   thumbnail". Those errors are frequently spurious — if the assets render in
    the listing preview, ignore them.
+
+### Rules the store enforces on authors
+
+Odoo does not review every module, but acts on reports. Two of its six rules
+bear directly on how this module is presented:
+
+- **R3 — undocumented or hidden features inconsistent with the module
+  description get the module removed.** This cuts both ways: the listing must
+  not claim what the module does not do. Undelivered webhooks and the absent
+  SSH transport are named explicitly in the listing for exactly this reason.
+- **R6 — you must support customers who install it.** The manifest's `support`
+  key points at the issue tracker; keep answering there.
+
+The others: no stealing data or uncredited copying (R1), no downloading or
+launching external code (R2), no collecting information without disclosure and
+a privacy policy (R4), nothing that harms another author's reputation (R5).
+
+### Licence compatibility
+
+A module may only depend on compatible licences. **LGPL-3** — ours — may
+depend on LGPL-3, OPL-1, OEEL-1, Other OSI approved, and Other proprietary.
+Every dependency here (`base`, `mail`, `portal`, `web`, `project`) is Odoo
+Community LGPL-3, so this is satisfied.
+
+Note the asymmetry: an AGPL-3 or GPL-3 module could depend on us, but we could
+not depend on one of them without relicensing.
 
 ### Before you press publish
 
@@ -60,6 +114,24 @@ point right now is that it tells you exactly where the edges are.
 
 If you would rather ship a listing with no caveats, the shortest path is to
 implement webhook delivery — it is the gap most users will notice first.
+
+## GitHub social preview
+
+`docs/images/social-preview.png` is 1280×640, the size GitHub asks for. It has
+to be attached by hand at
+<https://github.com/DonsWayo/odoogit/settings> → **Social preview** → **Edit**
+→ *Upload an image…*, or by dragging the file onto that box.
+
+There is no API for it, and browser automation does not work either: GitHub
+uses a `<file-attachment>` element that asks for an upload policy, pushes the
+bytes to S3, and only then submits the form. Driving the file input
+programmatically creates the database record — `og:image` starts pointing at
+`repository-images.githubusercontent.com/...` — while the bytes never arrive,
+so the URL 404s and link previews break. That is worse than having no custom
+preview at all.
+
+If you ever see that state, open the same **Edit** menu and choose **Remove
+image** to fall back to GitHub's generated card.
 
 ## Getting it in front of people
 
@@ -86,6 +158,8 @@ Ranked by effort-to-reach for a self-hosted Odoo developer tool.
 
 - LinkedIn, if you already have Odoo people in your network.
 - **awesome-odoo** lists on GitHub — send a PR adding OdooGit.
+- **`doc/index.rst`** already ships, so the Apps listing gets a documentation
+  tab for free. Keep it in sync with `docs/LIMITATIONS.md`.
 - Odoo partner Slack/Discord communities, if you are in any.
 - A 60-second screen recording of clone → push → PR → merge. YouTube links are
   allowed in the Apps listing, so one video serves both channels.
