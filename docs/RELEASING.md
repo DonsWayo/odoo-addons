@@ -70,12 +70,18 @@ never appeared". That is the extra database, not a regression.
 2. Move the `[Unreleased]` entries in `CHANGELOG.md` under a new
    `[<version>] — <date>` heading, and add the compare link at the bottom.
 3. Commit: `chore(release): 19.0.x.y.z`.
-4. Tag and push:
+4. Tag and push, **including the series branch**:
 
    ```bash
    git tag -a v19.0.x.y.z -m "OdooGit 19.0.x.y.z"
    git push origin main --follow-tags
+   git branch -f 19.0 main && git push origin 19.0
    ```
+
+   `19.0` is the branch registered with the Odoo Apps Store
+   (`ssh://git@github.com/DonsWayo/odoogit.git#19.0`), because Odoo requires
+   the branch name to match the series. Forget this and the store keeps
+   serving the previous release, with nothing to tell you it has gone stale.
 
 5. Publish the GitHub release with the changelog section as the body:
 

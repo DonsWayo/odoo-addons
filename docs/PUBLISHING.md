@@ -47,16 +47,26 @@ stripped and the listing would show broken images.
    <https://apps.odoo.com/apps/upload>. The registration form does not render
    at all until you are signed in.
 
-2. **Register this exact URL:**
+2. **Register this exact URL** (already done — it is listed under *My Repos*):
 
    ```
-   ssh://git@github.com/DonsWayo/odoogit#main
+   ssh://git@github.com/DonsWayo/odoogit.git#19.0
    ```
 
-   Odoo normalises every repository to the **SSH URI scheme**
-   `ssh://git@gitServer(:port)/mypath#version` — it strips passwords from URLs
-   and avoids duplicate registrations. An `https://github.com/...` URL is
-   rejected as badly formatted. The `#main` suffix is the branch.
+   Three things about that string, each of which will fail the form if you
+   get it wrong:
+
+   - **SSH URI scheme.** Odoo normalises every repository to
+     `ssh://git@gitServer(:port)/mypath#version` so it can strip passwords and
+     avoid duplicate registrations. An `https://github.com/...` URL is
+     rejected as badly formatted.
+   - **`.git` suffix**, as in Odoo's own example
+     `ssh://git@github.com/odoo/odoo.git#8.0`.
+   - **The branch must be named after the Odoo series, not your default
+     branch.** The form is explicit: *"The branch name exactly matches the
+     series name for which your modules are meant."* `#main` would not map to
+     a series. That is why this repository carries a `19.0` branch alongside
+     `main` — see *Keeping the series branch current* below.
 
    If registration fails on the URL, check that a colon appears only before a
    port number; with no port, `gitServer` and `mypath` are separated by a
@@ -102,6 +112,28 @@ Community LGPL-3, so this is satisfied.
 
 Note the asymmetry: an AGPL-3 or GPL-3 module could depend on us, but we could
 not depend on one of them without relicensing.
+
+### After registering
+
+The repository lands in *My Repos* as **Draft** with a **Scan** toggle. Ticking
+Scan queues it; Odoo crawls on its own schedule, so *Apps I registered* stays
+empty for a while. Nothing is public until the scan finds the module and you
+publish it.
+
+### Keeping the series branch current
+
+**`19.0` is the branch Odoo scans. `main` is where work happens.** If they
+drift, the Apps Store serves whatever `19.0` last pointed at, indefinitely and
+silently — there is no warning that a listing is stale.
+
+Push it with every release:
+
+```bash
+git push origin main --follow-tags
+git branch -f 19.0 main && git push origin 19.0
+```
+
+`docs/RELEASING.md` has this as a step in the release procedure.
 
 ### Before you press publish
 

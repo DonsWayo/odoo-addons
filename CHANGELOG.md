@@ -12,13 +12,18 @@ Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
 
 - `odoogit/doc/index.rst` — the Apps Store loads a module's documentation tab
   from this path and requires pure, valid RST.
+- A `19.0` branch tracking `main`. The Apps Store requires the registered
+  branch to be named after the Odoo series, so this is the branch it scans;
+  `docs/RELEASING.md` now pushes it as part of every release.
 
 ### Fixed
 
 - `docs/PUBLISHING.md` gave the wrong registration URL. The Apps Store
   normalises every repository to the SSH URI scheme
   (`ssh://git@github.com/DonsWayo/odoogit#main`) and rejects an `https://`
-  URL as badly formatted. It also listed authorising `online-odoo` as a
+  URL as badly formatted — and the branch must be the series name (`19.0`),
+  not the default branch, with a `.git` suffix. It also listed authorising
+  `online-odoo` as a
   required step; that applies to **private** repositories only, and this one
   is public. Added the store's author rules, the licence compatibility
   constraints for LGPL-3, and why the GitHub social preview cannot be uploaded
