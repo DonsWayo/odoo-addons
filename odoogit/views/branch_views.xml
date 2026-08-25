@@ -23,14 +23,14 @@
         <field name="model">git.branch</field>
         <field name="arch" type="xml">
             <list string="Branches" sample="1" multi_edit="1">
-                <field name="name" widget="badge" string="Branch" optional="hide" decoration-info="is_default == True"/>
+                <field name="name" widget="badge" string="Branch" decoration-info="is_default == True"/>
                 <field name="repository_id" optional="hide"/>
-                <field name="commit_id" optional="hide"/>
+                <field name="commit_id"/>
                 <field name="is_protected" widget="boolean_toggle" string="Protected"/>
                 <field name="is_default" widget="boolean_toggle" string="Default"/>
-                <field name="ahead_commits" optional="hide" string="Ahead" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-success', '2': 'bg-success', '3': 'bg-success', '4': 'bg-success', '5': 'bg-success', '6': 'bg-success', '7': 'bg-success', '8': 'bg-success', '9': 'bg-success', '10': 'bg-primary'}}"/>
-                <field name="behind_commits" optional="hide" string="Behind" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-warning', '2': 'bg-warning', '3': 'bg-warning', '4': 'bg-warning', '5': 'bg-warning', '6': 'bg-warning', '7': 'bg-warning', '8': 'bg-warning', '9': 'bg-warning', '10': 'bg-danger'}}"/>
-                <field name="last_commit_date" optional="hide" widget="datetime"/>
+                <field name="ahead_commits" string="Ahead" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-success', '2': 'bg-success', '3': 'bg-success', '4': 'bg-success', '5': 'bg-success', '6': 'bg-success', '7': 'bg-success', '8': 'bg-success', '9': 'bg-success', '10': 'bg-primary'}}"/>
+                <field name="behind_commits" string="Behind" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-warning', '2': 'bg-warning', '3': 'bg-warning', '4': 'bg-warning', '5': 'bg-warning', '6': 'bg-warning', '7': 'bg-warning', '8': 'bg-warning', '9': 'bg-warning', '10': 'bg-danger'}}"/>
+                <field name="last_commit_date" widget="datetime"/>
             </list>
         </field>
     </record>
