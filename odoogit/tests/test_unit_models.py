@@ -21,7 +21,7 @@ class TestRepositoryUnit(OdooGitCommon):
         self.assertEqual(r.default_branch, 'main')
         self.assertEqual(r.visibility, 'private')
 
-    def test_name_unique_per_company(self):
+    def test_name_unique_per_owner(self):
         r = self._repo()
         fixed = r.name
         with self.assertRaises(Exception) as ctx:
@@ -30,6 +30,14 @@ class TestRepositoryUnit(OdooGitCommon):
         self.assertTrue(isinstance(ctx.exception, ValidationError)
                         or 'unique' in str(ctx.exception).lower()
                         or 'duplicate' in str(ctx.exception).lower())
+
+    def test_same_name_allowed_for_different_owners(self):
+        """alice/web and bob/web live in different directories on disk and
+        must be allowed to coexist (was blocked by company-wide uniqueness)."""
+        r = self._repo()
+        twin = self.Repo.create({'name': r.name, 'owner_id': self.other.id})
+        self.env.flush_all()
+        self.assertNotEqual(r._get_repo_path(), twin._get_repo_path())
 
     def test_invalid_names_rejected(self):
         with self.assertRaises(ValidationError):

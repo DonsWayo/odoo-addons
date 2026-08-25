@@ -1,0 +1,454 @@
+# -*- coding: utf-8 -*-
+"""REGRESSION tests — one test per bug found in the 2026-08 audit.
+
+Every test in this file failed against the audited revision. They exist to
+keep those specific code paths executed, because the pre-audit suite passed
+54/54 while these paths were broken: they were never called.
+"""
+import json
+import os
+import subprocess
+
+from odoo.exceptions import AccessError
+from odoo.tests import HttpCase, tagged
+
+from .common import OdooGitCommon
+
+
+@tagged('regression', 'post_install', '-at_install')
+class TestBrokenCodePaths(OdooGitCommon):
+    """Methods that raised on first call because nothing ever called them."""
+
+    def test_init_git_repo_creates_bare_repo_on_disk(self):
+        """_init_git_repo() must actually create the bare repo.
+
+        Regression: the module did `import os as _os` but the method called
+        `os.makedirs(...)` -> NameError on every repository whose directory
+        did not already exist.
+        """
+        import shutil
+        import tempfile
+        base = tempfile.mkdtemp(prefix='odoogit_init_')
+        self.addCleanup(shutil.rmtree, base, ignore_errors=True)
+        self.env['ir.config_parameter'].sudo().set_param(
+            'odoogit.repo_base_path', base)
+        repo = self._repo('init-me')
+        path = repo._get_repo_path()
+        self.assertFalse(os.path.isdir(path), 'precondition: not on disk yet')
+
+        repo._init_git_repo()
+
+        self.assertTrue(os.path.isdir(path), 'bare repo directory missing')
+        self.assertTrue(
+            os.path.isfile(os.path.join(path, 'HEAD')),
+            'directory created but it is not a git repository')
+
+    def test_mirror_fields_exist_on_repository(self):
+        """The mirror wizard writes these; the cron searches them."""
+        for fname in ('is_mirror', 'mirror_active', 'mirror_url'):
+            self.assertIn(
+                fname, self.Repo._fields,
+                f'git.repository.{fname} is referenced in code but undefined')
+
+    def test_cron_sync_mirrors_does_not_crash(self):
+        """Scheduled hourly. Regression: searched non-existent fields."""
+        self.Repo._cron_sync_mirrors()
+
+    def test_mirror_wizard_configures_repository(self):
+        """Regression: wizard wrote fields that did not exist."""
+        repo = self._repo('mirror-target')
+        wiz = self.env['git.mirror.wizard'].create({
+            'repository_id': repo.id,
+            'mirror_url': 'https://example.com/upstream.git',
+        })
+        wiz.action_setup()
+        self.assertTrue(repo.is_mirror)
+        self.assertEqual(repo.mirror_url, 'https://example.com/upstream.git')
+
+    def test_wizards_have_access_rules(self):
+        """Regression: 4 transient models shipped with no ir.model.access."""
+        Access = self.env['ir.model.access']
+        for model in ('git.clone.wizard', 'git.import.wizard',
+                      'git.mirror.wizard', 'git.release.wizard'):
+            self.assertTrue(
+                Access.search_count([('model_id.model', '=', model)]),
+                f'{model} has no access rules')
+
+
+@tagged('regression', 'post_install', '-at_install')
+class TestGroupCollaborators(OdooGitCommon):
+    """Repositories shared with an res.groups, not just named members."""
+
+    def test_collaborator_count_includes_group_members(self):
+        """Regression: _compute_collaborator_count read `group.users`, which
+        Odoo 19 renamed to `user_ids` — reading the field raised on any
+        repository that had a group attached. No test ever set group_ids."""
+        group = self.env['res.groups'].create({'name': 'Git Squad'})
+        member = self._create_user('squaddie')
+        group.write({'user_ids': [(4, member.id)]})
+        repo = self._repo('shared', group_ids=[(4, group.id)])
+        self.assertEqual(repo.collaborator_count, 1)
+
+    def test_group_member_has_repo_access(self):
+        group = self.env['res.groups'].create({'name': 'Git Squad 2'})
+        member = self._create_user('squaddie2')
+        group.write({'user_ids': [(4, member.id)]})
+        repo = self._repo('shared2', group_ids=[(4, group.id)],
+                          visibility='private')
+        member.invalidate_recordset()
+        self.assertTrue(repo._check_repo_access(member, 'write'))
+
+
+@tagged('regression', 'post_install', '-at_install')
+class TestConfigPersistence(OdooGitCommon):
+    """post_init_hook must not clobber operator configuration."""
+
+    def test_post_init_hook_preserves_operator_paths(self):
+        """Regression: hook called set_param unconditionally, so every
+        `-u odoogit` upgrade reset the admin's storage path back to default.
+        """
+        from odoo.addons.odoogit.hooks import _post_init_hook
+        ICP = self.env['ir.config_parameter'].sudo()
+        ICP.set_param('odoogit.repo_base_path', '/srv/custom/git')
+        ICP.set_param('odoogit.ssh_host', 'git.mycorp.example')
+
+        _post_init_hook(self.env)
+
+        self.assertEqual(ICP.get_param('odoogit.repo_base_path'),
+                         '/srv/custom/git')
+        self.assertEqual(ICP.get_param('odoogit.ssh_host'),
+                         'git.mycorp.example')
+
+
+@tagged('regression', 'post_install', '-at_install')
+class TestGitUserGroupMembership(OdooGitCommon):
+    """Every ir.rule in this module is scoped to group_git_user."""
+
+    def test_new_employee_is_a_git_user(self):
+        """If employees are not in the group, no rule constrains them."""
+        self.assertTrue(
+            self._create_user('freshling').has_group('odoogit.group_git_user'),
+            'new employee is outside group_git_user: every record rule in '
+            'this module is inert for them')
+
+    def test_backfill_leaves_no_employee_outside_the_group(self):
+        """The upgrade hook must be safe to re-run and must hold the
+        invariant that every internal user is a Git User — otherwise the
+        module's record rules silently stop applying to them."""
+        from odoo.addons.odoogit.hooks import _backfill_git_user_group
+        self._create_user('stray')
+
+        _backfill_git_user_group(self.env)   # idempotent, must not raise
+
+        base_user = self.env.ref('base.group_user')
+        git_user = self.env.ref('odoogit.group_git_user')
+        orphans = self.env['res.users'].sudo().search([
+            ('group_ids', 'in', base_user.ids),
+            ('group_ids', 'not in', git_user.ids),
+            ('share', '=', False),
+        ])
+        self.assertFalse(
+            orphans.mapped('login'),
+            'employees outside group_git_user — record rules do not apply '
+            'to them, so they can read every repository')
+
+
+@tagged('regression', 'post_install', '-at_install')
+class TestRecordRuleCoverage(OdooGitCommon):
+    """Deploy keys and webhooks were readable by every internal employee.
+
+    Both models store a plaintext credential (`token` / `secret_token`) and
+    their ir.rule was attached to group_git_manager only. A record rule that
+    names a group applies *only to members of that group*, so ordinary
+    employees fell through to "no rule" = unrestricted.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.victim_repo = self._repo('victim', owner_id=self.user.id)
+        self.stranger = self._create_user('stranger')
+
+    def test_employee_cannot_read_foreign_deploy_key(self):
+        key = self.DeployKey.sudo().create({
+            'name': 'ci', 'repository_id': self.victim_repo.id})
+        found = self.DeployKey.with_user(self.stranger).search(
+            [('id', '=', key.id)])
+        self.assertFalse(
+            found, 'stranger can list a deploy key of a repo they cannot access')
+
+    def test_employee_cannot_read_foreign_webhook_secret(self):
+        wh = self.env['git.webhook'].sudo().create({
+            'name': 'wh', 'url': 'https://example.com/h',
+            'repository_id': self.victim_repo.id})
+        found = self.env['git.webhook'].with_user(self.stranger).search(
+            [('id', '=', wh.id)])
+        self.assertFalse(
+            found, 'stranger can list a webhook (and its HMAC secret)')
+
+    def test_employee_cannot_read_foreign_pr_review(self):
+        branch = self._branch(self.victim_repo, 'main')
+        pr = self.PR.sudo().create({
+            'title': 'secret work', 'repository_id': self.victim_repo.id,
+            'source_branch_id': branch.id, 'target_branch_id': branch.id,
+            'author_id': self.user.id})
+        review = self.env['git.pr.review'].sudo().create({
+            'pull_request_id': pr.id, 'reviewer_id': self.user.id,
+            'state': 'comment', 'body': '<p>internal note</p>'})
+        found = self.env['git.pr.review'].with_user(self.stranger).search(
+            [('id', '=', review.id)])
+        self.assertFalse(found, 'stranger can read reviews on a private repo')
+
+
+@tagged('regression', 'post_install', '-at_install')
+class TestTokenStorage(OdooGitCommon):
+    """Tokens must be verifiable but not recoverable from the database."""
+
+    def test_pat_raw_token_not_persisted(self):
+        """Regression: `token` kept the raw secret in a DB column forever,
+        next to the hash, defeating the point of hashing it."""
+        pat = self.PAT.create({'name': 't', 'user_id': self.user.id})
+        raw = pat.token
+        self.assertTrue(raw, 'creation must surface the token once')
+        self.assertFalse(
+            self.PAT.browse(pat.id).token,
+            'raw PAT readable outside the request that generated it')
+        self.env.cr.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = 'git_personal_access_token' "
+            "AND column_name = 'token'")
+        self.assertFalse(self.env.cr.fetchall(),
+                         'raw token still has a database column')
+        self.assertTrue(self.PAT.find_by_token(raw),
+                        'hash must still verify the token we handed out')
+
+    def test_deploy_key_raw_token_not_persisted(self):
+        repo = self._repo('dk')
+        key = self.DeployKey.create({'name': 'ci', 'repository_id': repo.id})
+        raw = key.token
+        self.assertTrue(raw)
+        self.assertFalse(
+            self.DeployKey.browse(key.id).token,
+            'raw deploy key token readable after its creating request')
+        self.env.cr.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = 'git_deploy_key' AND column_name = 'token'")
+        self.assertFalse(self.env.cr.fetchall(),
+                         'raw token still has a database column')
+        self.assertTrue(self.DeployKey.find_by_token(raw))
+
+
+@tagged('regression', 'post_install', '-at_install')
+class TestCgiResponseParsing(OdooGitCommon):
+    """git-http-backend may separate headers from body with LF or CRLF."""
+
+    def _parse(self, raw):
+        from odoo.addons.odoogit.controllers.git_http import GitHTTPController
+        return GitHTTPController()._parse_cgi_response(raw)
+
+    def test_crlf_separator(self):
+        headers, body = self._parse(
+            b'Content-Type: application/x-git-upload-pack-advertisement\r\n'
+            b'\r\nPACKDATA')
+        self.assertEqual(body, b'PACKDATA')
+        self.assertEqual(headers['Content-Type'],
+                         'application/x-git-upload-pack-advertisement')
+
+    def test_lf_only_separator_does_not_truncate_body(self):
+        """Regression: the LF branch found the separator at 2 bytes but the
+        body slice always skipped 4, chopping 2 bytes off every payload."""
+        headers, body = self._parse(
+            b'Content-Type: text/plain\n\nPACKDATA')
+        self.assertEqual(body, b'PACKDATA')
+        self.assertEqual(headers.get('Content-Type'), 'text/plain')
+
+
+@tagged('regression', 'post_install', '-at_install')
+class TestGitHttpAuthorisation(HttpCase):
+    """Smart-HTTP auth must bind the token to its owner's permissions."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.alice = cls.env['res.users'].create({
+            'name': 'Alice', 'login': 'alice-reg', 'email': 'a@t.com'})
+        cls.bob = cls.env['res.users'].create({
+            'name': 'Bob', 'login': 'bob-reg', 'email': 'b@t.com'})
+        cls.secret = cls.env['git.repository'].create({
+            'name': 'alice-secret', 'owner_id': cls.alice.id,
+            'visibility': 'private'})
+        # a real bare repo, so a successful auth would really advertise refs
+        path = cls.secret._get_repo_path()
+        os.makedirs(path, exist_ok=True)
+        subprocess.run(['git', 'init', '-q', '--bare', path], check=True)
+
+    def _info_refs(self, login, token):
+        import base64
+        cred = base64.b64encode(f'{login}:{token}'.encode()).decode()
+        return self.url_open(
+            f'/git/{self.alice.login}/{self.secret.name}.git'
+            f'/info/refs?service=git-upload-pack',
+            headers={'Authorization': f'Basic {cred}'}, timeout=30)
+
+    def test_foreign_pat_cannot_read_private_repo(self):
+        """Regression: any valid PAT unlocked any repository.
+
+        _get_repo() discarded the Basic-auth username, looked the password up
+        as a PAT, and returned the repo without ever asking whether the PAT's
+        owner may access it. Default `repository_ids` is empty, documented as
+        "all accessible repositories" but implemented as "all repositories".
+        """
+        self.authenticate(None, None)
+        bob_pat = self.env['git.personal_access_token'].sudo().create(
+            {'name': 'bob laptop', 'user_id': self.bob.id, 'scopes': 'write'})
+        res = self._info_refs(self.bob.login, bob_pat.token)
+        self.assertEqual(
+            res.status_code, 401,
+            "Bob's PAT was accepted on Alice's private repository")
+
+    def test_owner_pat_still_works(self):
+        """The fix must not lock the legitimate owner out."""
+        self.authenticate(None, None)
+        alice_pat = self.env['git.personal_access_token'].sudo().create(
+            {'name': 'alice laptop', 'user_id': self.alice.id,
+             'scopes': 'write'})
+        res = self._info_refs(self.alice.login, alice_pat.token)
+        self.assertEqual(res.status_code, 200,
+                         "owner's own PAT was rejected")
+        self.assertIn(b'git-upload-pack', res.content)
+
+    def test_anonymous_gets_challenge_not_refs(self):
+        self.authenticate(None, None)
+        res = self.url_open(
+            f'/git/{self.alice.login}/{self.secret.name}.git'
+            f'/info/refs?service=git-upload-pack', timeout=30)
+        self.assertEqual(res.status_code, 401)
+        self.assertIn('WWW-Authenticate', res.headers)
+        self.assertNotIn(b'refs/heads', res.content)
+
+
+@tagged('regression', 'post_install', '-at_install')
+class TestJsonApi(HttpCase):
+    """Every /api/git endpoint, called the way a client would call it."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.api_user = cls.env['res.users'].create({
+            'name': 'Api', 'login': 'api-reg', 'email': 'api@t.com',
+            'password': 'api-reg-pw',
+            'group_ids': [(4, cls.env.ref('base.group_user').id)]})
+        cls.repo = cls.env['git.repository'].create({
+            'name': 'api-repo', 'owner_id': cls.api_user.id})
+        cls.branch = cls.env['git.branch'].create({
+            'name': 'main', 'repository_id': cls.repo.id,
+            'commit_sha': 'a' * 40})
+        cls.pr = cls.env['git.pull_request'].create({
+            'title': 'api pr', 'repository_id': cls.repo.id,
+            'source_branch_id': cls.branch.id,
+            'target_branch_id': cls.branch.id,
+            'author_id': cls.api_user.id})
+
+    def _call(self, path, **params):
+        res = self.url_open(
+            path,
+            data=json.dumps({'jsonrpc': '2.0', 'method': 'call',
+                             'params': params}),
+            headers={'Content-Type': 'application/json'}, timeout=30)
+        self.assertEqual(res.status_code, 200, path)
+        payload = res.json()
+        self.assertNotIn(
+            'error', payload,
+            f"{path} raised: {payload.get('error', {}).get('data', {}).get('message')}")
+        return payload['result']
+
+    def setUp(self):
+        super().setUp()
+        self.authenticate('api-reg', 'api-reg-pw')
+
+    def test_list_repositories(self):
+        result = self._call('/api/git/repositories')
+        self.assertIn(self.repo.name, [r['name'] for r in result])
+
+    def test_get_repository(self):
+        result = self._call(f'/api/git/repositories/{self.repo.id}')
+        self.assertEqual(result['name'], self.repo.name)
+        self.assertTrue(result['permissions']['admin'])
+
+    def test_create_repository(self):
+        """Regression: passed has_wiki / has_issues, removed models, ->
+        'Invalid field' on every call."""
+        result = self._call('/api/git/repositories/create',
+                            name='created-via-api', visibility='private')
+        self.assertTrue(result.get('id'))
+        repo = self.env['git.repository'].browse(result['id'])
+        self.assertEqual(repo.name, 'created-via-api')
+        self.assertTrue(os.path.isdir(repo._get_repo_path()),
+                        'API-created repo has no bare repo on disk')
+
+    def test_list_branches(self):
+        result = self._call(f'/api/git/repositories/{self.repo.id}/branches')
+        self.assertEqual([b['name'] for b in result], ['main'])
+
+    def test_get_pull_request(self):
+        """Regression: called repository-only _check_repo_access() on a
+        git.pull_request record -> AttributeError."""
+        result = self._call(f'/api/git/pull_requests/{self.pr.id}')
+        self.assertEqual(result['title'], 'api pr')
+
+    def test_get_pull_request_files(self):
+        result = self._call(f'/api/git/pull_requests/{self.pr.id}/files')
+        self.assertEqual(result, [])
+
+    def test_create_review(self):
+        result = self._call(f'/api/git/pull_requests/{self.pr.id}/review',
+                            state='approve', body='lgtm')
+        self.assertEqual(result['state'], 'approve')
+
+    def test_foreign_repo_is_not_readable(self):
+        outsider = self.env['res.users'].create({
+            'name': 'Outsider', 'login': 'outsider-reg',
+            'email': 'o@t.com', 'password': 'outsider-reg-pw',
+            'group_ids': [(4, self.env.ref('base.group_user').id)]})
+        private = self.env['git.repository'].create({
+            'name': 'not-yours', 'owner_id': self.api_user.id,
+            'visibility': 'private'})
+        self.authenticate('outsider-reg', 'outsider-reg-pw')
+        res = self.url_open(
+            f'/api/git/repositories/{private.id}',
+            data=json.dumps({'jsonrpc': '2.0', 'method': 'call',
+                             'params': {}}),
+            headers={'Content-Type': 'application/json'}, timeout=30)
+        body = res.json()
+        result = body.get('result') or {}
+        self.assertNotEqual(result.get('name'), 'not-yours',
+                            'outsider read a private repository')
+        del outsider
+
+
+@tagged('regression', 'post_install', '-at_install')
+class TestPortalRoutes(HttpCase):
+    """Portal pages referenced models deleted three commits earlier."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.owner = cls.env['res.users'].create({
+            'name': 'Portal Owner', 'login': 'portal-reg',
+            'email': 'p@t.com', 'password': 'portal-reg-pw',
+            'group_ids': [(4, cls.env.ref('base.group_user').id)]})
+        cls.repo = cls.env['git.repository'].create({
+            'name': 'portal-repo', 'owner_id': cls.owner.id,
+            'visibility': 'internal'})
+
+    def test_repository_home_renders(self):
+        """Regression: template context read repository.issue_ids, a field
+        removed with the issues model -> HTTP 500 on every visit."""
+        self.authenticate('portal-reg', 'portal-reg-pw')
+        res = self.url_open(
+            f'/git/{self.owner.login}/{self.repo.name}', timeout=30)
+        self.assertEqual(res.status_code, 200)
+
+    def test_my_repositories_renders(self):
+        self.authenticate('portal-reg', 'portal-reg-pw')
+        res = self.url_open('/my/repositories', timeout=30)
+        self.assertEqual(res.status_code, 200)
