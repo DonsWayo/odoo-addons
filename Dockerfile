@@ -6,7 +6,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends git \
     && pip install --no-cache-dir --break-system-packages GitPython==3.1.59
 USER odoo
 
-COPY odoogit /opt/odoogit
+# every addon folder at the repo root; add a module and this keeps working
+COPY odoogit /opt/addons/odoogit
 COPY entrypoint.sh /custom-entrypoint.sh
 ENTRYPOINT ["/custom-entrypoint.sh"]
 CMD ["odoo"]

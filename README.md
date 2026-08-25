@@ -156,6 +156,7 @@ found in the August 2026 audit — see
 | [docs/AUDIT-2026-08.md](docs/AUDIT-2026-08.md) | August 2026 audit: every finding, its evidence, and the test that now covers it |
 | [docs/RELEASING.md](docs/RELEASING.md) | Versioning, pre-release checks, upgrade notes |
 | [docs/PUBLISHING.md](docs/PUBLISHING.md) | Odoo Apps Store checklist and where to tell people about it |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | What needs a rethink: dead integrations, design decisions, growing past one module |
 | [CHANGELOG.md](CHANGELOG.md) | What changed, per release |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Dev loop and the testing rules this project holds to |
 | [SECURITY.md](SECURITY.md) | Reporting vulnerabilities; past advisories |

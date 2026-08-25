@@ -4,7 +4,10 @@
 # `make help` lists them.
 
 DB       ?= odoo
-MODULE   := odoogit
+# Every addon in this repository. Adding a module means adding it here and
+# nothing else: install, upgrade, test and lint all read this list.
+MODULES  ?= odoogit
+MODULE   ?= $(firstword $(MODULES))
 COMPOSE  := docker compose
 ODOO     := $(COMPOSE) exec -T odoo odoo
 DBFLAGS  := --db_host=postgres --db_user=odoo --db_password=odoo --workers=0
@@ -45,25 +48,26 @@ psql: ## Open psql on the database
 
 ## ---------------------------------------------------------------- module
 
-install: ## Install the module into $(DB) (creates it if absent)
-	$(ODOO) -d $(DB) -i $(MODULE) --stop-after-init $(DBFLAGS)
+install: ## Install every module into $(DB) (creates it if absent)
+	$(ODOO) -d $(DB) -i $(shell echo $(MODULES) | tr ' ' ',') --stop-after-init $(DBFLAGS)
 
 upgrade: build ## Rebuild, then upgrade the module in $(DB)
 	$(COMPOSE) up -d --force-recreate odoo
 	@until $(COMPOSE) exec -T postgres pg_isready -U odoo >/dev/null 2>&1; do sleep 2; done
-	$(ODOO) -d $(DB) -u $(MODULE) --stop-after-init $(DBFLAGS)
+	$(ODOO) -d $(DB) -u $(shell echo $(MODULES) | tr ' ' ',') --stop-after-init $(DBFLAGS)
 
 ## ---------------------------------------------------------------- checks
 
 lint: ## Ruff over the addon
-	$(RUFF) check --config ruff.toml odoogit/
+	$(RUFF) check --config ruff.toml $(MODULES)
 
 fmt: ## Ruff autofix
-	$(RUFF) check --config ruff.toml odoogit/ --fix
+	$(RUFF) check --config ruff.toml $(MODULES) --fix
 
 xml: ## Every XML file parses (do this before `make build`)
 	@python3 -c "from xml.etree import ElementTree as ET; import glob; \
-	  fs=glob.glob('odoogit/**/*.xml', recursive=True); [ET.parse(f) for f in fs]; \
+	  fs=[f for m in '$(MODULES)'.split() for f in glob.glob(m+'/**/*.xml', recursive=True)]; \
+	  [ET.parse(f) for f in fs]; \
 	  print(f'XML OK ({len(fs)} files)')"
 
 test: ## Run the full test suite

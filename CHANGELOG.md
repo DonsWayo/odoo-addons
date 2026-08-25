@@ -8,6 +8,27 @@ Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The branch list hid the branch name.** `name`, `commit_id`,
+  `ahead_commits`, `behind_commits` and `last_commit_date` were all
+  `optional="hide"`, so opening Branches showed two toggle columns and three
+  anonymous rows.
+- Every Apps Store screenshot was captured before the Font Awesome fix, so the
+  published listing still showed the stat buttons the release claimed to have
+  repaired. All six recaptured and checksum-checked against each other.
+
+### Added
+
+- `docs/ROADMAP.md` — dead integrations, design decisions worth revisiting,
+  and a plan for growing the repository past one module.
+
+### Changed
+
+- The build and tooling no longer assume a single addon. `Makefile` takes a
+  `MODULES` list, the image copies `/opt/addons/*`, and `entrypoint.sh` loops
+  over whatever it finds.
+
 ## [19.0.1.4.0] - 2026-08-25
 
 ### Fixed
