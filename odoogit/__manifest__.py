@@ -1,34 +1,33 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'OdooGit',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.1.0',
     'category': 'Tools/Development',
     'summary': 'OdooGit — private Git repository hosting with native Odoo integration',
     'description': """
-Git hosting module for Odoo 18/19 providing:
-- Private/internal repositories with Git Smart HTTP
-- Branch protection, merge requests, code reviews
-- File browser, diff viewer, commit history
-- Personal Access Tokens for CLI access
+Self-hosted Git repository management inside Odoo 19:
+
+- Private/internal repositories served over Git Smart HTTP
+- Branches with protection settings, pull requests, code reviews
+- Commit history synced from the bare repositories on disk
+- Personal Access Tokens for git clone/push over HTTPS
 - Deploy keys for CI/CD
-- Webhooks for external integrations
-- Portal access for external collaborators
-- Real-time notifications via bus.bus
-- Full mail.thread integration for discussions
+- Webhooks with HMAC-SHA256 signatures and delivery history
+- Portal pages for repositories and commits
+- mail.thread integration on repositories and pull requests
+
+See README.md for the supported feature set and docs/LIMITATIONS.md for
+what is deliberately not implemented yet.
 """,
-    'author': 'Your Company',
-    'website': 'https://yourcompany.com',
+    'author': 'Juan Jose Carracedo',
+    'website': 'https://github.com/DonsWayo/odoogit',
     'license': 'LGPL-3',
     'depends': [
         'base',
         'mail',
         'portal',
         'web',
-        'bus',
-        'auth_oauth',
         'project',
-        'hr',
-        'base_setup',
     ],
     'data': [
         'security/git_security.xml',
@@ -57,8 +56,6 @@ Git hosting module for Odoo 18/19 providing:
     'assets': {
         'web.assets_backend': [
             'odoogit/static/src/scss/odoogit.scss',
-            'odoogit/static/src/components/**/*',
-            'odoogit/static/src/services/**/*',
         ],
         'web.assets_tests': [
             'odoogit/static/src/tours/**/*',

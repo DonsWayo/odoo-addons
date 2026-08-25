@@ -1,0 +1,17 @@
+# Development override — copy to docker-compose.override.yml to enable.
+#
+#   cp docker-compose.override.yml.example docker-compose.override.yml
+#   docker compose up -d --force-recreate odoo
+#
+# Bind-mounts the module source over the copy baked into the image, so an
+# edit + `docker compose restart odoo` replaces the ~90s image rebuild.
+# entrypoint.sh detects the mount and skips its copy step.
+#
+# Note: on colima/Lima, confirm the mount is really populated before trusting
+# it (`docker compose exec odoo ls /mnt/extra-addons/odoogit`); a stale
+# virtiofs share silently mounts an empty directory.
+services:
+  odoo:
+    volumes:
+      - odoo_data:/var/lib/odoo
+      - ./odoogit:/mnt/extra-addons/odoogit
