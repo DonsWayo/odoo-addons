@@ -116,8 +116,6 @@ class GitRepository(models.Model):
     commit_count = fields.Integer(compute='_compute_counters')
     branch_count = fields.Integer(compute='_compute_counters')
     open_pr_count = fields.Integer(compute='_compute_counters')
-    open_issue_count = fields.Integer(compute='_compute_counters')
-    wiki_page_count = fields.Integer(compute='_compute_counters')
     collaborator_count = fields.Integer(compute='_compute_collaborator_count')
 
     # === Last Activity ===
@@ -177,8 +175,6 @@ class GitRepository(models.Model):
             repo.commit_count = len(repo.commit_ids)
             repo.branch_count = len(repo.branch_ids)
             repo.open_pr_count = len(repo.pull_request_ids.filtered(lambda pr: pr.state == 'open'))
-            repo.open_issue_count = 0
-            repo.wiki_page_count = 0
 
     @api.depends('member_ids', 'group_ids')
     def _compute_collaborator_count(self):

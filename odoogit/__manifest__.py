@@ -1,6 +1,6 @@
 {
     'name': 'OdooGit',
-    'version': '19.0.1.2.0',
+    'version': '19.0.1.3.0',
     'category': 'Tools/Development',
     'summary': 'OdooGit — private Git repository hosting with native Odoo integration',
     'description': """
@@ -21,6 +21,15 @@ what is deliberately not implemented yet.
     'author': 'Juan Jose Carracedo',
     'website': 'https://github.com/DonsWayo/odoogit',
     'license': 'LGPL-3',
+    # Apps Store listing: the first name ending in _screenshot is shown large.
+    # Paths are module-relative and must live under static/description.
+    'images': [
+        'static/description/main_screenshot.png',
+        'static/description/repositories.png',
+        'static/description/pull_requests.png',
+        'static/description/repository_form.png',
+    ],
+    'support': 'https://github.com/DonsWayo/odoogit/issues',
     'depends': [
         'base',
         'mail',

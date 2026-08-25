@@ -1,1 +1,7 @@
-from . import test_e2e_tours, test_integration_git, test_regressions, test_unit_models
+from . import (
+    test_e2e_git_lifecycle,
+    test_e2e_tours,
+    test_integration_git,
+    test_regressions,
+    test_unit_models,
+)

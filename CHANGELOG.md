@@ -8,6 +8,51 @@ Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
 
 ## [Unreleased]
 
+## [19.0.1.3.0] — 2026-08-25
+
+### Fixed
+
+- **A repository owner could not merge their own pull request.**
+  `action_merge()` advances the target branch and may delete the merged head
+  branch, but `ir.model.access` gave employees read-only on `git.branch` — so
+  every merge raised `AccessError` and only a Git Manager could complete a
+  pull request. Found by the new end-to-end test, not by any unit test.
+- **Branches and commits of an `internal` repository are now readable by
+  employees.** Their record rules only matched owners, members and groups, so
+  a repository visible to everyone had branches visible to nobody. Read and
+  write are now separate rules, mirroring `git.repository`.
+- **The pull-request browser tour asserted nothing.** Its setup created the
+  fixture as `git.pull.request` — the model is `git.pull_request` — and the
+  resulting `KeyError` was swallowed by a bare `except`, so the tour had been
+  running against a repository with no pull requests since it was written.
+
+### Added
+
+- **End-to-end tests for the loop the product exists for**
+  (`test_e2e_git_lifecycle.py`): clone over HTTP with a real Personal Access
+  Token, commit, push, watch branches and commits appear in Odoo, open a pull
+  request, merge it, and verify the bare repository on disk agrees. Covers
+  merge, squash and rebase-adjacent paths, plus the transport refusing a
+  stranger's token and an anonymous clone.
+  Odoo's in-test HTTP server answers 400 to any request without its
+  test-cursor cookie, so these forward it through `git -c http.extraHeader`
+  inside `allow_requests()` — without that the authorisation assertions would
+  have passed for the wrong reason.
+- Screenshots and a social-preview banner under `docs/images/`, regenerable
+  from `docs/images/social-preview.src.html`.
+- An Odoo Apps Store listing page (`static/description/index.html`) plus the
+  manifest `images` and `support` keys.
+
+### Changed
+
+- **The repository and pull-request list views were nearly empty.** Every
+  useful column — owner, default branch, counters, last activity, stars;
+  source and target branch, author, approvals, mergeable — shipped as
+  `optional="hide"`, leaving two columns visible by default. They are now
+  shown.
+- Removed `open_issue_count` and `wiki_page_count`, which computed a constant
+  0 for models deleted in `9bc27d3`, and the dead "Open Issues" column.
+
 ## [19.0.1.2.0] — 2026-08-25
 
 ### Added
@@ -200,7 +245,8 @@ First working release: repositories, branches, commits, pull requests with
 reviews and merge strategies, personal access tokens, deploy keys, webhooks,
 portal pages, and Git Smart HTTP transport.
 
-[Unreleased]: https://github.com/DonsWayo/odoogit/compare/v19.0.1.2.0...HEAD
+[Unreleased]: https://github.com/DonsWayo/odoogit/compare/v19.0.1.3.0...HEAD
+[19.0.1.3.0]: https://github.com/DonsWayo/odoogit/compare/v19.0.1.2.0...v19.0.1.3.0
 [19.0.1.2.0]: https://github.com/DonsWayo/odoogit/compare/v19.0.1.1.0...v19.0.1.2.0
 [19.0.1.1.0]: https://github.com/DonsWayo/odoogit/compare/v19.0.1.0.0...v19.0.1.1.0
 [19.0.1.0.0]: https://github.com/DonsWayo/odoogit/releases/tag/v19.0.1.0.0

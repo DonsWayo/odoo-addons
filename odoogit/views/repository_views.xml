@@ -28,15 +28,14 @@
             <list string="Repositories" sample="1" decoration-info="visibility == 'internal'" decoration-muted="visibility == 'private'">
                 <field name="name"/>
                 <field name="description" widget="html" optional="hide"/>
-                <field name="owner_id" optional="hide"/>
+                <field name="owner_id" widget="many2one_avatar_user"/>
                 <field name="visibility" widget="badge"/>
-                <field name="default_branch" optional="hide"/>
-                <field name="commit_count" optional="hide" string="Commits"/>
-                <field name="branch_count" optional="hide" string="Branches"/>
-                <field name="open_pr_count" optional="hide" string="Open PRs"/>
-                <field name="open_issue_count" optional="hide" string="Open Issues"/>
-                <field name="last_activity_date" optional="hide" widget="datetime"/>
-                <field name="star_count" optional="hide" string="★"/>
+                <field name="default_branch"/>
+                <field name="commit_count" string="Commits"/>
+                <field name="branch_count" string="Branches"/>
+                <field name="open_pr_count" string="Open PRs"/>
+                <field name="last_activity_date" widget="datetime" string="Last Activity"/>
+                <field name="star_count" string="★"/>
             </list>
         </field>
     </record>

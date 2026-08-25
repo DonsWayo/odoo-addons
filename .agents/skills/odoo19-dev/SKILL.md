@@ -87,7 +87,7 @@ docker compose exec odoo odoo -d odoo -i odoogit --stop-after-init \
 python3 qa/run.py                     # browser QA (6 flows, must stay green)
 ```
 
-Unit tests: `--test-enable --test-tags /odoogit --http-port=8070` (105 tests).
+Unit tests: `--test-enable --test-tags /odoogit --http-port=8070` (130 tests).
 
 ## Known environment traps
 

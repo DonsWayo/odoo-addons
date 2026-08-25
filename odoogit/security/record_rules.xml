@@ -27,17 +27,43 @@
     </record>
 
     <!-- Branch: Access via repository -->
+    <!-- Read follows repository visibility... -->
     <record id="git_branch_rule_user" model="ir.rule">
         <field name="groups" eval="[(4, ref('odoogit.group_git_user'))]"/>
-        <field name="name">Git Branch: User Access</field>
+        <field name="name">Git Branch: Read Access</field>
         <field name="model_id" ref="model_git_branch"/>
-                <field name="domain_force">
+        <field name="domain_force">
+            ['|', '|', '|',
+                ('repository_id.owner_id', '=', user.id),
+                ('repository_id.member_ids', 'in', [user.id]),
+                ('repository_id.group_ids', 'in', user.group_ids.ids),
+                ('repository_id.visibility', '=', 'internal')
+            ]
+        </field>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <!-- ...write does not. Merging advances the target branch and may delete
+         the merged head branch, so repository members need this or only Git
+         Managers can complete a pull request. -->
+    <record id="git_branch_rule_user_write" model="ir.rule">
+        <field name="groups" eval="[(4, ref('odoogit.group_git_user'))]"/>
+        <field name="name">Git Branch: Write Access</field>
+        <field name="model_id" ref="model_git_branch"/>
+        <field name="domain_force">
             ['|', '|',
                 ('repository_id.owner_id', '=', user.id),
                 ('repository_id.member_ids', 'in', [user.id]),
                 ('repository_id.group_ids', 'in', user.group_ids.ids)
             ]
         </field>
+        <field name="perm_read" eval="0"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
     </record>
 
     <!-- Commit: Access via repository -->
@@ -45,11 +71,12 @@
         <field name="groups" eval="[(4, ref('odoogit.group_git_user'))]"/>
         <field name="name">Git Commit: User Access</field>
         <field name="model_id" ref="model_git_commit"/>
-                <field name="domain_force">
-            ['|', '|',
+        <field name="domain_force">
+            ['|', '|', '|',
                 ('repository_id.owner_id', '=', user.id),
                 ('repository_id.member_ids', 'in', [user.id]),
-                ('repository_id.group_ids', 'in', user.group_ids.ids)
+                ('repository_id.group_ids', 'in', user.group_ids.ids),
+                ('repository_id.visibility', '=', 'internal')
             ]
         </field>
     </record>

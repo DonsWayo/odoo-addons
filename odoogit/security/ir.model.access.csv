@@ -1,7 +1,7 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_git_repo_user,Git Repository User,model_git_repository,base.group_user,1,1,1,0
 access_git_repo_manager,Git Repository Manager,model_git_repository,odoogit.group_git_manager,1,1,1,1
-access_git_branch_user,Git Branch User,model_git_branch,base.group_user,1,0,0,0
+access_git_branch_user,Git Branch User,model_git_branch,base.group_user,1,1,1,1
 access_git_branch_manager,Git Branch Manager,model_git_branch,odoogit.group_git_manager,1,1,1,1
 access_git_commit_user,Git Commit User,model_git_commit,base.group_user,1,0,0,0
 access_git_pr_user,Git PR User,model_git_pull_request,base.group_user,1,1,1,0

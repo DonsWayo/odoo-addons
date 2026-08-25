@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/images/social-preview.png" alt="OdooGit — Git repository hosting inside Odoo 19" width="820">
+</p>
+
 <h1 align="center">OdooGit</h1>
 
 <p align="center">
@@ -14,7 +18,7 @@
   <a href="https://github.com/DonsWayo/odoogit/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/DonsWayo/odoogit"></a>
   <a href="LICENSE"><img alt="License: LGPL-3.0" src="https://img.shields.io/badge/license-LGPL--3.0-blue"></a>
   <img alt="Odoo 19.0" src="https://img.shields.io/badge/odoo-19.0-714B67">
-  <img alt="115 tests" src="https://img.shields.io/badge/tests-115%20passing-brightgreen">
+  <img alt="130 tests" src="https://img.shields.io/badge/tests-130%20passing-brightgreen">
   <img alt="PostgreSQL 18" src="https://img.shields.io/badge/postgres-18-336791">
 </p>
 
@@ -52,6 +56,15 @@
 | **JSON-RPC API** | repositories, branches, commits, tree, pull requests, reviews |
 
 Not included: issues, wiki, labels, forks, SSH, file browser UI.
+
+## Screenshots
+
+|  |  |
+|---|---|
+| ![Repository list](docs/images/repositories.png) | ![Pull requests](docs/images/pull-requests.png) |
+| **Repositories** — branches, commits, open PRs and last activity at a glance | **Pull requests** — source and target branch, author, approvals, mergeable state |
+| ![Repository form](docs/images/repository-form.png) | ![Branches](docs/images/branches.png) |
+| **Repository** — clone URL, counters, members and full Odoo chatter | **Branches** — synced from the bare repo, with protection settings |
 
 ## Install (Docker)
 
@@ -122,14 +135,18 @@ owning user, and that user's access to the repository is what gets checked.
 
 ```bash
 make check          # xml + lint + upgrade + tests — what CI runs
-make test           # 115 tests: unit, real-git integration, HTTP, regression
+make test           # 130 tests: unit, real-git integration, HTTP, e2e, regression
 make test-one T=TestJsonApi
 make qa             # 6 deterministic browser flows
 make release-check  # the full pre-tag gate, including a clean install
 ```
 
-`odoogit/tests/test_regressions.py` holds one test per defect found in the
-August 2026 audit — see [docs/AUDIT-2026-08.md](docs/AUDIT-2026-08.md).
+`odoogit/tests/test_e2e_git_lifecycle.py` runs the loop the product exists
+for: clone over HTTP with a real token, commit, push, watch the branches and
+commits appear in Odoo, open a pull request, merge it, and confirm the bare
+repository on disk agrees. `test_regressions.py` holds one test per defect
+found in the August 2026 audit — see
+[docs/AUDIT-2026-08.md](docs/AUDIT-2026-08.md).
 
 ## Documentation
 
@@ -138,6 +155,7 @@ August 2026 audit — see [docs/AUDIT-2026-08.md](docs/AUDIT-2026-08.md).
 | [docs/LIMITATIONS.md](docs/LIMITATIONS.md) | What is deliberately absent, and why — **read before deploying** |
 | [docs/AUDIT-2026-08.md](docs/AUDIT-2026-08.md) | August 2026 audit: every finding, its evidence, and the test that now covers it |
 | [docs/RELEASING.md](docs/RELEASING.md) | Versioning, pre-release checks, upgrade notes |
+| [docs/PUBLISHING.md](docs/PUBLISHING.md) | Odoo Apps Store checklist and where to tell people about it |
 | [CHANGELOG.md](CHANGELOG.md) | What changed, per release |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Dev loop and the testing rules this project holds to |
 | [SECURITY.md](SECURITY.md) | Reporting vulnerabilities; past advisories |

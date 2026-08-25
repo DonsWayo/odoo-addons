@@ -24,14 +24,13 @@ class TestOdooGitUiE2E(HttpCase):
             'name': 'main', 'repository_id': self.repo.id, 'commit_sha': 'a' * 40})
         feat = self.env['git.branch'].create({
             'name': 'feat', 'repository_id': self.repo.id, 'commit_sha': 'b' * 40})
-        try:
-            self.env['git.pull.request'].create({
-                'title': 'E2E PR', 'repository_id': self.repo.id,
-                'source_branch_id': feat.id, 'target_branch_id': main.id,
-                'state': 'open'})
-        except KeyError:
-            # registry not fully populated in this phase; tour skips PR assertions
-            pass
+        # the model is git.pull_request; this said git.pull.request and the
+        # KeyError was swallowed, so the PR tour ran against a repo with no
+        # pull requests and asserted nothing
+        self.pr = self.env['git.pull_request'].create({
+            'title': 'E2E PR', 'repository_id': self.repo.id,
+            'source_branch_id': feat.id, 'target_branch_id': main.id,
+            'state': 'open'})
 
     def test_01_repository_list_renders(self):
         """Action loads, list view renders with our repo row."""

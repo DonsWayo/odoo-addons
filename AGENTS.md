@@ -20,7 +20,7 @@ has already broken this repo:
 ```bash
 make build up install   # first run
 make check              # xml + lint + upgrade + tests — do this before pushing
-make test               # tests (115)
+make test               # tests (130)
 make qa                 # browser QA (must stay green)
 make help               # everything else
 ```

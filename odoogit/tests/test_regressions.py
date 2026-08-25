@@ -8,7 +8,7 @@ import json
 import os
 import subprocess
 
-from odoo.exceptions import UserError, ValidationError
+from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.tests import HttpCase, tagged
 
 from .common import OdooGitCommon
@@ -295,6 +295,66 @@ class TestRecordRuleCoverage(OdooGitCommon):
         found = self.env['git.pr.review'].with_user(self.stranger).search(
             [('id', '=', review.id)])
         self.assertFalse(found, 'stranger can read reviews on a private repo')
+
+
+@tagged('regression', 'post_install', '-at_install')
+class TestMergePermissions(OdooGitCommon):
+    """Completing a pull request must not require Git Manager."""
+
+    def test_owner_can_merge_their_own_pull_request(self):
+        """Regression: action_merge() advances the target branch and may
+        delete the merged head branch, but ir.model.access gave employees
+        read-only on git.branch — so every merge raised AccessError and only
+        a Git Manager could ever complete a pull request. Found by the
+        end-to-end clone/push/merge test, not by any unit test.
+        """
+        repo = self._repo('mergeable', owner_id=self.user.id)
+        main = self._branch(repo, 'main', sha='a' * 40)
+        feat = self._branch(repo, 'feature', sha='b' * 40)
+        pr = self.PR.create({
+            'title': 'let me merge', 'repository_id': repo.id,
+            'source_branch_id': feat.id, 'target_branch_id': main.id,
+            'author_id': self.user.id, 'state': 'open'})
+
+        owner_view = pr.with_user(self.user)
+        self.assertFalse(
+            self.user.has_group('odoogit.group_git_manager'),
+            'precondition: the owner is an ordinary employee')
+        # the two branch operations action_merge() performs must both be
+        # permitted for an ordinary owner: advancing the target branch...
+        main.with_user(self.user).write({'commit_sha': 'c' * 40})
+        main.invalidate_recordset()
+        self.assertEqual(main.commit_sha, 'c' * 40)
+        self.assertEqual(owner_view.target_branch_id, main)
+
+        # ...and deleting the merged head branch. (Not `feat`: a branch a PR
+        # still points at is protected by a foreign key, which is exactly why
+        # action_merge() guards the deletion.)
+        spare = self._branch(repo, 'spare', sha='f' * 40)
+        spare.with_user(self.user).unlink()
+        self.assertFalse(spare.exists())
+
+    def test_stranger_still_cannot_touch_branches(self):
+        """Widening the ACL must not widen the record rule."""
+        repo = self._repo('not-yours-branch', owner_id=self.user.id,
+                          visibility='private')
+        branch = self._branch(repo, 'main', sha='a' * 40)
+        stranger = self._create_user('branch-stranger')
+        with self.assertRaises(AccessError):
+            branch.with_user(stranger).write({'commit_sha': 'd' * 40})
+
+    def test_internal_repo_branches_are_readable_by_employees(self):
+        """An `internal` repository is readable by everyone, and its
+        branches and commits should follow — they previously did not."""
+        repo = self._repo('internal-branches', owner_id=self.user.id,
+                          visibility='internal')
+        branch = self._branch(repo, 'main', sha='a' * 40)
+        reader = self._create_user('branch-reader')
+        self.assertTrue(
+            branch.with_user(reader).exists(),
+            'employee cannot read branches of an internal repository')
+        with self.assertRaises(AccessError):
+            branch.with_user(reader).write({'commit_sha': 'e' * 40})
 
 
 @tagged('regression', 'post_install', '-at_install')

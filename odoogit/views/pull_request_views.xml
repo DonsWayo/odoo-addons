@@ -34,17 +34,17 @@
                 <field name="number" string="#" widget="badge" options="{'classes': {'': 'bg-dark'}}"/>
                 <field name="title" widget="ellipsis" string="Title"/>
                 <field name="state" widget="badge" string="Status" options="{'classes': {'draft': 'bg-secondary', 'open': 'bg-primary', 'merged': 'bg-success', 'closed': 'bg-danger'}}"/>
-                <field name="repository_id" optional="hide"/>
-                <field name="source_branch_id" string="Source" optional="hide" widget="badge" options="{'classes': {'': 'bg-info'}}"/>
-                <field name="target_branch_id" string="Target" optional="hide" widget="badge" options="{'classes': {'': 'bg-primary'}}"/>
-                <field name="author_id" optional="hide"/>
+                <field name="repository_id"/>
+                <field name="source_branch_id" string="Source" widget="badge" options="{'classes': {'': 'bg-info'}}"/>
+                <field name="target_branch_id" string="Target" widget="badge" options="{'classes': {'': 'bg-primary'}}"/>
+                <field name="author_id"/>
                 <field name="commit_count" optional="hide" string="Commits" widget="badge"/>
                 <field name="changed_files" optional="hide" string="Files" widget="badge"/>
                 <field name="additions" optional="hide" string="+" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-success'}}"/>
                 <field name="deletions" optional="hide" string="-" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-warning'}}"/>
-                <field name="approval_count" optional="hide" string="Approvals" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-success'}}"/>
+                <field name="approval_count" string="Approvals" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-success'}}"/>
                 <field name="changes_requested" optional="hide" string="Changes Req." widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-danger'}}"/>
-                <field name="is_mergeable" optional="hide" string="Mergeable" widget="boolean_toggle"/>
+                <field name="is_mergeable" string="Mergeable" widget="boolean_toggle"/>
                 <field name="create_date" widget="datetime" optional="hide"/>
             </list>
         </field>
