@@ -31,8 +31,8 @@
                 <field name="committed_date" widget="datetime"/>
                 <field name="repository_id" optional="hide"/>
                 <field name="is_signed" string="Signed" widget="boolean_toggle" decoration-success="is_signed == True"/>
-                <field name="additions" optional="hide" string="+" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-success', '2': 'bg-success', '3': 'bg-success', '4': 'bg-success', '5': 'bg-success', '10': 'bg-primary', '50': 'bg-warning', '100': 'bg-danger'}}"/>
-                <field name="deletions" optional="hide" string="-" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-warning', '2': 'bg-warning', '3': 'bg-warning', '5': 'bg-warning', '10': 'bg-warning', '50': 'bg-danger', '100': 'bg-danger'}}"/>
+                <field name="additions" optional="hide" string="Additions" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-success', '2': 'bg-success', '3': 'bg-success', '4': 'bg-success', '5': 'bg-success', '10': 'bg-primary', '50': 'bg-warning', '100': 'bg-danger'}}"/>
+                <field name="deletions" optional="hide" string="Deletions" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-warning', '2': 'bg-warning', '3': 'bg-warning', '5': 'bg-warning', '10': 'bg-warning', '50': 'bg-danger', '100': 'bg-danger'}}"/>
                 <field name="files_changed" optional="hide" string="Files" widget="badge"/>
             </list>
         </field>
@@ -165,6 +165,10 @@
 
     <!-- Action -->
     <record id="action_git_commit" model="ir.actions.act_window">
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No commits yet</p>
+            <p>Commits appear here automatically after a push. Each push syncs the branch and its recent history from the repository on disk.</p>
+        </field>
         <field name="name">Commits</field>
         <field name="res_model">git.commit</field>
         <field name="view_mode">list,kanban,form</field>

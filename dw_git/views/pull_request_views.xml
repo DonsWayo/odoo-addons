@@ -40,8 +40,8 @@
                 <field name="author_id"/>
                 <field name="commit_count" optional="hide" string="Commits" widget="badge"/>
                 <field name="changed_files" optional="hide" string="Files" widget="badge"/>
-                <field name="additions" optional="hide" string="+" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-success'}}"/>
-                <field name="deletions" optional="hide" string="-" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-warning'}}"/>
+                <field name="additions" optional="hide" string="Additions" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-success'}}"/>
+                <field name="deletions" optional="hide" string="Deletions" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-warning'}}"/>
                 <field name="approval_count" string="Approvals" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-success'}}"/>
                 <field name="changes_requested" optional="hide" string="Changes Req." widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-danger'}}"/>
                 <field name="is_mergeable" string="Mergeable" widget="boolean_toggle"/>
@@ -222,6 +222,10 @@
 
     <!-- Actions -->
     <record id="action_git_pull_request" model="ir.actions.act_window">
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No pull requests yet</p>
+            <p>A pull request proposes merging one branch into another, with review and conflict detection against the real repository.</p>
+        </field>
         <field name="name">Pull Requests</field>
         <field name="res_model">git.pull_request</field>
         <field name="view_mode">list,kanban,form</field>
