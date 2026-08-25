@@ -1,7 +1,7 @@
 <odoo>
     <!-- Portal Commit View -->
     <template id="portal_commit">
-        <t t-call="portal.layout">
+        <t t-call="portal.portal_layout">
             <t t-set="title">Commit: <t t-out="commit.short_sha"/></t>
             <div class="container mt-4">
                 <nav aria-label="breadcrumb" class="mb-4">

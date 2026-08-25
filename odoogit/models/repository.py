@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import os as _os
+import os
 import re
 import secrets
 import logging
@@ -90,7 +90,6 @@ class GitRepository(models.Model):
         'git_pat_repo_rel',
         'repo_id', 'pat_id',
         string='Personal Access Tokens',
-        inverse_name='repository_ids'
     )
     deploy_key_ids = fields.One2many('git.deploy_key', 'repository_id', string='Deploy Keys')
     webhook_ids = fields.One2many('git.webhook', 'repository_id', string='Webhooks')
@@ -129,6 +128,23 @@ class GitRepository(models.Model):
         string='Protected Branches'
     )
     has_projects = fields.Boolean(default=False)
+
+    # === Mirroring ===
+    is_mirror = fields.Boolean(
+        default=False,
+        help="This repository tracks an upstream remote")
+    mirror_url = fields.Char(help="Upstream URL fetched by the mirror cron")
+    mirror_active = fields.Boolean(
+        default=False,
+        help="Include this mirror in the scheduled sync")
+    mirror_interval = fields.Selection([
+        ('hourly', 'Hourly'),
+        ('daily', 'Daily'),
+        ('weekly', 'Weekly'),
+    ], default='daily',
+        help="Desired sync cadence. The cron runs hourly and skips mirrors "
+             "whose interval has not elapsed since mirror_last_sync.")
+    mirror_last_sync = fields.Datetime(readonly=True)
     require_signed_commits = fields.Boolean(default=False)
     max_file_size = fields.Integer(default=100, help="Max file size in MB")
     auto_delete_head_branch = fields.Boolean(default=True)
@@ -151,7 +167,7 @@ class GitRepository(models.Model):
         for repo in self:
             users = repo.member_ids
             for group in repo.group_ids:
-                users |= group.users
+                users |= group.user_ids
             repo.collaborator_count = len(users)
 
     @api.depends('commit_ids.create_date', 'pull_request_ids.create_date')
@@ -183,6 +199,7 @@ class GitRepository(models.Model):
             self.star_ids = [(4, self.env.user.id)]
         return True
 
+    @api.depends('owner_id', 'name')
     def _compute_clone_urls(self):
         base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url', 'http://localhost:8069')
         ssh_host = self.env['ir.config_parameter'].sudo().get_param('odoogit.ssh_host', 'git.example.com')
@@ -200,30 +217,30 @@ class GitRepository(models.Model):
             'odoogit.repo_base_path',
             '/var/lib/odoo/git/repos'
         )
-        return _os.path.join(base_path, self.owner_id.login, f"{self.name}.git")
+        return os.path.join(base_path, self.owner_id.login, f"{self.name}.git")
 
     def _init_git_repo(self):
-        """Initialize bare Git repository on filesystem"""
+        """Create the bare Git repository on disk. Idempotent."""
         self.ensure_one()
         repo_path = self._get_repo_path()
-        if not _os.path.exists(repo_path):
+        if os.path.exists(repo_path):
+            return True
+        try:
+            import git
             os.makedirs(repo_path, exist_ok=True)
-            try:
-                import git
-                repo = git.Repo.init(repo_path, bare=True)
-                # Create initial empty commit for default branch
-                if self.default_branch != 'main':
-                    pass  # Will create on first push
-            except Exception as e:
-                _logger.error(f"Failed to init git repo: {e}")
-                raise UserError(_("Failed to initialize Git repository: %s") % str(e))
+            git.Repo.init(repo_path, bare=True,
+                          initial_branch=self.default_branch or 'main')
+        except Exception as e:
+            _logger.error("Failed to init git repo at %s: %s", repo_path, e)
+            raise UserError(
+                _("Failed to initialize Git repository: %s", e))
         return True
 
     def _get_git_refs(self):
         """Get all refs for Git Smart HTTP advertisement"""
         self.ensure_one()
         repo_path = self._get_repo_path()
-        if not _os.path.exists(repo_path):
+        if not os.path.exists(repo_path):
             return {}
         try:
             import git
@@ -243,18 +260,23 @@ class GitRepository(models.Model):
                     "Invalid repository name: %s. Use letters, digits, "
                     "dots, hyphens or underscores.", rec.name))
 
-    @api.constrains('name', 'company_id')
-    def _check_name_company_unique(self):
+    @api.constrains('name', 'owner_id')
+    def _check_name_owner_unique(self):
+        """One name per owner — matches the on-disk <owner>/<name>.git layout.
+
+        Company-wide uniqueness (the previous rule) made alice/web and bob/web
+        collide even though they occupy different directories.
+        """
         for rec in self:
             dup = self.search([
                 ('name', '=', rec.name),
-                ('company_id', '=', rec.company_id.id),
+                ('owner_id', '=', rec.owner_id.id),
                 ('id', '!=', rec.id),
             ], limit=1)
             if dup:
                 raise ValidationError(_(
-                    "Repository name '%s' already exists in this company.",
-                    rec.name))
+                    "%(owner)s already owns a repository named '%(name)s'.",
+                    owner=rec.owner_id.name, name=rec.name))
 
     def action_open_branches(self):
         return {
@@ -289,10 +311,10 @@ class GitRepository(models.Model):
     def _sync_from_git(self):
         """Sync branches and commits from the on-disk git repo into Odoo."""
         self.ensure_one()
-        import os as _os
+        import os
         import git as git_lib
         path = self._get_repo_path()
-        if not _os.path.isdir(path):
+        if not os.path.isdir(path):
             return
         repo = git_lib.Repo(path)
         Branch = self.env['git.branch'].sudo()
@@ -324,20 +346,26 @@ class GitRepository(models.Model):
                     'committed_date': datetime.fromtimestamp(gc.committed_date),
                     'repository_id': self.id,
                 })
-        self.env.cr.commit()
+        # A push arrives over HTTP; commit so the synced refs survive even if a
+        # later step of the request fails. Never commit under the test cursor —
+        # it would leak fixtures across tests.
+        if not self.env.registry.in_test_mode():
+            self.env.cr.commit()
 
     def write(self, vals):
         """Migrate the bare repo on disk when owner/name changes the path."""
         import shutil
+        result = True
         for repo in self:
             old_path = repo._get_repo_path()
             res = super(GitRepository, repo).write(vals)
             new_path = repo._get_repo_path()
-            if old_path != new_path and _os.path.isdir(old_path):
-                _os.makedirs(_os.path.dirname(new_path), exist_ok=True)
-                if not _os.path.exists(new_path):
+            if old_path != new_path and os.path.isdir(old_path):
+                os.makedirs(os.path.dirname(new_path), exist_ok=True)
+                if not os.path.exists(new_path):
                     shutil.move(old_path, new_path)
-        return True
+            result = result and res
+        return result
 
     def _check_repo_access(self, user, operation='read'):
         """Check if user has access to repository"""
@@ -388,9 +416,20 @@ class GitRepository(models.Model):
                 repo.message_post(body=_("Mirror sync failed: %s") % str(e))
 
     def _sync_mirror(self):
-        """Sync a mirrored repository from upstream"""
+        """Fetch all refs from the configured upstream into the bare repo."""
         self.ensure_one()
         if not self.mirror_url:
-            return
-        # Implementation would use git fetch --mirror
-        pass
+            return False
+        import git
+        path = self._get_repo_path()
+        if not os.path.isdir(path):
+            self._init_git_repo()
+        repo = git.Repo(path)
+        if 'origin' in [r.name for r in repo.remotes]:
+            repo.remotes.origin.set_url(self.mirror_url)
+        else:
+            repo.create_remote('origin', self.mirror_url)
+        repo.git.fetch('--prune', 'origin', '+refs/heads/*:refs/heads/*')
+        self.mirror_last_sync = fields.Datetime.now()
+        self._sync_from_git()
+        return True

@@ -5,8 +5,6 @@
         <field name="description"><p>A demo repository for testing Git Hosting features</p></field>
         <field name="visibility">internal</field>
         <field name="owner_id" ref="base.user_demo"/>
-        <field name="has_wiki">True</field>
-        <field name="has_issues">True</field>
         <field name="has_pull_requests">True</field>
     </record>
 

@@ -68,7 +68,8 @@ class GitPullRequest(models.Model):
     file_ids = fields.One2many('git.pr.file', 'pull_request_id', string='Changed Files')
     additions = fields.Integer(compute='_compute_stats')
     deletions = fields.Integer(compute='_compute_stats')
-    changed_files = fields.Integer(compute='_compute_stats')
+    changed_files = fields.Integer(
+        string='Changed File Count', compute='_compute_stats')
 
     # === Merge Info ===
     merge_method = fields.Selection([
@@ -109,27 +110,46 @@ class GitPullRequest(models.Model):
 
     @api.depends('state', 'source_branch_id.commit_sha', 'target_branch_id.commit_sha',
                  'target_branch_id.is_protected', 'target_branch_id.require_pr_reviews',
-                 'target_branch_id.required_approving_reviews', 'approval_count')
+                 'target_branch_id.required_approving_reviews', 'approval_count',
+                 'changes_requested')
     def _compute_mergeable(self):
-        """Check if PR can be merged (no conflicts, target branch not protected, etc.)"""
+        """Whether the PR satisfies the target branch's merge requirements."""
         for pr in self:
             pr.has_conflicts = pr._check_conflicts()
             target = pr.target_branch_id
             can_merge = True
-            if target.is_protected:
-                if target.require_pr_reviews:
-                    if pr.approval_count < target.required_approving_reviews:
-                        can_merge = False
+            if pr.changes_requested:
+                can_merge = False
+            if target.is_protected and target.require_pr_reviews:
+                if pr.approval_count < target.required_approving_reviews:
+                    can_merge = False
             pr.is_mergeable = can_merge and not pr.has_conflicts
 
     def _check_conflicts(self):
-        """Check for merge conflicts using git"""
+        """True when merging source into target would conflict.
+
+        `git merge-tree` exits non-zero on conflict, which GitPython raises.
+        Any other failure (missing repo, unknown sha) is reported as a
+        conflict too — refusing to merge is the safe default — but is logged
+        so it can be told apart from a real conflict.
+        """
+        import os
+        if not (self.source_branch_id.commit_sha
+                and self.target_branch_id.commit_sha):
+            return True
+        path = self.repository_id._get_repo_path()
+        if not os.path.isdir(path):
+            _logger.warning("PR %s: no bare repo at %s", self.id, path)
+            return True
         try:
             import git
-            repo = git.Repo(self.repository_id._get_repo_path())
-            repo.git.merge_tree(self.target_branch_id.commit_sha, self.source_branch_id.commit_sha)
+            repo = git.Repo(path)
+            repo.git.merge_tree('--write-tree',
+                                self.target_branch_id.commit_sha,
+                                self.source_branch_id.commit_sha)
             return False
-        except Exception:
+        except Exception as exc:
+            _logger.info("PR %s not mergeable: %s", self.id, exc)
             return True
 
     @api.depends('review_ids.state')
@@ -146,7 +166,13 @@ class GitPullRequest(models.Model):
         if self.state != 'open':
             raise UserError(_("Only open pull requests can be merged."))
         if not self.is_mergeable:
-            raise UserError(_("This pull request cannot be merged due to conflicts or failed checks."))
+            raise UserError(_(
+                "This pull request cannot be merged: it has conflicts, "
+                "unresolved change requests, or too few approvals."))
+        if not self.target_branch_id.can_user_merge(self.env.user):
+            raise UserError(_(
+                "Branch '%s' is protected and you are not allowed to merge "
+                "into it.", self.target_branch_id.name))
 
         method = method or self.merge_method
         merge_commit = self._perform_git_merge(method)
@@ -165,14 +191,12 @@ class GitPullRequest(models.Model):
         if self.repository_id.auto_delete_head_branch and not self.source_branch_id.is_default:
             # only safe to delete when no other PR still references the branch
             still_used = self.search_count([
+                '|',
                 ('source_branch_id', '=', self.source_branch_id.id),
+                ('target_branch_id', '=', self.source_branch_id.id),
                 ('id', '!=', self.id),
             ])
-            target_still_used = self.search_count([
-                '|', ('source_branch_id', '=', self.target_branch_id.id),
-                ('target_branch_id', '=', self.source_branch_id.id),
-            ])
-            if not still_used and not target_still_used:
+            if not still_used:
                 try:
                     self.source_branch_id.unlink()
                 except Exception:

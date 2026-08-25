@@ -46,7 +46,6 @@ class GitPortalController(http.Controller):
             'branches': repository.branch_ids,
             'recent_commits': repository.commit_ids[:10],
             'open_prs': repository.pull_request_ids.filtered(lambda p: p.state == 'open')[:5],
-            'open_issues': repository.issue_ids.filtered(lambda i: i.state == 'open')[:5],
         })
 
     @http.route('/git/<string:owner>/<string:repo>/commit/<string:sha>', type='http', auth='public', website=True)
@@ -68,14 +67,3 @@ class GitPortalController(http.Controller):
             'repository': repository,
             'commit': commit,
         })
-
-
-# Add _check_portal_access to repository model (will be monkey-patched)
-def _check_portal_access(self, user):
-    """Check if user has portal access to repository"""
-    if self._check_repo_access(user, 'read'):
-        return True
-    # Allow public read for internal repos
-    if self.visibility == 'internal' and not user.share:
-        return True
-    return False
