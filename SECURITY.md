@@ -53,7 +53,9 @@ If you ever ran `19.0.1.0.0`, treat the following as having happened:
 
 ## Scope
 
-In scope: authentication and authorisation on the Git Smart HTTP endpoints,
+In scope: command execution or local file access through a user-supplied
+value (repository names, mirror URLs, refs); authentication and authorisation
+on the Git Smart HTTP endpoints,
 the `/api/git/*` JSON-RPC routes and the portal; record rules and ACLs;
 credential storage and handling; anything letting a user reach a repository
 they are not a member of.
@@ -66,6 +68,9 @@ See [docs/LIMITATIONS.md](docs/LIMITATIONS.md):
 - Webhooks are never delivered, so webhook-side SSRF is not currently
   reachable. Building delivery requires an SSRF policy first.
 - There is no SSH transport; `clone_url_ssh` is decorative.
+- A mirror reaches whatever host its URL names. The URL form is restricted to
+  transports git will not execute, but the destination is not filtered —
+  restrict egress at the network layer if that matters to you.
 - `require_signed_commits`, `require_linear_history` and
   `require_status_checks` are stored but never enforced.
 

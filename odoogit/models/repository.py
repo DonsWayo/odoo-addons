@@ -11,6 +11,26 @@ _logger = logging.getLogger(__name__)
 
 NAME_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$')
 
+# Remote URLs accepted for mirroring. This is an allowlist on purpose.
+#
+# `git fetch` treats several URL forms as instructions rather than locations:
+#   ext::sh -c '...'   runs a shell command  (remote code execution)
+#   file:///etc/...    reads the local filesystem
+#   -upload-pack=...   is parsed as a git option, not a URL
+# `mirror_url` is a plain field on git.repository, which ir.model.access
+# grants every employee write on — so it is attacker-controlled input that
+# the hourly mirror cron feeds to git as the Odoo system user.
+MIRROR_URL_RE = re.compile(
+    r"""^(?:
+          (?:https?|git|ssh)://[^\s'"\\]+      # scheme form
+        | [A-Za-z0-9._-]+@[A-Za-z0-9.-]+:[^\s'"\\]+   # scp form: user@host:path
+    )$""",
+    re.VERBOSE,
+)
+# Protocols git may use for a mirror fetch, as GIT_ALLOW_PROTOCOL expects them.
+MIRROR_ALLOWED_PROTOCOLS = 'http:https:git:ssh'
+
+
 
 class GitRepository(models.Model):
     _name = 'git.repository'
@@ -260,6 +280,18 @@ class GitRepository(models.Model):
                     "Invalid repository name: %s. Use letters, digits, "
                     "dots, hyphens or underscores.", rec.name))
 
+    @api.constrains('mirror_url')
+    def _check_mirror_url(self):
+        """Reject remote URLs that git would treat as a command or a path."""
+        for rec in self:
+            if rec.mirror_url and not MIRROR_URL_RE.match(rec.mirror_url.strip()):
+                raise ValidationError(_(
+                    "Invalid mirror URL: %(url)s\n\n"
+                    "Use https://, http://, git://, ssh:// or "
+                    "user@host:path. Other forms — notably ext:// and "
+                    "file:// — let git run commands or read local files.",
+                    url=rec.mirror_url))
+
     @api.constrains('name', 'owner_id')
     def _check_name_owner_unique(self):
         """One name per owner — matches the on-disk <owner>/<name>.git layout.
@@ -420,16 +452,30 @@ class GitRepository(models.Model):
         self.ensure_one()
         if not self.mirror_url:
             return False
+        url = (self.mirror_url or '').strip()
+        # Re-validate here, not only in the constraint: this runs from a cron
+        # against whatever is in the database, including rows written before
+        # the constraint existed or through raw SQL.
+        if not MIRROR_URL_RE.match(url):
+            raise UserError(_(
+                "Refusing to fetch from an unsupported mirror URL: %(url)s",
+                url=url))
         import git
         path = self._get_repo_path()
         if not os.path.isdir(path):
             self._init_git_repo()
         repo = git.Repo(path)
         if 'origin' in [r.name for r in repo.remotes]:
-            repo.remotes.origin.set_url(self.mirror_url)
+            repo.remotes.origin.set_url(url)
         else:
-            repo.create_remote('origin', self.mirror_url)
-        repo.git.fetch('--prune', 'origin', '+refs/heads/*:refs/heads/*')
+            repo.create_remote('origin', url)
+        # Belt and braces: even if a URL slipped past the allowlist, git
+        # itself refuses any transport outside this set.
+        with repo.git.custom_environment(
+                GIT_ALLOW_PROTOCOL=MIRROR_ALLOWED_PROTOCOLS,
+                GIT_TERMINAL_PROMPT='0'):
+            repo.git.fetch('--prune', 'origin',
+                           '+refs/heads/*:refs/heads/*')
         self.mirror_last_sync = fields.Datetime.now()
         self._sync_from_git()
         return True

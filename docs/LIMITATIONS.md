@@ -73,6 +73,24 @@ external writes it.
 Older history stays on disk and is reachable by `git`, but has no
 `git.commit` record and so does not appear in Odoo.
 
+## Mirrors reach arbitrary hosts, by design
+
+A mirror fetches from whatever `mirror_url` names, so an operator who
+configures one causes the Odoo server to make an outbound request to that
+host. On an internal network that includes hosts a user could not otherwise
+reach — cloud metadata endpoints among them.
+
+The URL is validated against an allowlist (`https`, `http`, `git`, `ssh`, and
+`user@host:path`) which rejects the forms git would execute rather than
+fetch — `ext::` runs a shell command, `file://` reads the local filesystem,
+and a leading `-` is parsed as a git option. `GIT_ALLOW_PROTOCOL` pins the
+transport set as a second layer.
+
+What is *not* restricted is which host you may point it at. There is no
+address allow/deny list, no DNS-rebinding protection and no egress policy. If
+that matters in your deployment, restrict it at the network layer and keep
+`git.repository` write access narrow.
+
 ## Mirrors are pull-only and unconditional
 
 `_cron_sync_mirrors` runs hourly and fetches every active mirror.

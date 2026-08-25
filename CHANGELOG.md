@@ -37,6 +37,15 @@ Audit release. Full findings and evidence in
 - **Branch merge restrictions are enforced.** `action_merge()` now calls
   `git.branch.can_user_merge()`, which existed but was called from nowhere.
 - A review in `request_changes` now blocks the merge.
+- **Mirror URLs are validated against an allowlist.** `_sync_mirror()` was a
+  no-op before this release; implementing it introduced a command-execution
+  path, caught in review. `git fetch` treats `ext::sh -c '...'` as a shell
+  command and `file://` as a local path, `mirror_url` is a plain field that
+  `ir.model.access` lets every employee write, and the mirror cron runs
+  hourly as the Odoo system user. Only `https://`, `http://`, `git://`,
+  `ssh://` and `user@host:path` are accepted now — enforced by an
+  `@api.constrains` and re-checked at fetch time, with
+  `GIT_ALLOW_PROTOCOL` pinned as a second layer.
 
 ### Fixed
 
