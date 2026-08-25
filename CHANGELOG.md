@@ -42,6 +42,10 @@ Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
   from `docs/images/social-preview.src.html`.
 - An Odoo Apps Store listing page (`static/description/index.html`) plus the
   manifest `images` and `support` keys.
+- A redrawn app icon at 256×256, and `docs/PUBLISHING.md` — the store
+  checklist, the rules `index.html` must follow (only PNG/GIF/JPEG from
+  `static/description`, external links stripped), and where it is worth
+  telling people about the module.
 
 ### Changed
 
