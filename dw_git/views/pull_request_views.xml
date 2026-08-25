@@ -118,6 +118,7 @@
                     <button name="action_merge" type="object" string="Squash &amp; Merge" class="btn-primary" context="{'method': 'squash'}" groups="dw_git.group_git_manager" invisible="state != 'open' and is_mergeable == False" icon="fa-compress" confirm="Squash and merge this pull request?"/>
                     <button name="action_merge" type="object" string="Rebase &amp; Merge" class="btn-primary" context="{'method': 'rebase'}" groups="dw_git.group_git_manager" invisible="state != 'open' and is_mergeable == False" icon="fa-code-fork" confirm="Rebase and merge this pull request?"/>
                     <button name="action_close" type="object" string="Close" class="btn-secondary" invisible="state in ['closed', 'merged']" icon="fa-times" confirm="Close this pull request?"/>
+                    <button name="action_refresh_changes" type="object" string="Refresh Changes" class="btn-secondary" icon="fa-refresh"/>
                     <button name="action_reopen" type="object" string="Reopen" class="btn-secondary" invisible="state not in ['closed', 'merged']" icon="fa-refresh"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,open,merged,closed" statusbar_colors='{"draft":"secondary","open":"primary","merged":"success","closed":"danger"}'/>
                 </header>
@@ -133,7 +134,10 @@
                             <div class="d-flex flex-wrap align-items-center gap-2">
                                 <field name="state" widget="badge" options="{'classes': {'draft': 'bg-secondary', 'open': 'bg-primary', 'merged': 'bg-success', 'closed': 'bg-danger'}}" class="me-2"/>
                                 <field name="number" widget="badge" class="bg-dark me-2" optional="hide"/>
-                                <h3 class="mb-0 flex-grow-1"><field name="title" nolabel="1"/></h3>
+                                <div class="oe_title flex-grow-1 mb-0">
+                                    <h3 class="mb-0"><field name="title" nolabel="1" class="w-100"
+                                        placeholder="What does this pull request do?"/></h3>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -161,8 +165,8 @@
                                 <list string="Changed Files" decoration-success="status == 'added'" decoration-danger="status == 'removed'" decoration-warning="status == 'renamed'" decoration-info="status == 'modified'">
                                     <field name="filename" widget="ellipsis"/>
                                     <field name="status" widget="badge" string="Status" options="{'classes': {'added': 'bg-success', 'modified': 'bg-primary', 'removed': 'bg-danger', 'renamed': 'bg-warning'}}"/>
-                                    <field name="additions" string="+" widget="badge" options="{'classes': {'0': 'bg-secondary'}}"/>
-                                    <field name="deletions" string="-" widget="badge" options="{'classes': {'0': 'bg-secondary'}}"/>
+                                    <field name="additions" string="Additions" widget="badge" options="{'classes': {'0': 'bg-secondary'}}"/>
+                                    <field name="deletions" string="Deletions" widget="badge" options="{'classes': {'0': 'bg-secondary'}}"/>
                                 </list>
                             </field>
                         </page>
@@ -223,5 +227,37 @@
         <field name="view_mode">list,kanban,form</field>
         <field name="search_view_id" ref="view_git_pull_request_search"/>
         <field name="context">{'search_default_open': 1}</field>
+    </record>
+
+    <!-- Changed file: the diff for one file in a pull request -->
+    <record id="view_git_pr_file_form" model="ir.ui.view">
+        <field name="name">git.pr.file.form</field>
+        <field name="model">git.pr.file</field>
+        <field name="arch" type="xml">
+            <form string="Changed File">
+                <sheet>
+                    <div class="oe_title mb-3">
+                        <h2 class="mb-1"><field name="filename" readonly="1" nolabel="1" class="font-monospace"/></h2>
+                        <div class="d-flex align-items-center gap-2">
+                            <field name="status" widget="badge" nolabel="1"
+                                   options="{'classes': {'added': 'bg-success', 'modified': 'bg-primary', 'removed': 'bg-danger', 'renamed': 'bg-warning'}}"/>
+                            <span class="badge bg-success-subtle text-success-emphasis" title="Lines added">
+                                +<field name="additions" readonly="1" nolabel="1"/>
+                            </span>
+                            <span class="badge bg-danger-subtle text-danger-emphasis" title="Lines removed">
+                                -<field name="deletions" readonly="1" nolabel="1"/>
+                            </span>
+                        </div>
+                    </div>
+                    <notebook>
+                        <page string="Diff" name="diff">
+                            <field name="patch" readonly="1" nolabel="1"
+                                   class="font-monospace o-git-patch"
+                                   placeholder="No diff recorded. Use Refresh Changes on the pull request to read it from the repository."/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
     </record>
 </odoo>

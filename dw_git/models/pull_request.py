@@ -159,6 +159,18 @@ class GitPullRequest(models.Model):
             pr.approval_count = len(approvals)
             pr.changes_requested = bool(changes)
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        for pr in records:
+            # best effort: a PR can legitimately exist before its bare repo
+            # has the commits (fixtures, imports), so never block creation
+            try:
+                pr._sync_changed_files()
+            except Exception as exc:      # noqa: BLE001 - diagnostic only
+                _logger.info("PR %s: initial diff skipped: %s", pr.id, exc)
+        return records
+
     def action_merge(self, method=None):
         """Merge the pull request"""
         self.ensure_one()
@@ -249,6 +261,71 @@ class GitPullRequest(models.Model):
             sha = repo.git.commit_tree(tree, *cmd).strip()
         repo.git.update_ref(ref, sha)
         return repo.commit(sha)
+
+    def action_refresh_changes(self):
+        """Recompute the changed-file list and patches from the repository."""
+        for pr in self:
+            pr._sync_changed_files()
+        return True
+
+    def _sync_changed_files(self):
+        """Replace git.pr.file rows with the real diff from the bare repo.
+
+        Nothing populated these before: the Changed Files tab listed whatever
+        had been inserted by hand, and every patch was empty. The diff is
+        taken against the merge base, not the target tip, so it shows what
+        this branch changes rather than everything that happened on the
+        target since it forked.
+        """
+        self.ensure_one()
+        import os
+        Files = self.env['git.pr.file']
+        path = self.repository_id._get_repo_path()
+        source = self.source_branch_id.commit_sha
+        target = self.target_branch_id.commit_sha
+        if not (os.path.isdir(path) and source and target):
+            return False
+        try:
+            import git as git_lib
+            repo = git_lib.Repo(path)
+            bases = repo.merge_base(target, source)
+            base = bases[0] if bases else repo.commit(target)
+            diffs = base.diff(repo.commit(source), create_patch=True,
+                              unified=3)
+        except Exception as exc:
+            _logger.warning("PR %s: cannot diff %s..%s: %s",
+                            self.id, target[:8], source[:8], exc)
+            return False
+
+        self.file_ids.unlink()
+        rows = []
+        for d in diffs:
+            if d.new_file:
+                status = 'added'
+            elif d.deleted_file:
+                status = 'removed'
+            elif d.renamed_file:
+                status = 'renamed'
+            else:
+                status = 'modified'
+            patch = (d.diff or b'')
+            if isinstance(patch, bytes):
+                patch = patch.decode('utf-8', errors='replace')
+            added = sum(1 for ln in patch.splitlines()
+                        if ln.startswith('+') and not ln.startswith('+++'))
+            removed = sum(1 for ln in patch.splitlines()
+                          if ln.startswith('-') and not ln.startswith('---'))
+            rows.append({
+                'pull_request_id': self.id,
+                'filename': d.b_path or d.a_path,
+                'status': status,
+                'additions': added,
+                'deletions': removed,
+                'patch': patch,
+            })
+        if rows:
+            Files.create(rows)
+        return True
 
     def action_close(self):
         self.write({'state': 'closed', 'closed_at': fields.Datetime.now()})

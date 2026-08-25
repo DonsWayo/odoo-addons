@@ -56,3 +56,13 @@
     background: var(--bs-primary, #714B67) !important;
     color: #fff !important;
 }
+
+// Unified diff shown as raw patch text: it must not wrap mid-line, or the
+// +/- column stops lining up and the diff becomes unreadable.
+.o-git-patch textarea {
+    min-height: 420px;
+    white-space: pre;
+    overflow-x: auto;
+    font-size: .85rem;
+    line-height: 1.45;
+}

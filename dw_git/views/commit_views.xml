@@ -91,8 +91,9 @@
                     <div class="row mb-3">
                         <div class="col-12">
                             <div class="d-flex align-items-center gap-3">
-                                <span class="badge bg-dark font-monospace fs-6 p-2">
-                                    <field name="sha" readonly="1" widget="monospace" nolabel="1"/>
+                                <span class="badge bg-secondary font-monospace px-2 py-1"
+                                      title="Abbreviated commit SHA">
+                                    <field name="short_sha" readonly="1" nolabel="1"/>
                                 </span>
                                 <div>
                                     <h3 class="mb-1"><field name="message_short" readonly="1" nolabel="1"/></h3>
@@ -103,7 +104,7 @@
                     </div>
 
                     <group string="Commit Info" col="4" invisible="1">
-                        <field name="sha" readonly="1" widget="monospace"/>
+                        <field name="sha" readonly="1" class="font-monospace"/>
                         <field name="repository_id" readonly="1" options="{'no_create': True, 'no_open': True}"/>
                         <field name="author_name" readonly="1"/>
                         <field name="author_email" readonly="1"/>
