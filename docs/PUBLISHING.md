@@ -58,6 +58,16 @@ the reference implementation:
 
 Odoo strips things. Keep to them or the page renders wrong:
 
+- **Keep the file pure ASCII.** The store does not render it as UTF-8: an
+  em-dash shipped as a literal `—` came out on the live listing as `â€`. Use
+  HTML entities (`&mdash;`, `&rarr;`, `&hellip;`) instead of the characters
+  themselves. Check with:
+
+  ```bash
+  python3 -c "s=open('odoogit/static/description/index.html',encoding='utf-8').read(); \
+  print(sorted({c for c in s if ord(c)>127}) or 'pure ASCII')"
+  ```
+
 - Only PNG, GIF and JPEG images, and only from `static/description/`.
 - External links are invalidated. YouTube (canonical URL) and Microsoft Teams
   are the exceptions.

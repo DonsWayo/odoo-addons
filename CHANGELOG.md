@@ -18,6 +18,9 @@ Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
 
 ### Fixed
 
+- **Em-dashes rendered as `â€` on the published Apps Store listing.** The
+  store does not decode `static/description/index.html` as UTF-8, so the file
+  is now pure ASCII with `&mdash;` entities.
 - **The Apps Store cover and large screenshot were the same branding image.**
   Odoo blows up the first `images` entry whose name ends in `_screenshot`, and
   intends that slot for "a full demo page and not your company logo larger".
