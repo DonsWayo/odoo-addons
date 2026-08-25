@@ -15,7 +15,7 @@ RUFF     := uvx ruff
 
 .DEFAULT_GOAL := help
 .PHONY: help build up down clean logs shell psql install upgrade test test-one \
-        qa lint fmt xml check release-check versions
+        qa lint fmt xml assets check release-check versions
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -70,6 +70,15 @@ xml: ## Every XML file parses (do this before `make build`)
 	  [ET.parse(f) for f in fs]; \
 	  print(f'XML OK ({len(fs)} files)')"
 
+assets: ## Every file named in a manifest's assets actually exists
+	@python3 -c "\
+import ast, glob, os, sys; \
+missing=[p for mf in glob.glob('*/__manifest__.py') \
+         for paths in ast.literal_eval(open(mf).read()[open(mf).read().index('{'):]).get('assets',{}).values() \
+         for e in paths for p in [e[0] if isinstance(e,(list,tuple)) else e] \
+         if '*' not in p and not os.path.isfile(p)]; \
+sys.exit('assets declared but absent: '+', '.join(missing)) if missing else print('asset files OK')"
+
 test: ## Run the full test suite
 	$(ODOO) -d $(DB) --test-enable --test-tags /$(MODULE) \
 	  --stop-after-init --http-port=8070 $(DBFLAGS)
@@ -81,7 +90,7 @@ test-one: ## Run one class or method: make test-one T=TestJsonApi
 qa: ## Browser QA flows (needs the stack up and exactly one database)
 	python3 qa/run.py
 
-check: xml lint upgrade test ## What CI runs — do this before pushing
+check: xml assets lint upgrade test ## What CI runs — do this before pushing
 
 release-check: xml lint ## Full pre-tag gate: clean install, upgrade, tests, QA
 	$(COMPOSE) exec -T postgres psql -U odoo -d postgres \

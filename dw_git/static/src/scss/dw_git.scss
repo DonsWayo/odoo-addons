@@ -1,0 +1,58 @@
+// Git Hosting — backend styles.
+//
+// This file previously carried 45 selectors for a file browser, diff viewer
+// and commit graph that were never built (their OWL components lived under
+// static/src/components/, a directory that does not exist). None of them
+// matched a class any view used, so the stylesheet styled nothing at all.
+//
+// What follows targets the classes the kanban views actually render.
+
+.o_kanban_git_repo,
+.o_kanban_git_branch,
+.o_kanban_git_commit,
+.o_kanban_git_pr,
+.o_kanban_git_pat,
+.o_kanban_git_deploy_key,
+.o_kanban_git_webhook {
+
+    .o_kanban_record {
+        transition: box-shadow .15s ease, transform .15s ease;
+
+        &:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .12);
+        }
+    }
+
+    // Every card in this module leads with a name and a status badge.
+    .o_kanban_record_head {
+        margin-bottom: .25rem;
+        gap: .5rem;
+    }
+}
+
+// SHAs, branch names and clone URLs are identifiers: never let them wrap
+// mid-token, and keep them monospaced so they are comparable by eye.
+.o_kanban_git_commit_card,
+.o_kanban_git_branch_card {
+
+    .text-monospace,
+    .font-monospace {
+        white-space: nowrap;
+    }
+}
+
+.o_kanban_git_repo_card,
+.o_kanban_git_pr_card {
+
+    // Counter rows: icon + figure pairs that must not collapse together.
+    .d-flex > span {
+        white-space: nowrap;
+    }
+}
+
+// A protected branch should read as protected wherever the badge appears,
+// not only inside the kanban.
+.branch-protected {
+    background: var(--bs-primary, #714B67) !important;
+    color: #fff !important;
+}

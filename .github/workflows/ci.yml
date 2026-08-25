@@ -63,6 +63,32 @@ jobs:
           print('manifest OK', m['version'])
           "
 
+      - name: Declared asset files exist
+        # A missing asset is not a build failure in Odoo: the bundle just
+        # logs "Could not get content for <path>" and the page renders
+        # unstyled. Renaming a module and forgetting to rename the SCSS
+        # inside it did exactly that, and nothing else in the pipeline
+        # noticed.
+        run: |
+          python -c "
+          import ast, glob, os, sys
+          missing = []
+          for mf in glob.glob('*/__manifest__.py'):
+              mod = os.path.dirname(mf)
+              src = open(mf).read()
+              man = ast.literal_eval(src[src.index('{'):])
+              for paths in man.get('assets', {}).values():
+                  for entry in paths:
+                      p = entry[0] if isinstance(entry, (list, tuple)) else entry
+                      if '*' in p:
+                          continue
+                      if not os.path.isfile(p):
+                          missing.append(p)
+          if missing:
+              sys.exit('assets declared but absent: ' + ', '.join(missing))
+          print('asset files OK')
+          "
+
       - name: Declared data files exist
         run: |
           python -c "

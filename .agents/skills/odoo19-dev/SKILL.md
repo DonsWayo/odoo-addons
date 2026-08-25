@@ -276,6 +276,46 @@ Two more traps in the same tests:
   `dw_git.repo_base_path` at a `tempfile.mkdtemp()` per test class and create
   a fresh repository per test, or run N sees the commits run N-1 pushed.
 
+## Assets fail silently — check they exist
+
+A missing file in an `assets` bundle is **not** a build error. Odoo logs
+`Could not get content for <path>` to the browser console and renders the
+page unstyled. Install succeeds, tests pass, CI is green.
+
+`git mv odoogit dw_git` renamed the directory; the SCSS inside it kept its
+old filename while the manifest was rewritten to the new one. Result: an
+entire backend bundle pointing at a file that did not exist.
+
+Gate it — `make assets`, and in CI:
+
+```python
+import ast, glob, os, sys
+missing = []
+for mf in glob.glob('*/__manifest__.py'):
+    src = open(mf).read()
+    man = ast.literal_eval(src[src.index('{'):])
+    for paths in man.get('assets', {}).values():
+        for e in paths:
+            p = e[0] if isinstance(e, (list, tuple)) else e
+            if '*' not in p and not os.path.isfile(p):
+                missing.append(p)
+sys.exit('assets declared but absent: ' + ', '.join(missing)) if missing else None
+```
+
+Globs cannot be checked this way and are the reason
+`static/src/components/**/*` sat in the manifest for months pointing at a
+directory that never existed. Prefer explicit paths.
+
+**Also check the stylesheet targets something.** This module shipped 45
+selectors for a file browser, diff viewer and commit graph that were never
+built, and **zero** for the `o_kanban_git_*` classes its views actually
+render. Compare the two sets before believing a stylesheet works:
+
+```bash
+grep -rhoE 'class="[^"]+"' dw_git/views/*.xml | tr ' ' '\n' | sort -u   # used
+grep -oE '^\.[a-zA-Z0-9_-]+' dw_git/static/src/scss/*.scss | sort -u    # styled
+```
+
 ## Odoo Apps Store (learned by publishing this module)
 
 - Register the **SSH URI** with a `.git` suffix and the **series** as branch:

@@ -8,6 +8,26 @@ Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The backend was completely unstyled.** Renaming the module moved the
+  directory but not the SCSS inside it, so the manifest pointed at
+  `dw_git/static/src/scss/dw_git.scss` while the file was still called
+  `odoogit.scss`. A missing asset is not a build error in Odoo — it logs
+  `Could not get content for <path>` to the browser console and renders the
+  page unstyled, so install, tests and CI all stayed green.
+- **The stylesheet had never styled anything.** Its 45 selectors targeted a
+  file browser, diff viewer and commit graph that were never built (their OWL
+  components lived under `static/src/components/`, a directory that does not
+  exist), and none matched the `o_kanban_git_*` classes the views actually
+  render. Replaced with styles for the classes in use.
+
+### Added
+
+- `make assets` — verifies every non-glob path in a manifest's `assets`
+  exists, wired into `make check` and CI. Confirmed to fail on the exact bug
+  above before being committed.
+
 ## [19.0.1.5.0] - 2026-08-25
 
 ### Changed
