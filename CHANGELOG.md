@@ -37,6 +37,11 @@ Audit release. Full findings and evidence in
 - **Branch merge restrictions are enforced.** `action_merge()` now calls
   `git.branch.can_user_merge()`, which existed but was called from nowhere.
 - A review in `request_changes` now blocks the merge.
+- **Posting a review requires write access, not read access.**
+  `POST /api/git/pull_requests/<id>/review` checked read permission. On an
+  `internal` repository every employee is a read-only viewer, so any employee
+  could post an `approve` — which counts towards a protected branch's
+  required-approval threshold and unblocks the merge.
 - **Mirror URLs are validated against an allowlist.** `_sync_mirror()` was a
   no-op before this release; implementing it introduced a command-execution
   path, caught in review. `git fetch` treats `ext::sh -c '...'` as a shell

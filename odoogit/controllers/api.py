@@ -206,7 +206,11 @@ class GitAPIController(http.Controller):
     @http.route('/api/git/pull_requests/<int:pr_id>/review', type='jsonrpc',
                 auth='user')
     def api_create_review(self, pr_id, state='comment', body='', **kwargs):
-        pr = self._pr_or_raise(pr_id)
+        # A review is a write, and an 'approve' counts towards the target
+        # branch's required approvals — so it must not be gated by a read
+        # check. On an `internal` repository every employee can read, but
+        # only owners, members and group members may write.
+        pr = self._pr_or_raise(pr_id, 'write')
         review = request.env['git.pr.review'].create({
             'pull_request_id': pr.id,
             'reviewer_id': request.env.user.id,

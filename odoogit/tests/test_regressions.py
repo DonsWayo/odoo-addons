@@ -471,6 +471,53 @@ class TestJsonApi(HttpCase):
                             state='approve', body='lgtm')
         self.assertEqual(result['state'], 'approve')
 
+    def test_read_only_viewer_cannot_post_a_review(self):
+        """Regression: the review endpoint gated a write behind a read check.
+
+        On an `internal` repository every employee is a read-only viewer
+        (`_get_user_permissions` -> write: False), yet they could post an
+        `approve` review — which counts towards a protected branch's
+        required-approval threshold and unblocks the merge.
+        """
+        viewer = self.env['res.users'].create({
+            'name': 'Viewer', 'login': 'viewer-reg', 'email': 'v@t.com',
+            'password': 'viewer-reg-pw',
+            'group_ids': [(4, self.env.ref('base.group_user').id)]})
+        internal = self.env['git.repository'].create({
+            'name': 'internal-repo', 'owner_id': self.api_user.id,
+            'visibility': 'internal'})
+        branch = self.env['git.branch'].create({
+            'name': 'main', 'repository_id': internal.id,
+            'commit_sha': 'b' * 40})
+        pr = self.env['git.pull_request'].create({
+            'title': 'internal pr', 'repository_id': internal.id,
+            'source_branch_id': branch.id, 'target_branch_id': branch.id,
+            'author_id': self.api_user.id})
+
+        # the viewer really can read it — this is not a visibility problem
+        self.assertTrue(internal._check_repo_access(viewer, 'read'))
+        self.assertFalse(internal._check_repo_access(viewer, 'write'))
+
+        self.authenticate('viewer-reg', 'viewer-reg-pw')
+        res = self.url_open(
+            f'/api/git/pull_requests/{pr.id}/review',
+            data=json.dumps({'jsonrpc': '2.0', 'method': 'call',
+                             'params': {'state': 'approve', 'body': 'lgtm'}}),
+            headers={'Content-Type': 'application/json'}, timeout=30)
+        self.assertIn('error', res.json(),
+                      'read-only viewer approved a pull request')
+        self.assertFalse(
+            self.env['git.pr.review'].sudo().search_count(
+                [('pull_request_id', '=', pr.id)]),
+            'the review was persisted despite the rejection')
+
+    def test_member_can_still_post_a_review(self):
+        """The fix must not lock out people who may actually review."""
+        self.authenticate('api-reg', 'api-reg-pw')
+        result = self._call(f'/api/git/pull_requests/{self.pr.id}/review',
+                            state='approve', body='lgtm')
+        self.assertEqual(result['state'], 'approve')
+
     def test_foreign_repo_is_not_readable(self):
         outsider = self.env['res.users'].create({
             'name': 'Outsider', 'login': 'outsider-reg',
