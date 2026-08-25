@@ -1,0 +1,130 @@
+# Changelog
+
+All notable changes to OdooGit are recorded here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
+`19.0.1.1.0` is the second feature release of OdooGit for Odoo 19.0.
+
+## [Unreleased]
+
+## [19.0.1.1.0] — 2026-08-25
+
+Audit release. Full findings and evidence in
+[docs/AUDIT-2026-08.md](docs/AUDIT-2026-08.md).
+
+### Security
+
+- **Personal Access Tokens no longer unlock repositories their owner cannot
+  access.** The Smart HTTP layer discarded the Basic-auth username, resolved
+  the password to a PAT globally, and granted access without checking the
+  token owner's permissions. Since `repository_ids` defaults to empty, any
+  employee's token could clone *and push to* any private repository. Tokens
+  are now resolved to their owner and that owner's access is what is checked.
+- **Deploy keys and webhooks are no longer readable by every employee.** Their
+  only record rule named `group_git_manager`; a rule bound to a group does not
+  apply to non-members, who therefore matched no rule at all. Both models
+  stored a plaintext credential. Rules are now scoped to `group_git_user`,
+  with separate manager rules.
+- **Added the missing record rules for `git.pr.file`, `git.pr.review` and
+  `git.webhook.delivery`** — review bodies, diff patches and delivery payloads
+  of private repositories were readable by any internal user.
+- **Raw tokens are no longer stored.** `git.personal_access_token.token` and
+  `git.deploy_key.token` are now non-stored computed fields, surfaced only on
+  the recordset returned by `create()` / `action_regenerate()`. The database
+  keeps the SHA-256 hash and nothing else. Token comparison uses
+  `hmac.compare_digest`.
+- **Branch merge restrictions are enforced.** `action_merge()` now calls
+  `git.branch.can_user_merge()`, which existed but was called from nowhere.
+- A review in `request_changes` now blocks the merge.
+
+### Fixed
+
+- `_init_git_repo()` raised `NameError` on every call — the module imported
+  `os as _os` and the method called `os.makedirs`. No repository was ever
+  created on disk through this path.
+- The JSON API was entirely unreachable: routes declared `type='json'` with
+  `methods=['GET']`, but JSON-RPC is POST, so every GET route answered `405`.
+  All routes are now `type='jsonrpc'` and take their arguments from `params`
+  rather than re-parsing the request body.
+- `POST /api/git/repositories` wrote `has_wiki` / `has_issues`, fields deleted
+  with the wiki and issue models, and crashed on every call. The route moved to
+  `/api/git/repositories/create` (list and create can no longer share a path
+  now that both are POST) and initialises the bare repo on disk.
+- The three pull-request API endpoints called `_check_repo_access()` — a
+  `git.repository` method — on a `git.pull_request` record, raising
+  `AttributeError` every time.
+- Every portal page returned HTTP 500: `/git/<owner>/<repo>` read the deleted
+  `repository.issue_ids`, and all three templates called `portal.layout`,
+  which Odoo 19 renamed to `portal.portal_layout`.
+- The hourly mirror cron raised `Invalid field git.repository.is_mirror` on
+  every run. The mirror fields (`is_mirror`, `mirror_url`, `mirror_active`,
+  `mirror_interval`, `mirror_last_sync`) now exist, and `_sync_mirror()`
+  performs a real `git fetch` instead of `pass`.
+- Installing with demo data failed — `demo_data.xml` set `has_wiki` /
+  `has_issues`.
+- `collaborator_count` raised for any repository shared with an `res.groups`:
+  it read `group.users`, which Odoo 19 renamed to `user_ids`.
+- Added `ir.model.access` rows for the four wizard models, which shipped with
+  none.
+- `_post_init_hook` reset `odoogit.repo_base_path` and `odoogit.ssh_host` on
+  **every** `-u odoogit` upgrade, orphaning existing repositories behind the
+  old path. It now seeds only unset parameters.
+- Upgrades now backfill `group_git_user` membership. Every record rule in the
+  module is scoped to that group, granted through
+  `base.group_user.implied_ids` — which is not retroactive, so on an existing
+  database the module's record rules applied to nobody.
+- Smart HTTP truncated LF-delimited CGI responses: the parser found a 2-byte
+  `\n\n` separator and then skipped 4 bytes, eating the first two bytes of
+  every such body.
+- Post-merge branch cleanup tested the wrong branch in its "still referenced"
+  guard, blocking cleanup arbitrarily.
+- `_check_conflicts()` reported missing repositories and unknown SHAs as merge
+  conflicts, indistinguishably and silently; failures are now logged and
+  preconditions checked explicitly.
+- Push webhook payloads reported a hardcoded `refs/heads/main`.
+- `_sync_from_git()` no longer calls `cr.commit()` under the test cursor.
+- `git.repository.write()` returned a bare `True` instead of `super()`'s
+  result.
+
+### Changed
+
+- **Repository names are now unique per owner, not per company.** The on-disk
+  layout is `<base>/<owner>/<name>.git`, so `alice/web` and `bob/web` never
+  collide — but the old constraint rejected the second one. Existing
+  single-owner databases are unaffected.
+- `_check_branch_protection()` renamed to `_check_push_permission()`, which is
+  what it actually does. Per-branch enforcement on push is documented as
+  absent in [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
+- Manifest: real author and website, and `bus`, `auth_oauth`, `base_setup` and
+  `hr` dropped from `depends` — none were referenced anywhere.
+
+### Removed
+
+- Dead `git.label` seeding from `_post_init_hook` (the model was deleted).
+- Dead module-level `_check_portal_access` in `controllers/portal.py`, marked
+  "will be monkey-patched"; nothing ever patched it.
+- Unreferenced `static/src/scss/git_hosting.scss` and the two asset glob roots
+  (`static/src/components/**`, `static/src/services/**`) that match no files.
+- Unknown `inverse_name=` parameter on `git.repository.pat_ids`, logged as a
+  warning on every boot.
+
+### Testing
+
+- Test suite grew from **54 to 105** tests. The pre-audit suite passed 54/54
+  while twelve public entry points crashed on first call — it seeded
+  repositories with `shutil.copytree()` instead of `_init_git_repo()`, never
+  issued an HTTP request to the API or portal, never attached a group to a
+  repository, and never authenticated as one user against another's repo.
+- New `odoogit/tests/test_regressions.py`: one test per defect above.
+- Added `docker-compose.override.yml.example` for a bind-mounted dev loop.
+
+## [19.0.1.0.0] — 2026-08-24
+
+First working release: repositories, branches, commits, pull requests with
+reviews and merge strategies, personal access tokens, deploy keys, webhooks,
+portal pages, and Git Smart HTTP transport.
+
+[Unreleased]: https://github.com/DonsWayo/odoogit/compare/v19.0.1.1.0...HEAD
+[19.0.1.1.0]: https://github.com/DonsWayo/odoogit/compare/v19.0.1.0.0...v19.0.1.1.0
+[19.0.1.0.0]: https://github.com/DonsWayo/odoogit/releases/tag/v19.0.1.0.0

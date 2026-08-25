@@ -69,6 +69,8 @@ Docker COPY layers cache aggressively: a bad build sticks until files change.
 | `type='json'` route | `type='jsonrpc'` (check controllers/) |
 | `odoo.osv.expression` | `odoo.fields.Domain` |
 | `group_operator` field param | `aggregator` |
+| `res.groups.users` | `user_ids` (`all_user_ids` for the implied closure) |
+| `t-call="portal.layout"` | `t-call="portal.portal_layout"` |
 
 ## Field parameter hygiene
 
@@ -85,7 +87,7 @@ docker compose exec odoo odoo -d odoo -i odoogit --stop-after-init \
 python3 qa/run.py                     # browser QA (6 flows, must stay green)
 ```
 
-Unit tests: `--test-enable --test-tags /odoogit --http-port=8070` (54 tests).
+Unit tests: `--test-enable --test-tags /odoogit --http-port=8070` (105 tests).
 
 ## Known environment traps
 
@@ -98,6 +100,10 @@ Unit tests: `--test-enable --test-tags /odoogit --http-port=8070` (54 tests).
   `__manifest__.py` assets paths match real files.
 - Stale browser tabs hold old bundles after upgrades — hard-refresh before
   trusting a JS error report.
+- More than one database on the server ⇒ Odoo serves
+  `/web/database/selector` instead of `/web/login`, and EVERY qa/run.py flow
+  fails at `fill_label 'Password': element never appeared`. Drop the scratch
+  databases (`odoo_clean`, `release_check`, …) before blaming your change.
 
 ## Dogfood findings (round 2 — every button, multi-user, real git)
 
@@ -129,3 +135,69 @@ Unit tests: `--test-enable --test-tags /odoogit --http-port=8070` (54 tests).
   calls (`repo.git.commit_tree(...)`) inside the context manager.
 - Migrating file-backed records when a path key changes (owner/name):
   implement in `write()` or the storage diverges from the DB.
+
+
+## Security model traps (audit round 3)
+
+- **A record rule bound to a group does not restrict non-members.** Odoo ANDs
+  the rules that apply to *you*; if no rule applies, you are unrestricted.
+  So `<field name="groups" eval="[(4, ref('group_git_manager'))]"/>` on a
+  model whose ACL grants `base.group_user` means every non-manager employee
+  reads everything. Scope restrictive rules to the group that everyone is in
+  (`group_git_user`), and add a separate permissive `[(1,'=',1)]` rule for
+  managers.
+- **Every model needs its own rule.** `git.pr.file`, `git.pr.review` and
+  `git.webhook.delivery` inherit nothing from `git.pull_request` — sub-records
+  of a private repo are public until you write their rule.
+- **`implied_ids` is not retroactive.** Adding
+  `base.group_user.implied_ids += your_group` in a data file grants the group
+  to users created *after* that point. On a populated database the existing
+  employees stay outside it — and every rule scoped to that group silently
+  stops applying. Backfill in `post_init_hook`:
+  `grp.write({'user_ids': [(4, u.id) for u in stale_users]})`.
+- **Verify group membership on a FRESH database.** An upgraded dev DB can
+  report `has_group(...) == False` for a group that works fine on install;
+  debugging rules on a stale DB sends you chasing the wrong bug.
+
+## Controllers
+
+- `type='json'` → `type='jsonrpc'` (19 deprecates the alias). JSON-RPC is
+  **POST-only**: leaving `methods=['GET']` makes every call answer **405**,
+  with no error in the log.
+- A jsonrpc route receives its arguments as keyword args from `params`. Do not
+  `json.loads(request.httprequest.data)` — the body is the JSON-RPC envelope,
+  so `data['name']` raises `KeyError: 'name'`.
+- Two jsonrpc routes cannot share a path (both are POST). `GET /x` + `POST /x`
+  must become `/x` + `/x/create`.
+- Returning `{'error': ...}, 404` from a json route serialises the *tuple* as
+  a successful result. Raise `AccessError`/`UserError` instead.
+- Methods defined on one model are not available on another: calling
+  `pr._check_repo_access(...)` when it lives on `git.repository` is an
+  `AttributeError` at request time, invisible until something calls the route.
+
+## Fields
+
+- **`@api.depends_context` values are hashed into the field cache key**, so
+  they must be hashable. Passing a dict raises `TypeError` on every read of
+  the field. Use a tuple of pairs and `dict(...)` it inside the compute.
+- Pattern for a write-once secret: non-stored `compute=` field reading from
+  `depends_context`, with `create()` returning
+  `records.with_context(key=tuple(zip(records.ids, secrets)))`. The value is
+  readable on the recordset that produced it and nowhere else — no column,
+  nothing to leak.
+- Non-stored computes still need `@api.depends` to refresh in a form view
+  when their sources change (e.g. clone URLs vs `owner_id`/`name`).
+
+## Test-suite blind spots this repo actually had
+
+A green suite proves nothing about code it never calls. Before trusting it:
+
+- Do the tests build fixtures by calling **production** setup code, or by
+  reproducing it? Seeding repos with `shutil.copytree()` meant `_init_git_repo`
+  had never run — it raised `NameError` on line 1.
+- Is there **one HTTP request** per controller route? Eight endpoints returned
+  405/500 on first call while the suite was 54/54 green.
+- Does any test exercise the **x2many/m2m paths** (a repo with `group_ids`
+  set)? That one omission hid a renamed field.
+- Does any test act as **a second user** against the first user's data? That
+  is the only way authorisation bugs surface.
