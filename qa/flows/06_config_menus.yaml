@@ -9,16 +9,16 @@ steps:
     value: $PASS
   - press: Enter
   - wait: 3000
-  - open: /odoo/action-odoogit.action_git_webhook
+  - open: /odoo/action-dw_git.action_git_webhook
   - wait: 3500
   - assert_text: "Webhooks"
   - assert_no_text: "A css error occured"
   - screenshot: webhooks_list.png
-  - open: /odoo/action-odoogit.action_git_personal_access_token
+  - open: /odoo/action-dw_git.action_git_personal_access_token
   - wait: 3500
   - assert_text: "Personal Access Tokens"
   - screenshot: pats_list.png
-  - open: /odoo/action-odoogit.action_git_deploy_key
+  - open: /odoo/action-dw_git.action_git_deploy_key
   - wait: 3500
   - assert_text: "Deploy Keys"
   - screenshot: deploy_keys_list.png

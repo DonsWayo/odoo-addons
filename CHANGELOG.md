@@ -1,12 +1,48 @@
 # Changelog
 
-All notable changes to OdooGit are recorded here. The format follows
+All notable changes to Git Hosting are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
-`19.0.1.1.0` is the second feature release of OdooGit for Odoo 19.0.
+`19.0.1.1.0` is the second feature release of Git Hosting for Odoo 19.0.
 
 ## [Unreleased]
+
+## [19.0.1.5.0] - 2026-08-25
+
+### Changed
+
+- **The module is renamed `odoogit` -> `dw_git`, and its display name is now
+  "Git Hosting".** Two separate decisions, taken on evidence:
+
+  The technical name never affected Apps Store search. Searching `git` returns
+  1025 apps whose first page is shipping connectors and barcode scanners, none
+  of which has "git" in its technical name - they rank on keyword walls in
+  their descriptions. Searching `git repository hosting` returns exactly one
+  app, this one. So the folder name was renamed for convention, not for
+  reach: `dw_` is a vendor prefix, which is what Odoo's guidelines ask for,
+  and it namespaces the modules planned alongside it.
+
+  The display name is what search actually reads, and Odoo's vendor
+  guidelines require it to be "explicit, no more than 25 characters, avoid
+  adjectives, or including the name of your company". "OdooGit" was neither
+  explicit nor free of a trademark that is not ours. "Git Hosting" is both,
+  leads with the term people type, and matches the root menu the module has
+  always drawn.
+
+  The "OdooGit" name is retired everywhere: 275 identifiers, 64 prose
+  references, the app icon banner and the store cover.
+
+  **This is a new module, not an upgrade.** A database with `odoogit`
+  installed will not migrate; install `dw_git` fresh. The configuration keys
+  move with it (`dw_git.repo_base_path`, `dw_git.ssh_host`), so a custom
+  storage path must be set again.
+
+### Fixed
+
+- `entrypoint.sh` never removed addons that stopped shipping in the image, so
+  a renamed module lingered in the volume and Odoo kept seeing a phantom
+  addon. Stale directories are now pruned unless they are bind-mounted.
 
 ### Fixed
 
@@ -64,7 +100,7 @@ Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
 
 ### Added
 
-- `odoogit/doc/index.rst` — the Apps Store loads a module's documentation tab
+- `dw_git/doc/index.rst` — the Apps Store loads a module's documentation tab
   from this path and requires pure, valid RST.
 - A `19.0` branch tracking `main`. The Apps Store requires the registered
   branch to be named after the Odoo series, so this is the branch it scans;
@@ -261,8 +297,8 @@ Audit release. Full findings and evidence in
   it read `group.users`, which Odoo 19 renamed to `user_ids`.
 - Added `ir.model.access` rows for the four wizard models, which shipped with
   none.
-- `_post_init_hook` reset `odoogit.repo_base_path` and `odoogit.ssh_host` on
-  **every** `-u odoogit` upgrade, orphaning existing repositories behind the
+- `_post_init_hook` reset `dw_git.repo_base_path` and `dw_git.ssh_host` on
+  **every** `-u dw_git` upgrade, orphaning existing repositories behind the
   old path. It now seeds only unset parameters.
 - Upgrades now backfill `group_git_user` membership. Every record rule in the
   module is scoped to that group, granted through
@@ -310,7 +346,7 @@ Audit release. Full findings and evidence in
   repositories with `shutil.copytree()` instead of `_init_git_repo()`, never
   issued an HTTP request to the API or portal, never attached a group to a
   repository, and never authenticated as one user against another's repo.
-- New `odoogit/tests/test_regressions.py`: one test per defect above.
+- New `dw_git/tests/test_regressions.py`: one test per defect above.
 - Added `docker-compose.override.yml.example` for a bind-mounted dev loop.
 
 ### Project
@@ -334,7 +370,8 @@ First working release: repositories, branches, commits, pull requests with
 reviews and merge strategies, personal access tokens, deploy keys, webhooks,
 portal pages, and Git Smart HTTP transport.
 
-[Unreleased]: https://github.com/DonsWayo/odoo-addons/compare/v19.0.1.4.0...HEAD
+[Unreleased]: https://github.com/DonsWayo/odoo-addons/compare/odoogit-v19.0.1.5.0...HEAD
+[19.0.1.5.0]: https://github.com/DonsWayo/odoo-addons/compare/v19.0.1.4.0...odoogit-v19.0.1.5.0
 [19.0.1.4.0]: https://github.com/DonsWayo/odoo-addons/compare/v19.0.1.3.0...v19.0.1.4.0
 [19.0.1.3.0]: https://github.com/DonsWayo/odoo-addons/compare/v19.0.1.2.0...v19.0.1.3.0
 [19.0.1.2.0]: https://github.com/DonsWayo/odoo-addons/compare/v19.0.1.1.0...v19.0.1.2.0

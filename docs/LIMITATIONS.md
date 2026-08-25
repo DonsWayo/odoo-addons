@@ -1,6 +1,6 @@
 # Known limitations
 
-What OdooGit does not do yet. Everything here is deliberate and tested to be
+What Git Hosting does not do yet. Everything here is deliberate and tested to be
 absent — none of it is a bug report.
 
 ## Webhooks are recorded, not delivered
@@ -21,7 +21,7 @@ whoever deploys this.
 
 ## There is no SSH transport
 
-`clone_url_ssh` is computed from the `odoogit.ssh_host` parameter and shown in
+`clone_url_ssh` is computed from the `dw_git.ssh_host` parameter and shown in
 the UI, but the module ships no SSH server and no `authorized_keys`
 management. **Only Git Smart HTTP works.**
 

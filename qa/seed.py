@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Seed realistic data for OdooGit QA: real bare git repo + branches + commits + PR.
+"""Seed realistic data for Git Hosting QA: real bare git repo + branches + commits + PR.
 
 Run inside the container:
     odoo shell -d odoo --db_host=postgres --db_user=odoo --db_password=odoo \
@@ -54,7 +54,7 @@ else:
         git('commit', '-m', msg, cwd=WORK)
 
     commit('Initial commit', {
-        'README.md': '# Hello World\n\nDemo repo for OdooGit QA.\n',
+        'README.md': '# Hello World\n\nDemo repo for Git Hosting QA.\n',
     })
     commit('Add python greeting module', {
         'hello.py': 'def greet(name):\n    return f"Hello, {name}!"\n',

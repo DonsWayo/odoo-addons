@@ -6,7 +6,7 @@ Everything here is verified against the code, not inferred.
 ## Dead integrations — declared, wired to nothing
 
 These make the module look more integrated than it is. Each is a few hours of
-work, and together they are most of what separates OdooGit from "a Git server
+work, and together they are most of what separates Git Hosting from "a Git server
 that happens to live in Odoo".
 
 ### 1. Five mail templates exist. None is ever sent.
@@ -104,7 +104,7 @@ English-only on the Apps Store regardless of the user's language.
 ## Repository shape: growing past one module
 
 The repository is **already the right shape for a monorepo.** The Apps Store
-requires "one folder per App at the root", and `odoogit/` is exactly that.
+requires "one folder per App at the root", and `dw_git/` is exactly that.
 Adding `odoo_cicd/` or `odoo_containers/` beside it needs **no change to the
 Apps Store registration** — the scan walks the registered branch and picks up
 every module folder it finds.
@@ -113,11 +113,11 @@ What is single-module today is the *tooling*, not the layout:
 
 | File | Assumption to remove |
 |---|---|
-| `Dockerfile` | `COPY odoogit /opt/odoogit` |
+| `Dockerfile` | `COPY dw_git /opt/dw_git` |
 | `entrypoint.sh` | copies one directory |
-| `Makefile` | `MODULE := odoogit` |
+| `Makefile` | `MODULE := dw_git` |
 | `.github/workflows/ci.yml` | installs and tests one module |
-| `ruff.toml` | lints `odoogit/` |
+| `ruff.toml` | lints `dw_git/` |
 | `README.md`, `CHANGELOG.md`, `docs/` | describe one module |
 
 ### Naming
@@ -135,7 +135,7 @@ Repos* rather than relying on the redirect.
 
 Odoo versions each module independently in its own manifest, so a single
 repository-wide tag stops making sense. Prefix the tag with the module:
-`odoogit-v19.0.1.4.0`. Keep `CHANGELOG.md` per module, inside the module
+`dw_git-v19.0.1.4.0`. Keep `CHANGELOG.md` per module, inside the module
 folder, and let the root README be an index.
 
 ### Sequencing

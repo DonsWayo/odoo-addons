@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in OdooGit behaves incorrectly
+description: Something in Git Hosting behaves incorrectly
 labels: [bug]
 body:
   - type: markdown
@@ -12,8 +12,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: OdooGit version
-      description: The `version` in `odoogit/__manifest__.py`, or the release tag.
+      label: Git Hosting version
+      description: The `version` in `dw_git/__manifest__.py`, or the release tag.
       placeholder: 19.0.1.1.0
     validations:
       required: true

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""OdooGit browser QA — pure Python entry point (no shell scripts).
+"""Git Hosting browser QA — pure Python entry point (no shell scripts).
 
 Usage:
     python3 qa/run.py                     # seed data (idempotent) + run all flows

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/social-preview.png" alt="OdooGit — Git repository hosting inside Odoo 19" width="820">
+  <img src="docs/images/social-preview.png" alt="Git Hosting — Git repository hosting inside Odoo 19" width="820">
 </p>
 
 <h1 align="center">odoo-addons</h1>
@@ -8,11 +8,11 @@
 
 | Module | What it does | Version |
 |---|---|---|
-| [`odoogit`](odoogit/) | Git repository hosting inside Odoo — the module documented below | [19.0.1.4.0](https://apps.odoo.com/apps/modules/19.0/odoogit) |
+| [`dw_git`](dw_git/) | **Git Hosting** — Git repository hosting inside Odoo, documented below | [19.0.1.5.0](https://apps.odoo.com/apps/modules/19.0/dw_git) |
 
 ---
 
-<h1 align="center">OdooGit</h1>
+<h1 align="center">Git Hosting</h1>
 
 <p align="center">
   <strong>Git repository hosting inside Odoo 19.</strong><br>
@@ -80,7 +80,7 @@ Not included: issues, wiki, labels, forks, SSH, file browser UI.
 
 ```bash
 git clone https://github.com/DonsWayo/odoo-addons.git
-cd odoogit
+cd odoo-addons
 make build up install
 ```
 
@@ -100,16 +100,16 @@ docker compose up -d --force-recreate odoo
 
 ## Install (existing Odoo 19)
 
-Copy `odoogit/` into your addons path, update the apps list, install
-**OdooGit**. Requires the `git` binary on the server and
+Copy `dw_git/` into your addons path, update the apps list, install
+**Git Hosting**. Requires the `git` binary on the server and
 `pip install GitPython`.
 
 Then set **Settings → Technical → System Parameters**:
 
 | Key | Meaning | Default |
 |---|---|---|
-| `odoogit.repo_base_path` | where bare repos live | `/var/lib/odoo/git/repos` |
-| `odoogit.ssh_host` | host shown in the (non-functional) SSH clone URL | `git.example.com` |
+| `dw_git.repo_base_path` | where bare repos live | `/var/lib/odoo/git/repos` |
+| `dw_git.ssh_host` | host shown in the (non-functional) SSH clone URL | `git.example.com` |
 
 The Odoo process must own `repo_base_path` — it creates
 `<base>/<owner-login>/<repo-name>.git` and runs `git http-backend` there.
@@ -132,7 +132,7 @@ A push syncs branches and the last 50 commits per branch back into Odoo.
 Access is decided in two independent places, and both must allow an action:
 
 - **Record rules** (`security/record_rules.xml`) govern the ORM and the UI.
-  Every rule is scoped to `odoogit.group_git_user`, which
+  Every rule is scoped to `dw_git.group_git_user`, which
   `base.group_user` implies — so every internal employee is a Git User.
 - **`git.repository._check_repo_access()`** governs the controllers (Smart
   HTTP, JSON-RPC, portal), which run `sudo()` searches and must decide access
@@ -151,7 +151,7 @@ make qa             # 6 deterministic browser flows
 make release-check  # the full pre-tag gate, including a clean install
 ```
 
-`odoogit/tests/test_e2e_git_lifecycle.py` runs the loop the product exists
+`dw_git/tests/test_e2e_git_lifecycle.py` runs the loop the product exists
 for: clone over HTTP with a real token, commit, push, watch the branches and
 commits appear in Odoo, open a pull request, merge it, and confirm the bare
 repository on disk agrees. `test_regressions.py` holds one test per defect

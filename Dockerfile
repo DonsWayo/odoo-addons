@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git \
 USER odoo
 
 # every addon folder at the repo root; add a module and this keeps working
-COPY odoogit /opt/addons/odoogit
+COPY dw_git /opt/addons/dw_git
 COPY entrypoint.sh /custom-entrypoint.sh
 ENTRYPOINT ["/custom-entrypoint.sh"]
 CMD ["odoo"]

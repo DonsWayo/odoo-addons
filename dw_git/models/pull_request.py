@@ -1,0 +1,299 @@
+import logging
+
+from odoo import _, api, fields, models
+from odoo.exceptions import UserError
+
+_logger = logging.getLogger(__name__)
+
+
+class GitPullRequest(models.Model):
+    _name = 'git.pull_request'
+    _description = 'Pull Request'
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'portal.mixin']
+    _order = 'create_date desc'
+
+    number = fields.Integer(
+        string='PR Number',
+        readonly=True,
+        copy=False,
+        default=lambda self: self.env['ir.sequence'].next_by_code('git.pull.request') or 1
+    )
+    name = fields.Char(compute='_compute_name', store=True)
+
+    title = fields.Char(required=True, tracking=True)
+    description = fields.Html()
+    state = fields.Selection([
+        ('draft', 'Draft'),
+        ('open', 'Open'),
+        ('merged', 'Merged'),
+        ('closed', 'Closed'),
+    ], default='draft', tracking=True, index=True)
+
+    # === Branches ===
+    repository_id = fields.Many2one(
+        'git.repository',
+        required=True,
+        ondelete='cascade',
+        index=True
+    )
+    source_branch_id = fields.Many2one(
+        'git.branch',
+        string='Source Branch',
+        required=True,
+        domain="[('repository_id', '=', repository_id)]"
+    )
+    target_branch_id = fields.Many2one(
+        'git.branch',
+        string='Target Branch',
+        required=True,
+        domain="[('repository_id', '=', repository_id)]"
+    )
+
+    # === People ===
+    author_id = fields.Many2one(
+        'res.users',
+        string='Author',
+        required=True,
+        default=lambda self: self.env.user,
+        tracking=True
+    )
+    assignee_ids = fields.Many2many('res.users', 'git_pr_assignee_rel', 'pr_id', 'user_id', string='Assignees')
+    reviewer_ids = fields.Many2many('res.users', 'git_pr_reviewer_rel', 'pr_id', 'user_id', string='Reviewers')
+    merged_by_id = fields.Many2one('res.users', string='Merged By')
+
+    # === Commits & Changes ===
+    commit_ids = fields.One2many('git.commit', 'pull_request_id', string='Commits')
+    commit_count = fields.Integer(compute='_compute_commit_count')
+    file_ids = fields.One2many('git.pr.file', 'pull_request_id', string='Changed Files')
+    additions = fields.Integer(compute='_compute_stats')
+    deletions = fields.Integer(compute='_compute_stats')
+    changed_files = fields.Integer(
+        string='Changed File Count', compute='_compute_stats')
+
+    # === Merge Info ===
+    merge_method = fields.Selection([
+        ('merge', 'Merge commit'),
+        ('squash', 'Squash and merge'),
+        ('rebase', 'Rebase and merge'),
+    ], default='merge')
+    merge_commit_sha = fields.Char()
+    is_mergeable = fields.Boolean(compute='_compute_mergeable', store=True)
+    has_conflicts = fields.Boolean(compute='_compute_mergeable', store=True)
+
+    # === Reviews ===
+    review_ids = fields.One2many('git.pr.review', 'pull_request_id', string='Reviews')
+    approval_count = fields.Integer(compute='_compute_review_status')
+    changes_requested = fields.Boolean(compute='_compute_review_status')
+
+    # === Dates ===
+    merged_at = fields.Datetime()
+    closed_at = fields.Datetime()
+
+    @api.depends('number', 'title')
+    def _compute_name(self):
+        for pr in self:
+            title = pr.title or ''
+            pr.name = f"#{pr.number}: {title}" if pr.number else title
+
+    @api.depends('commit_ids')
+    def _compute_commit_count(self):
+        for pr in self:
+            pr.commit_count = len(pr.commit_ids)
+
+    @api.depends('file_ids.additions', 'file_ids.deletions')
+    def _compute_stats(self):
+        for pr in self:
+            pr.additions = sum(pr.file_ids.mapped('additions'))
+            pr.deletions = sum(pr.file_ids.mapped('deletions'))
+            pr.changed_files = len(pr.file_ids)
+
+    @api.depends('state', 'source_branch_id.commit_sha', 'target_branch_id.commit_sha',
+                 'target_branch_id.is_protected', 'target_branch_id.require_pr_reviews',
+                 'target_branch_id.required_approving_reviews', 'approval_count',
+                 'changes_requested')
+    def _compute_mergeable(self):
+        """Whether the PR satisfies the target branch's merge requirements."""
+        for pr in self:
+            pr.has_conflicts = pr._check_conflicts()
+            target = pr.target_branch_id
+            can_merge = True
+            if pr.changes_requested:
+                can_merge = False
+            if target.is_protected and target.require_pr_reviews:
+                if pr.approval_count < target.required_approving_reviews:
+                    can_merge = False
+            pr.is_mergeable = can_merge and not pr.has_conflicts
+
+    def _check_conflicts(self):
+        """True when merging source into target would conflict.
+
+        `git merge-tree` exits non-zero on conflict, which GitPython raises.
+        Any other failure (missing repo, unknown sha) is reported as a
+        conflict too — refusing to merge is the safe default — but is logged
+        so it can be told apart from a real conflict.
+        """
+        import os
+        if not (self.source_branch_id.commit_sha
+                and self.target_branch_id.commit_sha):
+            return True
+        path = self.repository_id._get_repo_path()
+        if not os.path.isdir(path):
+            _logger.warning("PR %s: no bare repo at %s", self.id, path)
+            return True
+        try:
+            import git
+            repo = git.Repo(path)
+            repo.git.merge_tree('--write-tree',
+                                self.target_branch_id.commit_sha,
+                                self.source_branch_id.commit_sha)
+            return False
+        except Exception as exc:
+            _logger.info("PR %s not mergeable: %s", self.id, exc)
+            return True
+
+    @api.depends('review_ids.state')
+    def _compute_review_status(self):
+        for pr in self:
+            approvals = pr.review_ids.filtered(lambda r: r.state == 'approve')
+            changes = pr.review_ids.filtered(lambda r: r.state == 'request_changes')
+            pr.approval_count = len(approvals)
+            pr.changes_requested = bool(changes)
+
+    def action_merge(self, method=None):
+        """Merge the pull request"""
+        self.ensure_one()
+        if self.state != 'open':
+            raise UserError(_("Only open pull requests can be merged."))
+        if not self.is_mergeable:
+            raise UserError(_(
+                "This pull request cannot be merged: it has conflicts, "
+                "unresolved change requests, or too few approvals."))
+        if not self.target_branch_id.can_user_merge(self.env.user):
+            raise UserError(_(
+                "Branch '%s' is protected and you are not allowed to merge "
+                "into it.", self.target_branch_id.name))
+
+        method = method or self.merge_method
+        merge_commit = self._perform_git_merge(method)
+
+        self.write({
+            'state': 'merged',
+            'merged_at': fields.Datetime.now(),
+            'merged_by_id': self.env.user.id,
+            'merge_commit_sha': merge_commit.hexsha,
+        })
+
+        self.target_branch_id.write({
+            'commit_sha': merge_commit.hexsha,
+        })
+
+        if self.repository_id.auto_delete_head_branch and not self.source_branch_id.is_default:
+            # only safe to delete when no other PR still references the branch
+            still_used = self.search_count([
+                '|',
+                ('source_branch_id', '=', self.source_branch_id.id),
+                ('target_branch_id', '=', self.source_branch_id.id),
+                ('id', '!=', self.id),
+            ])
+            if not still_used:
+                try:
+                    self.source_branch_id.unlink()
+                except Exception:
+                    pass  # branch kept — referenced elsewhere or protected
+
+        return True
+
+    def _perform_git_merge(self, method):
+        """Merge using plumbing commands — works on bare repos (no work tree)."""
+        import git
+
+        repo = git.Repo(self.repository_id._get_repo_path())
+        target = self.target_branch_id.name
+        source = self.source_branch_id.name
+        ref = f'refs/heads/{target}'
+        msg = f"Merge PR #{self.number}: {self.title}"
+        author = self.env.user.partner_id
+
+        env = {
+            'GIT_AUTHOR_NAME': author.name or 'Git Hosting',
+            'GIT_AUTHOR_EMAIL': author.email or 'dw_git@localhost',
+            'GIT_COMMITTER_NAME': author.name or 'Git Hosting',
+            'GIT_COMMITTER_EMAIL': author.email or 'dw_git@localhost',
+        }
+
+        if method == 'rebase':
+            # linear history: fast-forward when possible, else rebase in a
+            # temporary work tree (bare repos have none of their own)
+            if repo.is_ancestor(target, source):
+                sha = repo.commit(source).hexsha
+                repo.git.update_ref(ref, sha)
+                return repo.commit(sha)
+            import tempfile
+            with tempfile.TemporaryDirectory() as td:
+                repo.git.worktree('add', '--detach', td, source)
+                try:
+                    wt = git.Repo(td)
+                    wt.git.rebase(target)
+                    sha = wt.head.commit.hexsha
+                    repo.git.update_ref(ref, sha)
+                    return repo.commit(sha)
+                finally:
+                    repo.git.worktree('remove', '--force', td)
+
+        # merge / squash: build the merged tree, then commit it explicitly
+        tree = repo.git.merge_tree('--write-tree', target, source).strip()
+        cmd = ['-m', msg, '-p', target]
+        if method != 'squash':
+            cmd += ['-p', source]
+        with repo.git.custom_environment(**env):
+            sha = repo.git.commit_tree(tree, *cmd).strip()
+        repo.git.update_ref(ref, sha)
+        return repo.commit(sha)
+
+    def action_close(self):
+        self.write({'state': 'closed', 'closed_at': fields.Datetime.now()})
+
+    def action_reopen(self):
+        self.write({'state': 'open', 'closed_at': False})
+
+
+class GitPRFile(models.Model):
+    _name = 'git.pr.file'
+    _description = 'Pull Request File Change'
+
+    pull_request_id = fields.Many2one('git.pull_request', required=True, ondelete='cascade')
+    filename = fields.Char(required=True)
+    status = fields.Selection([
+        ('added', 'Added'),
+        ('modified', 'Modified'),
+        ('removed', 'Removed'),
+        ('renamed', 'Renamed'),
+    ], required=True)
+    additions = fields.Integer(default=0)
+    deletions = fields.Integer(default=0)
+    patch = fields.Text()
+
+
+class GitPRReview(models.Model):
+    _name = 'git.pr.review'
+    _description = 'Pull Request Review'
+    _order = 'create_date desc'
+
+    pull_request_id = fields.Many2one('git.pull_request', required=True, ondelete='cascade')
+    reviewer_id = fields.Many2one('res.users', required=True, default=lambda self: self.env.user)
+    state = fields.Selection([
+        ('pending', 'Pending'),
+        ('comment', 'Comment'),
+        ('approve', 'Approve'),
+        ('request_changes', 'Request Changes'),
+    ], default='pending', required=True)
+    body = fields.Html()
+    commit_id = fields.Many2one('git.commit', string='Reviewed Commit')
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if vals.get('state') in ('approve', 'request_changes'):
+                pr = self.env['git.pull_request'].browse(vals['pull_request_id'])
+                vals['commit_id'] = pr.source_branch_id.commit_id.id if pr.source_branch_id.commit_id else False
+        return super().create(vals_list)

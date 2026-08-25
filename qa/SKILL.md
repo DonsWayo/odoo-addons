@@ -6,7 +6,7 @@ allowed-tools: Bash(agent-browser:*), Bash(docker compose:*), Bash(python3 qa/*)
 
 # Odoo Browser QA (agent-browser + YAML flows)
 
-Deterministic, CI-reusable browser tests for the OdooGit module. The flows live
+Deterministic, CI-reusable browser tests for the Git Hosting module. The flows live
 in `qa/flows/*.yaml` and run via the dependency-free runner `qa/run.py`
 (Maestro-style YAML, but for web through [agent-browser](https://agent-browser.dev)).
 
@@ -29,7 +29,7 @@ Results: exit 0 = green. Screenshots (incl. `*__FAIL_*.png` on failure) land in
 ## Environment prerequisites
 
 1. Stack up: `docker compose up -d` (odoo + postgres), wait for health.
-2. Module installed: `docker compose exec odoo odoo -d odoo -i odoogit --stop-after-init ...`
+2. Module installed: `docker compose exec odoo odoo -d odoo -i dw_git --stop-after-init ...`
    (use `-u` to upgrade after view changes).
 3. Seeding is handled by `qa/run.py` via `qa/seed.py` (real bare git repo,
    2 branches, 4 commits, 1 open PR; skips if present; **commits via
@@ -66,9 +66,9 @@ Results: exit 0 = green. Screenshots (incl. `*__FAIL_*.png` on failure) land in
 python3 - <<'EOF'
 from xml.etree import ElementTree as ET
 import os
-for f in sorted(os.listdir('odoogit/views')):
+for f in sorted(os.listdir('dw_git/views')):
     if f.endswith('.xml'):
-        ET.parse(f'odoogit/views/{f}'); print('ok:', f)
+        ET.parse(f'dw_git/views/{f}'); print('ok:', f)
 EOF
 ```
 

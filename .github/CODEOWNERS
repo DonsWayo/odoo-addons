@@ -2,8 +2,8 @@
 *                       @DonsWayo
 
 # Anything that decides who can read or write what.
-/odoogit/security/      @DonsWayo
-/odoogit/controllers/   @DonsWayo
+/dw_git/security/      @DonsWayo
+/dw_git/controllers/   @DonsWayo
 
 # The contract this project keeps with its operators.
 /docs/                  @DonsWayo

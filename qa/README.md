@@ -1,4 +1,4 @@
-# OdooGit QA — Reusable Browser Test Flows
+# Git Hosting QA — Reusable Browser Test Flows
 
 Declarative YAML test flows executed via [agent-browser](https://agent-browser.dev)
 (same pattern as Maestro YAML flows for mobile, but for web).

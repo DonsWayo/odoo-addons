@@ -1,4 +1,4 @@
-# Publishing and getting OdooGit used
+# Publishing and getting Git Hosting used
 
 Two separate jobs: getting listed on the Odoo Apps Store, and getting anyone
 to hear about it. The store is a checklist; the rest is not.
@@ -9,14 +9,14 @@ to hear about it. The store is a checklist; the rest is not.
 
 | Requirement | Status | Where |
 |---|---|---|
-| `__manifest__.py` present, `name` ≤ 25 chars | ✅ `OdooGit` (7) | `odoogit/__manifest__.py` |
-| Icon at `static/description/icon.png`, genuinely PNG | ✅ 128×128 RGBA | `odoogit/static/description/icon.png` |
+| `__manifest__.py` present, `name` ≤ 25 chars | ✅ `Git Hosting` (7) | `dw_git/__manifest__.py` |
+| Icon at `static/description/icon.png`, genuinely PNG | ✅ 128×128 RGBA | `dw_git/static/description/icon.png` |
 | HTML description at `static/description/index.html` | ✅ | same folder |
 | `license` a recognised value | ✅ `LGPL-3` | manifest |
 | Cover image via the `images` manifest key | ✅ 4 images | manifest |
-| One app per folder at the repository root | ✅ `odoogit/` | — |
+| One app per folder at the repository root | ✅ `dw_git/` | — |
 | No downloading or executing external code | ✅ | — |
-| Documentation at `doc/index.rst`, valid pure RST | ✅ | `odoogit/doc/index.rst` |
+| Documentation at `doc/index.rst`, valid pure RST | ✅ | `dw_git/doc/index.rst` |
 | Odoo has read access to the repository | ✅ nothing to do — the repo is public | see below |
 
 An RST description instead of HTML counts against the listing's score, which
@@ -34,11 +34,11 @@ repository on each scan:
 
 | What you see on the listing | Where it comes from |
 |---|---|
-| App icon | `odoogit/static/description/icon.png` — must genuinely be PNG |
+| App icon | `dw_git/static/description/icon.png` — must genuinely be PNG |
 | Cover / thumbnail | the **first** entry in the manifest's `images` list |
 | Large screenshot | the first `images` entry whose filename ends in `_screenshot` |
-| Description body | `odoogit/static/description/index.html` |
-| Documentation tab | `odoogit/doc/index.rst` |
+| Description body | `dw_git/static/description/index.html` |
+| Documentation tab | `dw_git/doc/index.rst` |
 
 So to change any of them: edit the file, push to `main`, mirror to `19.0`,
 and rescan from *My Repos*. Nothing is typed into the store.
@@ -64,7 +64,7 @@ Odoo strips things. Keep to them or the page renders wrong:
   themselves. Check with:
 
   ```bash
-  python3 -c "s=open('odoogit/static/description/index.html',encoding='utf-8').read(); \
+  python3 -c "s=open('dw_git/static/description/index.html',encoding='utf-8').read(); \
   print(sorted({c for c in s if ord(c)>127}) or 'pure ASCII')"
   ```
 
@@ -210,7 +210,7 @@ Ranked by effort-to-reach for a self-hosted Odoo developer tool.
 
 - **Odoo Community Association (OCA).** <https://odoo-community.org> — the
   centre of gravity for serious Odoo modules. Ask in their GitHub discussions
-  whether OdooGit fits an existing repository or belongs standalone. An OCA
+  whether Git Hosting fits an existing repository or belongs standalone. An OCA
   association is worth more than any amount of self-promotion.
 - **Odoo's own forum**, in Developers:
   <https://www.odoo.com/forum/help-1>. Answer existing "self-hosted git in
@@ -226,7 +226,7 @@ Ranked by effort-to-reach for a self-hosted Odoo developer tool.
 ### Worth doing, lower yield
 
 - LinkedIn, if you already have Odoo people in your network.
-- **awesome-odoo** lists on GitHub — send a PR adding OdooGit.
+- **awesome-odoo** lists on GitHub — send a PR adding Git Hosting.
 - **`doc/index.rst`** already ships, so the Apps listing gets a documentation
   tab for free. Keep it in sync with `docs/LIMITATIONS.md`.
 - Odoo partner Slack/Discord communities, if you are in any.

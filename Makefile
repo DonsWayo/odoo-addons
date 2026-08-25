@@ -1,4 +1,4 @@
-# OdooGit — development tasks.
+# Git Hosting — development tasks.
 #
 # Every target runs against the docker compose stack in this directory.
 # `make help` lists them.
@@ -6,7 +6,7 @@
 DB       ?= odoo
 # Every addon in this repository. Adding a module means adding it here and
 # nothing else: install, upgrade, test and lint all read this list.
-MODULES  ?= odoogit
+MODULES  ?= dw_git
 MODULE   ?= $(firstword $(MODULES))
 COMPOSE  := docker compose
 ODOO     := $(COMPOSE) exec -T odoo odoo
@@ -98,4 +98,4 @@ versions: ## Show what is actually running
 	@echo "postgres:   $$($(COMPOSE) exec -T postgres postgres --version 2>/dev/null)"
 	@echo "git:        $$($(COMPOSE) exec -T odoo git --version 2>/dev/null)"
 	@echo "GitPython:  $$($(COMPOSE) exec -T odoo python3 -c 'import git;print(git.__version__)' 2>/dev/null)"
-	@echo "module:     $$(python3 -c "import ast;s=open('odoogit/__manifest__.py').read();print(ast.literal_eval(s[s.index('{'):])['version'])")"
+	@echo "module:     $$(python3 -c "import ast;s=open('dw_git/__manifest__.py').read();print(ast.literal_eval(s[s.index('{'):])['version'])")"

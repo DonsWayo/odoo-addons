@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest something OdooGit should do
+description: Suggest something Git Hosting should do
 labels: [enhancement]
 body:
   - type: markdown
@@ -22,7 +22,7 @@ body:
   - type: textarea
     id: proposal
     attributes:
-      label: What should OdooGit do instead?
+      label: What should Git Hosting do instead?
     validations:
       required: true
 

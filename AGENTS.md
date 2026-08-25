@@ -1,10 +1,10 @@
-# AGENTS.md — odoogit (Odoo 19 Git hosting module)
+# AGENTS.md — dw_git (Odoo 19 Git hosting module)
 
 Guidance for AI coding agents (Claude Code, opencode, Cursor, Codex, …).
 
 ## Project
 
-Odoo 19 module `odoogit` — self-hosted git repository manager (repos, branches,
+Odoo 19 module `dw_git` — self-hosted git repository manager (repos, branches,
 commits, PRs, reviews, PATs, deploy keys, webhooks, portal). Runs in Docker
 (odoo:19 + postgres:16) with GitPython.
 

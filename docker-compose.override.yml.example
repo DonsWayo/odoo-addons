@@ -8,10 +8,10 @@
 # entrypoint.sh detects the mount and skips its copy step.
 #
 # Note: on colima/Lima, confirm the mount is really populated before trusting
-# it (`docker compose exec odoo ls /mnt/extra-addons/odoogit`); a stale
+# it (`docker compose exec odoo ls /mnt/extra-addons/dw_git`); a stale
 # virtiofs share silently mounts an empty directory.
 services:
   odoo:
     volumes:
       - odoo_data:/var/lib/odoo
-      - ./odoogit:/mnt/extra-addons/odoogit
+      - ./dw_git:/mnt/extra-addons/dw_git

@@ -1,4 +1,4 @@
-# Lint config for the odoogit addon.
+# Lint config for the dw_git addon.
 #
 # Ruff's F821 (undefined name) would have caught the NameError that shipped
 # in 19.0.1.0.0 — `import os as _os` at the top, `os.makedirs(...)` in the

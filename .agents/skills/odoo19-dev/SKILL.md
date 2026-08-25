@@ -1,10 +1,10 @@
 ---
 name: odoo19-dev
-description: Odoo 19 module development rules for THIS project (odoogit). Use when writing or editing XML views (form, list, kanban, search), Python models, controllers, or manifests in odoogit/, or when Odoo throws view validation errors, "Missing 'card' template", "Forbidden owl directive", "Unknown field/action", or CSS bundle errors. Encodes every Odoo 17→19 breaking change hit in this repo.
+description: Odoo 19 module development rules for THIS project (dw_git). Use when writing or editing XML views (form, list, kanban, search), Python models, controllers, or manifests in dw_git/, or when Odoo throws view validation errors, "Missing 'card' template", "Forbidden owl directive", "Unknown field/action", or CSS bundle errors. Encodes every Odoo 17→19 breaking change hit in this repo.
 always-apply: false
 ---
 
-# Odoo 19 rules for odoogit (project-scoped)
+# Odoo 19 rules for dw_git (project-scoped)
 
 Battle-tested against Odoo 19.0.post20260817 (docker: `odoo:19`). Every rule
 here fixed a REAL failure in this repo. Apply before building the image.
@@ -40,7 +40,7 @@ Inside attribute values: `&` → `&amp;`, `<` → `&lt;` (e.g. button strings
 every view file parses BEFORE `docker compose build`:
 
 ```bash
-python3 -c "from xml.etree import ElementTree as ET; import glob; [ET.parse(f) for f in glob.glob('odoogit/views/*.xml') + glob.glob('odoogit/wizards/*.xml')]; print('XML OK')"
+python3 -c "from xml.etree import ElementTree as ET; import glob; [ET.parse(f) for f in glob.glob('dw_git/views/*.xml') + glob.glob('dw_git/wizards/*.xml')]; print('XML OK')"
 ```
 
 Docker COPY layers cache aggressively: a bad build sticks until files change.
@@ -81,13 +81,13 @@ remove them or override `_valid_field_parameter` on the model.
 
 ```bash
 docker compose build odoo && docker compose up -d
-docker compose exec odoo odoo -d odoo -i odoogit --stop-after-init \
+docker compose exec odoo odoo -d odoo -i dw_git --stop-after-init \
   --db_host=postgres --db_user=odoo --db_password=odoo --workers=0   # install
-# use -u odoogit for upgrades after view changes
+# use -u dw_git for upgrades after view changes
 python3 qa/run.py                     # browser QA (6 flows, must stay green)
 ```
 
-Unit tests: `--test-enable --test-tags /odoogit --http-port=8070` (130 tests).
+Unit tests: `--test-enable --test-tags /dw_git --http-port=8070` (130 tests).
 
 ## Known environment traps
 
@@ -236,7 +236,7 @@ running Odoo, and it prints exactly which classes are dead:
 ```
 
 Collect the module's icons first:
-`grep -rhoE 'fa fa-[a-z0-9-]+' odoogit/views/ | sed 's/fa fa-//' | sort -u`
+`grep -rhoE 'fa fa-[a-z0-9-]+' dw_git/views/ | sed 's/fa fa-//' | sort -u`
 
 ## List/kanban views ship the defaults you set, not the fields you declared
 
@@ -273,7 +273,7 @@ Two more traps in the same tests:
   trips in one test method. Verify late steps against the bare repo on disk
   instead of a further HTTP call.
 - **The filesystem does not roll back with the transaction.** Point
-  `odoogit.repo_base_path` at a `tempfile.mkdtemp()` per test class and create
+  `dw_git.repo_base_path` at a `tempfile.mkdtemp()` per test class and create
   a fresh repository per test, or run N sees the commits run N-1 pushed.
 
 ## Odoo Apps Store (learned by publishing this module)

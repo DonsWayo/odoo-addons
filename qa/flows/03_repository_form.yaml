@@ -9,7 +9,7 @@ steps:
     value: $PASS
   - press: Enter
   - wait: 3000
-  - open: /odoo/action-odoogit.action_git_repository
+  - open: /odoo/action-dw_git.action_git_repository
   - wait: 3500
   - click_row: "hello-world"
   - wait: 3000

@@ -1,0 +1,197 @@
+<odoo>
+    <!-- Search View -->
+    <record id="view_git_repository_search" model="ir.ui.view">
+        <field name="name">git.repository.search</field>
+        <field name="model">git.repository</field>
+        <field name="arch" type="xml">
+            <search string="Search Repositories">
+                <field name="name" string="Name"/>
+                <field name="owner_id" string="Owner"/>
+                <filter name="my_repos" string="My Repositories" domain="[('owner_id', '=', uid)]"/>
+                <filter name="starred" string="Starred" domain="[('star_ids', 'in', [uid])]"/>
+                <filter name="internal" string="Internal" domain="[('visibility', '=', 'internal')]"/>
+                <filter name="private" string="Private" domain="[('visibility', '=', 'private')]"/>
+                <group>
+                    <filter name="by_owner" string="Owner" context="{'group_by': 'owner_id'}"/>
+                    <filter name="by_visibility" string="Visibility" context="{'group_by': 'visibility'}"/>
+                    <filter name="by_project" string="Project" context="{'group_by': 'project_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- List View -->
+    <record id="view_git_repository_list" model="ir.ui.view">
+        <field name="name">git.repository.list</field>
+        <field name="model">git.repository</field>
+        <field name="arch" type="xml">
+            <list string="Repositories" sample="1" decoration-info="visibility == 'internal'" decoration-muted="visibility == 'private'">
+                <field name="name"/>
+                <field name="description" widget="html" optional="hide"/>
+                <field name="owner_id" widget="many2one_avatar_user"/>
+                <field name="visibility" widget="badge"/>
+                <field name="default_branch"/>
+                <field name="commit_count" string="Commits"/>
+                <field name="branch_count" string="Branches"/>
+                <field name="open_pr_count" string="Open PRs"/>
+                <field name="last_activity_date" widget="datetime" string="Last Activity"/>
+                <field name="star_count" string="★"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Kanban View -->
+    <record id="view_git_repository_kanban" model="ir.ui.view">
+        <field name="name">git.repository.kanban</field>
+        <field name="model">git.repository</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_git_repo" sample="1">
+                <field name="name"/>
+                <field name="description"/>
+                <field name="owner_id"/>
+                <field name="visibility"/>
+                <field name="default_branch"/>
+                <field name="star_count"/>
+                <field name="is_starred"/>
+                <field name="branch_count"/>
+                <field name="open_pr_count"/>
+                <field name="commit_count"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="oe_kanban_global_click o_kanban_git_repo_card">
+                            <div class="o_kanban_record_head d-flex align-items-center justify-content-between gap-2">
+                                <span class="fw-bold text-truncate" t-out="record.name.value"/>
+                                <span class="badge flex-shrink-0" t-att-class="record.visibility.raw_value == 'internal' ? 'bg-success' : 'bg-secondary'" t-out="record.visibility.value"/>
+                            </div>
+                            <div class="text-muted small text-truncate" t-out="record.description.value"/>
+                            <div class="d-flex gap-3 mt-2 small text-muted">
+                                <span title="Branches"><i class="fa fa-code-fork me-1"/><t t-out="record.branch_count.value"/></span>
+                                <span title="Commits"><i class="fa fa-history me-1"/><t t-out="record.commit_count.value"/></span>
+                                <span title="Open pull requests"><i class="fa fa-share-alt me-1"/><t t-out="record.open_pr_count.value"/></span>
+                                <span title="Stars"><i class="fa fa-star me-1"/><t t-out="record.star_count.value"/></span>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- Form View -->
+    <record id="view_git_repository_form" model="ir.ui.view">
+        <field name="name">git.repository.form</field>
+        <field name="model">git.repository</field>
+        <field name="arch" type="xml">
+            <form string="Repository">
+                <header>
+                    <button name="action_toggle_star" type="object" class="oe_stat_button" icon="fa-star">
+                        <field name="star_count" string="Stars"/>
+                    </button>
+                    <field name="visibility" widget="statusbar" statusbar_visible="private,internal" statusbar_colors='{"private":"secondary","internal":"success"}'/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_branches" type="object" class="oe_stat_button" icon="fa-code-fork">
+                            <field name="branch_count" widget="statinfo" string="Branches"/>
+                        </button>
+                        <button name="action_open_commits" type="object" class="oe_stat_button" icon="fa-history">
+                            <field name="commit_count" widget="statinfo" string="Commits"/>
+                        </button>
+                        <button name="action_open_pull_requests" type="object" class="oe_stat_button" icon="fa-share-alt">
+                            <field name="open_pr_count" widget="statinfo" string="Pull Requests"/>
+                        </button>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <field name="name" class="oe_inline" placeholder="Repository name"/>
+                            <field name="owner_id" class="oe_inline" options="{'no_create': True, 'no_open': True}"/>
+                        </div>
+                        <div class="col-6 text-end">
+                            <field name="clone_url_http" readonly="1" widget="url" placeholder="Clone URL (HTTP)"/>
+                        </div>
+                    </div>
+
+                    <notebook>
+                        <page string="Description" name="description">
+                            <field name="description" placeholder="Repository description (supports Markdown)"/>
+                        </page>
+                        <page string="Branches" name="branches">
+                            <field name="branch_ids" mode="list,form">
+                                <list string="Branches" editable="bottom">
+                                    <field name="name"/>
+                                    <field name="commit_id"/>
+                                    <field name="is_protected"/>
+                                    <field name="is_default"/>
+                                    <field name="ahead_commits"/>
+                                    <field name="behind_commits"/>
+                                    <field name="last_commit_date"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Settings" name="settings" groups="base.group_system">
+                            <group string="Repository Settings">
+                                <field name="has_pull_requests"/>
+                                <field name="has_projects"/>
+                                <field name="default_branch"/>
+                            </group>
+                            <group string="Branch Protection">
+                                <field name="protected_branch_ids" widget="many2many_tags"/>
+                            </group>
+                        </page>
+                        <page string="Members" name="members">
+                            <field name="member_ids" widget="many2many_tags" options="{'no_create_edit': True}"/>
+                            <field name="group_ids" widget="many2many_tags"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- Graph View -->
+    <record id="view_git_repository_graph" model="ir.ui.view">
+        <field name="name">git.repository.graph</field>
+        <field name="model">git.commit</field>
+        <field name="arch" type="xml">
+            <graph string="Commits Over Time" type="line" sample="1">
+                <field name="committed_date" interval="day" type="row"/>
+                <field name="repository_id" type="col"/>
+                <field name="id" operator="count" string="Commits" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <!-- Pivot View -->
+    <record id="view_git_repository_pivot" model="ir.ui.view">
+        <field name="name">git.repository.pivot</field>
+        <field name="model">git.commit</field>
+        <field name="arch" type="xml">
+            <pivot string="Commit Analysis" sample="1">
+                <field name="repository_id" type="col"/>
+                <field name="author_name" type="row"/>
+                <field name="committed_date" interval="month" type="col"/>
+                <field name="id" type="measure" string="Commits"/>
+                <field name="additions" type="measure" string="Lines Added"/>
+                <field name="deletions" type="measure" string="Lines Deleted"/>
+            </pivot>
+        </field>
+    </record>
+
+    <!-- Actions -->
+    <record id="action_git_repository" model="ir.actions.act_window">
+        <field name="name">Repositories</field>
+        <field name="res_model">git.repository</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="search_view_id" ref="view_git_repository_search"/>
+        <field name="context">{'search_default_my_repos': 1}</field>
+    </record>
+
+    <record id="action_git_repo_base_path" model="ir.actions.act_window">
+        <field name="name">Repository Base Path</field>
+        <field name="res_model">ir.config_parameter</field>
+        <field name="view_mode">form</field>
+        <field name="res_id" ref="dw_git_param_repo_base_path"/>
+    </record>
+</odoo>

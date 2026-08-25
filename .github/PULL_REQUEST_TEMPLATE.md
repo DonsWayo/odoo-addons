@@ -14,7 +14,7 @@ Closes #
 <!-- Paste the actual output. Claims without evidence get sent back. -->
 
 ```
-docker compose exec odoo odoo -d odoo -u odoogit --test-enable --test-tags /odoogit \
+docker compose exec odoo odoo -d odoo -u dw_git --test-enable --test-tags /dw_git \
   --stop-after-init --http-port=8070 \
   --db_host=postgres --db_user=odoo --db_password=odoo --workers=0
 ```
@@ -30,5 +30,5 @@ docker compose exec odoo odoo -d odoo -u odoogit --test-enable --test-tags /odoo
 - [ ] A new x2many/m2m field comes with a test that populates it
 - [ ] A change to access or permissions comes with a test acting as a second user
 - [ ] `CHANGELOG.md` updated under `[Unreleased]` if user-visible
-- [ ] `odoogit/__manifest__.py` version bumped if this needs to run on upgrade
+- [ ] `dw_git/__manifest__.py` version bumped if this needs to run on upgrade
 - [ ] Anything deliberately left undone is recorded in `docs/LIMITATIONS.md`

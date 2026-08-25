@@ -26,7 +26,7 @@ jobs:
           python -c "
           from xml.etree import ElementTree as ET
           import glob, sys
-          files = glob.glob('odoogit/**/*.xml', recursive=True)
+          files = glob.glob('dw_git/**/*.xml', recursive=True)
           assert files, 'no XML files found'
           for f in files:
               ET.parse(f)
@@ -37,7 +37,7 @@ jobs:
         run: |
           python -c "
           import ast, glob
-          files = glob.glob('odoogit/**/*.py', recursive=True)
+          files = glob.glob('dw_git/**/*.py', recursive=True)
           assert files, 'no Python files found'
           for f in files:
               ast.parse(open(f).read(), filename=f)
@@ -49,13 +49,13 @@ jobs:
         # in 19.0.1.0.0: `import os as _os` at the top, `os.makedirs(...)` in
         # the body. That is why this is a gate, not advisory.
         run: |
-          pipx run ruff check --config ruff.toml odoogit/ --output-format=github
+          pipx run ruff check --config ruff.toml dw_git/ --output-format=github
 
       - name: Manifest is a valid literal and declares a version
         run: |
           python -c "
           import ast
-          src = open('odoogit/__manifest__.py').read()
+          src = open('dw_git/__manifest__.py').read()
           m = ast.literal_eval(src[src.index('{'):])
           assert m['version'].startswith('19.0.'), m['version']
           assert m['author'] and 'Your Company' not in m['author']
@@ -67,10 +67,10 @@ jobs:
         run: |
           python -c "
           import ast, os, sys
-          src = open('odoogit/__manifest__.py').read()
+          src = open('dw_git/__manifest__.py').read()
           m = ast.literal_eval(src[src.index('{'):])
           missing = [f for f in m.get('data', []) + m.get('demo', [])
-                     if not os.path.isfile(os.path.join('odoogit', f))]
+                     if not os.path.isfile(os.path.join('dw_git', f))]
           if missing:
               sys.exit('declared but absent: ' + ', '.join(missing))
           print('data files OK')
@@ -98,7 +98,7 @@ jobs:
 
       - name: Install module into a clean database (with demo data)
         run: |
-          docker compose exec -T odoo odoo -d ci -i odoogit --stop-after-init \
+          docker compose exec -T odoo odoo -d ci -i dw_git --stop-after-init \
             --db_host=postgres --db_user=odoo --db_password=odoo --workers=0 \
             2>&1 | tee install.log
 
@@ -117,21 +117,21 @@ jobs:
 
       - name: Run the test suite
         run: |
-          docker compose exec -T odoo odoo -d ci --test-enable --test-tags /odoogit \
+          docker compose exec -T odoo odoo -d ci --test-enable --test-tags /dw_git \
             --stop-after-init --http-port=8070 \
             --db_host=postgres --db_user=odoo --db_password=odoo --workers=0 \
             2>&1 | tee test.log
 
       - name: Assert the suite was green and actually ran
         run: |
-          grep -E "odoo.tests.stats: odoogit: [0-9]+ tests" test.log || {
-            echo "::error::no odoogit tests ran"; exit 1; }
+          grep -E "odoo.tests.stats: dw_git: [0-9]+ tests" test.log || {
+            echo "::error::no dw_git tests ran"; exit 1; }
           if ! grep -q "0 failed, 0 error(s)" test.log; then
             echo "::error::test failures"
             grep -E "^(FAIL|ERROR): |tests when loading" test.log || true
             exit 1
           fi
-          grep -oE "odoogit: [0-9]+ tests" test.log | tail -1
+          grep -oE "dw_git: [0-9]+ tests" test.log | tail -1
 
       - name: Upload logs
         if: always()

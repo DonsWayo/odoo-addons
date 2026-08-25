@@ -1,8 +1,8 @@
-# Releasing OdooGit
+# Releasing Git Hosting
 
 ## Versioning
 
-Odoo addons carry the series in the version, so OdooGit uses:
+Odoo addons carry the series in the version, so Git Hosting uses:
 
 ```
 19.0 . MAJOR . MINOR . PATCH
@@ -15,7 +15,7 @@ Odoo addons carry the series in the version, so OdooGit uses:
 - **MAJOR** — anything that requires operator action: removed fields, changed
   constraints, changed access semantics.
 
-The version lives in exactly one place: `odoogit/__manifest__.py`. Odoo
+The version lives in exactly one place: `dw_git/__manifest__.py`. Odoo
 compares it against `ir_module_module.latest_version` to decide whether a
 database needs upgrading, so **bump it in the same commit as the change** — an
 unbumped module will not re-run its data files on `-u`.
@@ -66,14 +66,14 @@ never appeared". That is the extra database, not a regression.
 
 ## Cutting the release
 
-1. Bump `'version'` in `odoogit/__manifest__.py`.
+1. Bump `'version'` in `dw_git/__manifest__.py`.
 2. Move the `[Unreleased]` entries in `CHANGELOG.md` under a new
    `[<version>] — <date>` heading, and add the compare link at the bottom.
 3. Commit: `chore(release): 19.0.x.y.z`.
 4. Tag and push, **including the series branch**:
 
    ```bash
-   git tag -a odoogit-v19.0.x.y.z -m "OdooGit 19.0.x.y.z"
+   git tag -a dw_git-v19.0.x.y.z -m "Git Hosting 19.0.x.y.z"
    git push origin main --follow-tags
    git branch -f 19.0 main && git push origin 19.0
    ```
@@ -92,7 +92,7 @@ never appeared". That is the extra database, not a regression.
 
    ```bash
    gh release create v19.0.x.y.z \
-     --title "OdooGit 19.0.x.y.z" \
+     --title "Git Hosting 19.0.x.y.z" \
      --notes-file <(awk '/^## \[19\.0\.x\.y\.z\]/{f=1;next} /^## \[/{f=0} f' CHANGELOG.md)
    ```
 
@@ -118,6 +118,6 @@ Operators coming from `19.0.1.0.0` should know:
   and all API routes are JSON-RPC POST rather than GET.
 - Repository names are unique per owner instead of per company. No migration
   needed — the constraint only becomes more permissive.
-- `odoogit.repo_base_path` is no longer reset on upgrade. If an earlier
+- `dw_git.repo_base_path` is no longer reset on upgrade. If an earlier
   upgrade reset it and repositories appeared to vanish, the files are still at
   the path you originally configured.

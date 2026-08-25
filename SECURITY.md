@@ -6,7 +6,7 @@
 
 ➡️ **[Report a vulnerability](https://github.com/DonsWayo/odoo-addons/security/advisories/new)**
 
-Please include the OdooGit and Odoo versions, whether the issue is reachable
+Please include the Git Hosting and Odoo versions, whether the issue is reachable
 from the Git Smart HTTP endpoints, the JSON-RPC API, the portal or the backend
 UI, and the smallest reproduction you have. If it involves access control, say
 which user reached which record.
@@ -76,7 +76,7 @@ See [docs/LIMITATIONS.md](docs/LIMITATIONS.md):
 
 ## Deployment notes
 
-OdooGit runs `git http-backend` as the Odoo system user against directories it
-owns under `odoogit.repo_base_path`. Give that path to the Odoo user alone,
+Git Hosting runs `git http-backend` as the Odoo system user against directories it
+owns under `dw_git.repo_base_path`. Give that path to the Odoo user alone,
 put Odoo behind TLS — Personal Access Tokens travel as HTTP Basic credentials
 — and remember that Git Manager is effectively repository-wide superuser.

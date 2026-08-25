@@ -1,4 +1,4 @@
-# Contributing to OdooGit
+# Contributing to Git Hosting
 
 ## Before you start
 
@@ -16,7 +16,7 @@ ignoring them costs a rebuild cycle per mistake.
 
 ```bash
 git clone https://github.com/DonsWayo/odoo-addons.git
-cd odoogit
+cd odoo-addons
 make build up install
 ```
 
@@ -33,7 +33,7 @@ On colima/Lima, confirm the mount actually populated before trusting it —
 a stale virtiofs share silently mounts an empty directory:
 
 ```bash
-docker compose exec odoo ls /mnt/extra-addons/odoogit
+docker compose exec odoo ls /mnt/extra-addons/dw_git
 ```
 
 ## The loop
@@ -93,7 +93,7 @@ return 500" tells a reader whether they were affected; "fixed portal.py" does
 not.
 
 Update `CHANGELOG.md` under `[Unreleased]` for anything user-visible, and bump
-`odoogit/__manifest__.py` if the change must run on upgrade — Odoo compares
+`dw_git/__manifest__.py` if the change must run on upgrade — Odoo compares
 that version against `ir_module_module.latest_version` to decide.
 
 ## Releases
