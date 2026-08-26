@@ -159,6 +159,23 @@ class GitPullRequest(models.Model):
             pr.approval_count = len(approvals)
             pr.changes_requested = bool(changes)
 
+    @api.depends('repository_id.owner_id', 'repository_id.name', 'number')
+    def _compute_access_url(self):
+        """Compute the portal access URL for the pull request.
+
+        portal.mixin provides a default access_url='#'; we override it here
+        to point to the actual pull request portal page. Users can share this
+        link to give portal access to the pull request.
+        """
+        super()._compute_access_url()
+        for pr in self:
+            if pr.repository_id.owner_id and pr.repository_id.name and pr.number:
+                owner_login = pr.repository_id.owner_id.login
+                repo_name = pr.repository_id.name
+                pr.access_url = f'/git/{owner_login}/{repo_name}/pr/{pr.number}'
+            else:
+                pr.access_url = '#'
+
     @api.model_create_multi
     def create(self, vals_list):
         records = super().create(vals_list)
@@ -169,7 +186,42 @@ class GitPullRequest(models.Model):
                 pr._sync_changed_files()
             except Exception as exc:      # noqa: BLE001 - diagnostic only
                 _logger.info("PR %s: initial diff skipped: %s", pr.id, exc)
+
+            # Send PR created notification to reviewers
+            pr._send_created_notification()
+
+            # Schedule initial review activities for reviewers
+            pr._schedule_review_activities(pr.reviewer_ids)
         return records
+
+    def write(self, vals):
+        """Handle updates to PR, including reviewer additions.
+
+        When reviewers are added to a pull request, we send a review request
+        notification and schedule an activity on each newly-added reviewer.
+        """
+        # Track which reviewers are newly added for each PR
+        reviewer_changes = {}
+        if 'reviewer_ids' in vals and vals['reviewer_ids']:
+            # Parse the M2M command to detect added reviewers
+            # vals['reviewer_ids'] is a list of (cmd, id, values) tuples
+            for pr in self:
+                old_reviewer_ids = set(pr.reviewer_ids.ids)
+                reviewer_changes[pr.id] = old_reviewer_ids
+
+        result = super().write(vals)
+
+        # After write completes, check for newly added reviewers and notify them
+        if 'reviewer_ids' in vals and vals['reviewer_ids']:
+            for pr in self:
+                old_ids = reviewer_changes.get(pr.id, set())
+                new_ids = set(pr.reviewer_ids.ids)
+                newly_added = self.env['res.users'].browse(new_ids - old_ids)
+                if newly_added:
+                    pr._send_review_request_notification(newly_added)
+                    pr._schedule_review_activities(newly_added)
+
+        return result
 
     def action_merge(self, method=None):
         """Merge the pull request"""
@@ -212,6 +264,13 @@ class GitPullRequest(models.Model):
                     self.source_branch_id.unlink()
                 except Exception:
                     pass  # branch kept — referenced elsewhere or protected
+
+        # Send merge notification — best effort; a mail failure should not
+        # block the merge from succeeding
+        try:
+            self._send_merged_notification()
+        except Exception as exc:
+            _logger.exception("Failed to send PR merge notification for PR %s: %s", self.id, exc)
 
         return True
 
@@ -360,10 +419,106 @@ class GitPullRequest(models.Model):
         return True
 
     def action_close(self):
+        """Close a pull request and send notification"""
         self.write({'state': 'closed', 'closed_at': fields.Datetime.now()})
+        # Send close notification — best effort; a mail failure should not
+        # block the close from succeeding
+        try:
+            self._send_closed_notification()
+        except Exception as exc:
+            _logger.exception("Failed to send PR close notification for PR %s: %s", self.id, exc)
 
     def action_reopen(self):
         self.write({'state': 'open', 'closed_at': False})
+
+    def _send_created_notification(self):
+        """Send PR created notification to reviewers.
+
+        Uses the mail_template_git_pr_created template. Failures are logged
+        and do not block PR creation.
+        """
+        self.ensure_one()
+        template = self.env.ref('dw_git.mail_template_git_pr_created', raise_if_not_found=False)
+        if not template:
+            return
+        try:
+            template.send_mail(self.id, force_send=False)
+        except Exception as exc:
+            _logger.warning("Failed to send PR created email for PR %s: %s", self.id, exc)
+
+    def _send_review_request_notification(self, reviewers):
+        """Ask `reviewers` — and only them — for a review.
+
+        The template addresses object.reviewer_ids, i.e. everyone currently
+        on the PR. Left to itself it would re-ask every existing reviewer
+        each time one more is added, so the recipient list is overridden
+        here with the reviewers actually being asked.
+
+        Failures are logged and never block the reviewer assignment.
+        """
+        self.ensure_one()
+        recipients = reviewers.filtered('email_formatted')
+        if not recipients:
+            return
+        template = self.env.ref('dw_git.mail_template_git_pr_review_request', raise_if_not_found=False)
+        if not template:
+            return
+        try:
+            template.send_mail(self.id, force_send=False, email_values={
+                'email_to': ','.join(recipients.mapped('email_formatted')),
+            })
+        except Exception as exc:
+            _logger.warning("Failed to send PR review request email for PR %s: %s", self.id, exc)
+
+    def _send_merged_notification(self):
+        """Send PR merged notification to author.
+
+        Uses the mail_template_git_pr_merged template. Failures are logged.
+        """
+        self.ensure_one()
+        template = self.env.ref('dw_git.mail_template_git_pr_merged', raise_if_not_found=False)
+        if not template:
+            return
+        try:
+            template.send_mail(self.id, force_send=False)
+        except Exception as exc:
+            _logger.warning("Failed to send PR merged email for PR %s: %s", self.id, exc)
+
+    def _send_closed_notification(self):
+        """Send PR closed notification to author.
+
+        Uses the mail_template_git_pr_closed template. Failures are logged.
+        """
+        self.ensure_one()
+        template = self.env.ref('dw_git.mail_template_git_pr_closed', raise_if_not_found=False)
+        if not template:
+            return
+        try:
+            template.send_mail(self.id, force_send=False)
+        except Exception as exc:
+            _logger.warning("Failed to send PR closed email for PR %s: %s", self.id, exc)
+
+    def _schedule_review_activities(self, reviewers):
+        """Schedule review activities for the given reviewers.
+
+        Creates a 'To Do' activity on each reviewer to review this PR.
+        Failures are logged and do not block the PR creation/update.
+        """
+        self.ensure_one()
+        if not reviewers:
+            return
+        try:
+            activity_type = self.env.ref('mail.mail_activity_data_todo', raise_if_not_found=False)
+            if not activity_type:
+                return
+            for reviewer in reviewers:
+                self.activity_schedule(
+                    activity_type_id=activity_type.id,
+                    user_id=reviewer.id,
+                    summary=_("Review PR #%d: %s") % (self.number, self.title),
+                )
+        except Exception as exc:
+            _logger.warning("Failed to schedule review activities for PR %s: %s", self.id, exc)
 
 
 class GitPRFile(models.Model):

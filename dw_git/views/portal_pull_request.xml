@@ -1,0 +1,105 @@
+<odoo>
+    <!-- Portal Pull Request View
+
+         git.pull_request inherits portal.mixin, so every PR has an
+         access_url. Until this template existed that URL had nowhere to
+         land: the mixin default is '#', and pointing it at a route with no
+         template behind it is worse still — a share link that raises rather
+         than one that quietly goes nowhere.
+    -->
+    <template id="portal_pull_request">
+        <t t-call="portal.portal_layout">
+            <t t-set="title">PR #<t t-out="pull_request.number"/>: <t t-out="pull_request.title"/></t>
+            <div class="container mt-4">
+                <nav aria-label="breadcrumb" class="mb-4">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="/my/repositories">Repositories</a></li>
+                        <li class="breadcrumb-item"><a t-attf-href="/git/#{repository.owner_id.login}/#{repository.name}"><t t-out="repository.owner_id.login"/>/<t t-out="repository.name"/></a></li>
+                        <li class="breadcrumb-item active" aria-current="page">PR #<t t-out="pull_request.number"/></li>
+                    </ol>
+                </nav>
+
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <span class="text-muted">#<t t-out="pull_request.number"/></span>
+                            <span class="ms-2"><t t-out="pull_request.title"/></span>
+                        </h5>
+                        <span t-attf-class="badge #{
+                                  'bg-success' if pull_request.state == 'merged'
+                                  else 'bg-danger' if pull_request.state == 'closed'
+                                  else 'bg-primary' if pull_request.state == 'open'
+                                  else 'bg-secondary'}">
+                            <t t-out="dict(pull_request._fields['state'].selection).get(pull_request.state)"/>
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <strong>Author:</strong> <t t-out="pull_request.author_id.name"/>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Opened:</strong> <t t-out="pull_request.create_date" t-options="{'widget': 'date'}"/>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <strong>Source:</strong> <code class="o_monospace"><t t-out="pull_request.source_branch_id.name"/></code>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Target:</strong> <code class="o_monospace"><t t-out="pull_request.target_branch_id.name"/></code>
+                            </div>
+                        </div>
+                        <div t-if="pull_request.merged_at" class="row mb-3">
+                            <div class="col-md-6">
+                                <strong>Merged by:</strong> <t t-out="pull_request.merged_by_id.name"/>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Merged:</strong> <t t-out="pull_request.merged_at" t-options="{'widget': 'date'}"/>
+                            </div>
+                        </div>
+                        <div t-if="pull_request.description" class="mb-3">
+                            <strong>Description:</strong>
+                            <div class="mt-2 p-3 bg-light rounded"><t t-out="pull_request.description"/></div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <span class="badge bg-success">+<t t-out="pull_request.additions"/></span>
+                            <span class="badge bg-danger">-<t t-out="pull_request.deletions"/></span>
+                            <span class="badge bg-secondary"><t t-out="pull_request.changed_files"/> files</span>
+                            <span class="badge bg-info"><t t-out="pull_request.commit_count"/> commits</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Changed Files</h5>
+                    </div>
+                    <div class="card-body">
+                        <p t-if="not pull_request.file_ids" class="text-muted mb-0">
+                            No changes recorded for this pull request.
+                        </p>
+                        <table t-else="" class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>File</th>
+                                    <th>Status</th>
+                                    <th class="text-end">Additions</th>
+                                    <th class="text-end">Deletions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="pull_request.file_ids" t-as="f" t-key="f.id">
+                                    <td><code class="o_monospace"><t t-out="f.filename"/></code></td>
+                                    <td><t t-out="f.status"/></td>
+                                    <td class="text-end text-success">+<t t-out="f.additions"/></td>
+                                    <td class="text-end text-danger">-<t t-out="f.deletions"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+</odoo>
