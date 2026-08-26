@@ -62,10 +62,38 @@
 | **Reviews** | approve / request changes / comment, approval counting against the target branch's required count; a "request changes" blocks the merge |
 | **Tokens** | PATs and deploy keys stored **only** as SHA-256 hashes, with scopes and expiry; the raw secret is shown once and never persisted |
 | **Webhooks** | payload construction and HMAC-SHA256 signing, delivery records — **not delivered**, see limitations |
-| **Portal** | customer-facing repository and commit pages |
-| **JSON-RPC API** | repositories, branches, commits, tree, pull requests, reviews |
+| **Code browsing** | read-only file browser — branch selector, directory-at-a-time tree, syntax-highlighted file contents |
+| **Diffs** | pull request diffs rendered as a real coloured diff with syntax highlighting, plus the raw unified patch |
+| **Notifications** | mail on PR created / review requested / merged / closed, and a to-do activity for each newly requested reviewer |
+| **Portal** | repository, commit and pull request pages — see [Two interfaces](#two-interfaces) for who these are for |
+| **JSON-RPC API** | repositories, branches, commits, tree, blob, pull requests, reviews |
+| **Translations** | `i18n/dw_git.pot` template, regenerated with `make i18n` |
 
-Not included: issues, wiki, labels, forks, SSH, file browser UI.
+Not included: issues, wiki, labels, forks, SSH.
+
+## Two interfaces
+
+The module ships **two** separate UIs. They look nothing alike, which is
+expected — they serve different people.
+
+| | Backend | Portal |
+|---|---|---|
+| URL | `/odoo/…` — the **Git** app | `/git/<owner>/<repo>` |
+| Audience | internal employees | portal users, who have no backend access |
+| Look | standard Odoo backend | website theme (site logo, site footer) |
+| Reached from | the Git app menu | links in notification emails |
+
+Notification emails do **not** hardcode either one. They link through
+`_notify_get_action_link('view')`, Odoo's own redirector, which resolves per
+recipient: an employee lands on the backend record, a portal user on the
+portal page. One link, right destination.
+
+> **Caveat.** The portal is not currently reachable in practice:
+> `member_ids` is restricted to internal users and no portal access rules
+> ship with the module, so no portal user can legitimately be given a
+> repository. The pages render, but the audience cannot be created. Tracked
+> in [#21](https://github.com/DonsWayo/odoo-addons/issues/21) — the decision
+> is whether to grant portal access properly or drop the portal.
 
 ## Screenshots
 
@@ -75,6 +103,8 @@ Not included: issues, wiki, labels, forks, SSH, file browser UI.
 | **Repositories** — branches, commits, open PRs and last activity at a glance | **Pull requests** — source and target branch, author, approvals, mergeable state |
 | ![Repository form](docs/images/repository-form.png) | ![Branches](docs/images/branches.png) |
 | **Repository** — clone URL, counters, members and full Odoo chatter | **Branches** — synced from the bare repo, with protection settings |
+| ![Pull request diff](docs/images/pr-diff.png) | ![File browser](docs/images/file-browser.png) |
+| **Diff** — real unified diffs computed against the merge base, rendered with syntax highlighting | **Browse files** — pick a branch, walk the tree, read any file at that ref |
 
 ## Install (Docker)
 

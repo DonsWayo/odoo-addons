@@ -1,6 +1,6 @@
-=======
+===========
 Git Hosting
-=======
+===========
 
 Git repository hosting inside Odoo 19. Repositories are real bare Git
 repositories on disk, served over Git Smart HTTP, with pull requests,
@@ -47,6 +47,29 @@ Clone and push over HTTPS::
 
 A push synchronises branches and the most recent commits per branch back into
 Odoo.
+
+Reviewing code
+==============
+
+**Browse Files** on a repository opens a read-only browser: pick a branch,
+walk the tree one directory at a time, and read any file at that ref with
+syntax highlighting. Binary files and files over 2 MB are not rendered.
+
+A pull request's **Changes** tab lists every changed file with its additions
+and deletions. Opening one shows the diff computed against the merge base,
+rendered in colour, with the raw unified patch on a second tab. **Refresh
+Changes** recomputes it from the repository.
+
+Notifications
+=============
+
+Mail goes out when a pull request is created, a review is requested, and when
+it is merged or closed. Requesting a review also schedules a to-do activity on
+the reviewer, so it lands in their Odoo inbox alongside their other work.
+Only newly added reviewers are notified.
+
+Links in those mails resolve per recipient: an internal user is taken to the
+backend record, a portal user to the portal page.
 
 Access control
 ==============
