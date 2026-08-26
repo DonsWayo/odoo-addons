@@ -20,6 +20,21 @@ compares it against `ir_module_module.latest_version` to decide whether a
 database needs upgrading, so **bump it in the same commit as the change** — an
 unbumped module will not re-run its data files on `-u`.
 
+## Translations
+
+User-facing strings are extracted into `dw_git/i18n/dw_git.pot`, the gettext
+translation template. Regenerate it whenever you add or change any translatable
+string (Python `_("...")` calls, XML `string=`/`help=`/`confirm=` attributes,
+or field labels):
+
+```bash
+make i18n
+```
+
+This creates a fresh `.pot` from the database schema and views. Translators use
+it to generate `.po` files for each language, which the Odoo Apps Store uses to
+serve the module in the user's language preference.
+
 ## Before tagging
 
 Run the gate. Do not tag on a red result.

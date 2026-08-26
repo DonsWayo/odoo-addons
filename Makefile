@@ -15,7 +15,7 @@ RUFF     := uvx ruff
 
 .DEFAULT_GOAL := help
 .PHONY: help build up down clean logs shell psql install upgrade test test-one \
-        qa lint fmt xml assets check release-check versions
+        qa lint fmt xml assets check release-check versions i18n
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -55,6 +55,20 @@ upgrade: build ## Rebuild, then upgrade the module in $(DB)
 	$(COMPOSE) up -d --force-recreate odoo
 	@until $(COMPOSE) exec -T postgres pg_isready -U odoo >/dev/null 2>&1; do sleep 2; done
 	$(ODOO) -d $(DB) -u $(shell echo $(MODULES) | tr ' ' ',') --stop-after-init $(DBFLAGS)
+
+i18n: build ## Regenerate $(MODULE)/i18n/$(MODULE).pot from the running module
+	$(COMPOSE) up -d --force-recreate odoo
+	@until $(COMPOSE) exec -T postgres pg_isready -U odoo >/dev/null 2>&1; do sleep 2; done
+	@# Odoo 19 moved this behind an `i18n export` subcommand, which reads the
+	@# database rather than parsing source — it picks up field labels, selection
+	@# values and view arch that a static scan of the source cannot see.
+	@# It takes libpq env vars, not the --db_* flags the other targets use.
+	$(COMPOSE) exec -T -e PGHOST=postgres -e PGUSER=odoo -e PGPASSWORD=odoo odoo \
+	  odoo i18n export -d $(DB) -o /tmp/$(MODULE).pot $(MODULE)
+	@# The export lands inside the container; copy it back or the target
+	@# silently produces nothing a human ever sees.
+	$(COMPOSE) cp odoo:/tmp/$(MODULE).pot $(MODULE)/i18n/$(MODULE).pot
+	@echo "wrote $(MODULE)/i18n/$(MODULE).pot ($$(grep -c '^msgid ' $(MODULE)/i18n/$(MODULE).pot) entries)"
 
 ## ---------------------------------------------------------------- checks
 
