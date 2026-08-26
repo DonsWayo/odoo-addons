@@ -12,11 +12,15 @@ Self-hosted Git repository management inside Odoo 19:
 - Private/internal repositories served over Git Smart HTTP
 - Branches with protection settings, pull requests, code reviews
 - Commit history synced from the bare repositories on disk
+- Read-only file browser: branch selector, directory tree, syntax highlighting
+- Pull request diffs rendered in colour, plus the raw unified patch
+- Email and activity notifications on PR created, review requested,
+  merged and closed
 - Personal Access Tokens for git clone/push over HTTPS
 - Deploy keys for CI/CD
 - Webhooks with HMAC-SHA256 signatures and delivery history
-- Portal pages for repositories and commits
 - mail.thread integration on repositories and pull requests
+- Translation template included (i18n/dw_git.pot)
 
 See README.md for the supported feature set and docs/LIMITATIONS.md for
 what is deliberately not implemented yet.

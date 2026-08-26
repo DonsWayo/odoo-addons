@@ -60,12 +60,17 @@ These fields exist on the models and render in the UI. Nothing consumes them:
 `git.commit.signature_verification` is likewise stored but never computed from
 an actual GPG check.
 
-## No file browser or diff viewer
+## File browsing and diffs are read-only
 
-`GET /api/git/repositories/<id>/tree` lists one directory level from the bare
-repository. There is no backend UI for browsing files, and no rendered diff
-view — `git.pr.file.patch` holds raw patch text, populated only if something
-external writes it.
+Both now exist. `Browse Files` on a repository opens a branch selector, a
+directory-at-a-time tree and syntax-highlighted file contents, backed by
+`GET /api/git/repositories/<id>/tree` and `.../blob`. Pull request diffs are
+computed against the merge base and rendered in colour, with the raw unified
+patch on its own tab.
+
+What they are not: there is no editing, no staging, no commenting on a line,
+and no blame or history view for a single file. Files over 2 MB and binary
+files are not rendered.
 
 ## Commit sync is bounded
 
