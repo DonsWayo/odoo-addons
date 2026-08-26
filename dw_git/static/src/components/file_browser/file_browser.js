@@ -1,7 +1,7 @@
 /** @odoo-module **/
 
 import { registry } from "@web/core/registry";
-import { Component, onWillStart, useState, useRef, onMounted, onWillUpdateProps } from "@odoo/owl";
+import { Component, onWillStart, useState, useRef, onMounted } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
 import { loadJS, loadCSS } from "@web/core/assets";
 import { rpc } from "@web/core/network/rpc";
@@ -29,6 +29,8 @@ export class GitFileBrowser extends Component {
             fileBinary: false,
             fileTooLarge: false,
             loading: true,
+            treeError: "",
+            fileError: "",
         });
 
         onWillStart(async () => {
@@ -38,7 +40,6 @@ export class GitFileBrowser extends Component {
         });
 
         onMounted(() => this.highlight());
-        onWillUpdateProps(() => this.highlight());
     }
 
     highlight() {
@@ -65,18 +66,24 @@ export class GitFileBrowser extends Component {
     async loadTree(path) {
         this.state.loading = true;
         this.state.selectedFile = null;
-        const data = await rpc(`/api/git/repositories/${this.repoId}/tree`, {
-            ref: this.state.ref,
-            path,
-        });
-        this.state.path = data.path;
-        this.state.entries = data.tree.sort((a, b) => {
-            if (a.type !== b.type) {
-                return a.type === "tree" ? -1 : 1;
-            }
-            return a.name.localeCompare(b.name);
-        });
-        this.state.loading = false;
+        this.state.treeError = "";
+        try {
+            const data = await rpc(`/api/git/repositories/${this.repoId}/tree`, {
+                ref: this.state.ref,
+                path,
+            });
+            this.state.path = data.path;
+            this.state.entries = data.tree.sort((a, b) => {
+                if (a.type !== b.type) {
+                    return a.type === "tree" ? -1 : 1;
+                }
+                return a.name.localeCompare(b.name);
+            });
+        } catch {
+            this.state.treeError = "Could not load this directory.";
+        } finally {
+            this.state.loading = false;
+        }
     }
 
     async openEntry(entry) {
@@ -84,17 +91,28 @@ export class GitFileBrowser extends Component {
             await this.loadTree(entry.path);
             return;
         }
+        if (entry.type !== "blob") {
+            // submodule / gitlink entries have no content to read here
+            return;
+        }
         this.state.loading = true;
-        const data = await rpc(`/api/git/repositories/${this.repoId}/blob`, {
-            ref: this.state.ref,
-            path: entry.path,
-        });
-        this.state.selectedFile = entry.path;
-        this.state.fileBinary = data.binary;
-        this.state.fileTooLarge = !!data.too_large;
-        this.state.fileContent = data.content;
-        this.state.loading = false;
-        requestAnimationFrame(() => this.highlight());
+        this.state.fileError = "";
+        try {
+            const data = await rpc(`/api/git/repositories/${this.repoId}/blob`, {
+                ref: this.state.ref,
+                path: entry.path,
+            });
+            this.state.selectedFile = entry.path;
+            this.state.fileBinary = data.binary;
+            this.state.fileTooLarge = !!data.too_large;
+            this.state.fileContent = data.content;
+            requestAnimationFrame(() => this.highlight());
+        } catch {
+            this.state.fileError = "Could not load this file.";
+            this.state.selectedFile = entry.path;
+        } finally {
+            this.state.loading = false;
+        }
     }
 
     get breadcrumbs() {

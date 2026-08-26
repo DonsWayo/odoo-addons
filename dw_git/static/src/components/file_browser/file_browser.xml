@@ -21,12 +21,17 @@
             <div class="o_git_file_browser_body d-flex flex-grow-1 overflow-hidden">
                 <div class="o_git_file_tree border-end overflow-auto p-2" style="width: 280px; min-width: 280px;">
                     <div t-if="state.loading" class="text-muted p-2">Loading…</div>
+                    <div t-elif="state.treeError" class="text-danger p-2" t-esc="state.treeError"/>
                     <t t-else="">
                         <div t-foreach="state.entries" t-as="entry" t-key="entry.path"
                              class="o_git_tree_entry d-flex align-items-center gap-2 px-2 py-1 rounded"
                              t-att-class="{'o_git_tree_entry_selected': entry.path === state.selectedFile}"
                              t-on-click="() => this.openEntry(entry)" style="cursor: pointer;">
-                            <i t-att-class="entry.type === 'tree' ? 'fa fa-folder text-warning' : 'fa fa-file-o text-muted'"/>
+                            <i t-att-class="{
+                                'fa fa-folder text-warning': entry.type === 'tree',
+                                'fa fa-file-o text-muted': entry.type === 'blob',
+                                'fa fa-cube text-muted': entry.type === 'submodule',
+                            }"/>
                             <span t-esc="entry.name" class="text-truncate"/>
                         </div>
                     </t>
@@ -35,6 +40,7 @@
                     <div t-if="!state.selectedFile" class="text-muted fst-italic p-3">
                         Select a file to view its content.
                     </div>
+                    <div t-elif="state.fileError" class="text-danger p-3" t-esc="state.fileError"/>
                     <div t-elif="state.fileTooLarge" class="text-muted fst-italic p-3">
                         File too large to preview.
                     </div>

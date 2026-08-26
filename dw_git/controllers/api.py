@@ -160,7 +160,7 @@ class GitAPIController(http.Controller):
                 'tree': [{
                     'name': item.name,
                     'path': item.path,
-                    'type': 'tree' if item.type == 'tree' else 'blob',
+                    'type': item.type if item.type in ('tree', 'blob') else 'submodule',
                     'size': getattr(item, 'size', 0),
                 } for item in tree],
             }
