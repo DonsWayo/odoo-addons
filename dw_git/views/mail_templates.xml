@@ -4,8 +4,8 @@
         <field name="name">Git: Pull Request Created</field>
         <field name="model_id" ref="model_git_pull_request"/>
         <field name="subject">New Pull Request: {{ object.title }} (#{{ object.number }})</field>
-        <field name="email_from">${object.author_id.email_formatted}</field>
-        <field name="email_to">${', '.join(object.reviewer_ids.mapped('email_formatted'))}</field>
+        <field name="email_from">{{ object.author_id.email_formatted }}</field>
+        <field name="email_to">{{ ', '.join(object.reviewer_ids.mapped('email_formatted')) }}</field>
         <field name="body_html" type="html">
             <div>
                 <p>Hello,</p>
@@ -27,8 +27,8 @@
         <field name="name">Git: Pull Request Review Requested</field>
         <field name="model_id" ref="model_git_pull_request"/>
         <field name="subject">Review requested: {{ object.title }} (#{{ object.number }})</field>
-        <field name="email_from">${object.author_id.email_formatted}</field>
-        <field name="email_to">${', '.join(object.reviewer_ids.mapped('email_formatted'))}</field>
+        <field name="email_from">{{ object.author_id.email_formatted }}</field>
+        <field name="email_to">{{ ', '.join(object.reviewer_ids.mapped('email_formatted')) }}</field>
         <field name="body_html" type="html">
             <div>
                 <p>Hello,</p>
@@ -49,8 +49,8 @@
         <field name="name">Git: Pull Request Merged</field>
         <field name="model_id" ref="model_git_pull_request"/>
         <field name="subject">Pull Request Merged: {{ object.title }} (#{{ object.number }})</field>
-        <field name="email_from">${object.merged_by_id.email_formatted}</field>
-        <field name="email_to">${object.author_id.email_formatted}</field>
+        <field name="email_from">{{ object.merged_by_id.email_formatted }}</field>
+        <field name="email_to">{{ object.author_id.email_formatted }}</field>
         <field name="body_html" type="html">
             <div>
                 <p>Hello,</p>
@@ -67,8 +67,8 @@
         <field name="name">Git: Pull Request Closed</field>
         <field name="model_id" ref="model_git_pull_request"/>
         <field name="subject">Pull Request Closed: {{ object.title }} (#{{ object.number }})</field>
-        <field name="email_from">${object.merged_by_id.email_formatted or object.author_id.email_formatted}</field>
-        <field name="email_to">${object.author_id.email_formatted}</field>
+        <field name="email_from">{{ object.merged_by_id.email_formatted or object.author_id.email_formatted }}</field>
+        <field name="email_to">{{ object.author_id.email_formatted }}</field>
         <field name="body_html" type="html">
             <div>
                 <p>Hello,</p>
@@ -84,8 +84,8 @@
         <field name="name">Git: Webhook Delivery Failed</field>
         <field name="model_id" ref="model_git_webhook_delivery"/>
         <field name="subject">Webhook Delivery Failed: {{ object.webhook_id.name }}</field>
-        <field name="email_from">${object.webhook_id.repository_id.owner_id.email_formatted}</field>
-        <field name="email_to">${object.webhook_id.repository_id.owner_id.email_formatted}</field>
+        <field name="email_from">{{ object.webhook_id.repository_id.owner_id.email_formatted }}</field>
+        <field name="email_to">{{ object.webhook_id.repository_id.owner_id.email_formatted }}</field>
         <field name="body_html" type="html">
             <div>
                 <p>Hello,</p>

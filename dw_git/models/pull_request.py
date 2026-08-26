@@ -447,17 +447,26 @@ class GitPullRequest(models.Model):
             _logger.warning("Failed to send PR created email for PR %s: %s", self.id, exc)
 
     def _send_review_request_notification(self, reviewers):
-        """Send review request notification to newly-added reviewers.
+        """Ask `reviewers` — and only them — for a review.
 
-        Uses the mail_template_git_pr_review_request template. Failures are
-        logged and do not block the reviewer assignment.
+        The template addresses object.reviewer_ids, i.e. everyone currently
+        on the PR. Left to itself it would re-ask every existing reviewer
+        each time one more is added, so the recipient list is overridden
+        here with the reviewers actually being asked.
+
+        Failures are logged and never block the reviewer assignment.
         """
         self.ensure_one()
+        recipients = reviewers.filtered('email_formatted')
+        if not recipients:
+            return
         template = self.env.ref('dw_git.mail_template_git_pr_review_request', raise_if_not_found=False)
         if not template:
             return
         try:
-            template.send_mail(self.id, force_send=False)
+            template.send_mail(self.id, force_send=False, email_values={
+                'email_to': ','.join(recipients.mapped('email_formatted')),
+            })
         except Exception as exc:
             _logger.warning("Failed to send PR review request email for PR %s: %s", self.id, exc)
 
