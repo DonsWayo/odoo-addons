@@ -10,7 +10,7 @@
             <div>
                 <p>Hello,</p>
                 <p><strong>{{ object.author_id.name }}</strong> created a new pull request in <strong>{{ object.repository_id.name }}</strong>:</p>
-                <h3><a href="{{ object.get_access_url() }}">{{ object.title }} (#{{ object.number }})</a></h3>
+                <h3><a href="{{ object._notify_get_action_link('view') }}">{{ object.title }} (#{{ object.number }})</a></h3>
                 <p>{{ object.description }}</p>
                 <p>
                     <strong>Source:</strong> {{ object.source_branch_id.name }}<br/>
@@ -33,7 +33,7 @@
             <div>
                 <p>Hello,</p>
                 <p>You have been requested to review a pull request in <strong>{{ object.repository_id.name }}</strong>:</p>
-                <h3><a href="{{ object.get_access_url() }}">{{ object.title }} (#{{ object.number }})</a></h3>
+                <h3><a href="{{ object._notify_get_action_link('view') }}">{{ object.title }} (#{{ object.number }})</a></h3>
                 <p>
                     <strong>Source:</strong> {{ object.source_branch_id.name }}<br/>
                     <strong>Target:</strong> {{ object.target_branch_id.name }}
@@ -55,7 +55,7 @@
             <div>
                 <p>Hello,</p>
                 <p>Your pull request in <strong>{{ object.repository_id.name }}</strong> has been merged:</p>
-                <h3><a href="{{ object.get_access_url() }}">{{ object.title }} (#{{ object.number }})</a></h3>
+                <h3><a href="{{ object._notify_get_action_link('view') }}">{{ object.title }} (#{{ object.number }})</a></h3>
                 <p>Merged by <strong>{{ object.merged_by_id.name }}</strong> using <strong>{{ object.merge_method }}</strong>.</p>
                 <p>Thanks,<br/>Odoo Git Hosting</p>
             </div>
@@ -73,7 +73,7 @@
             <div>
                 <p>Hello,</p>
                 <p>Your pull request in <strong>{{ object.repository_id.name }}</strong> has been closed:</p>
-                <h3><a href="{{ object.get_access_url() }}">{{ object.title }} (#{{ object.number }})</a></h3>
+                <h3><a href="{{ object._notify_get_action_link('view') }}">{{ object.title }} (#{{ object.number }})</a></h3>
                 <p>Thanks,<br/>Odoo Git Hosting</p>
             </div>
         </field>
