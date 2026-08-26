@@ -160,7 +160,7 @@ class GitAPIController(http.Controller):
                 'tree': [{
                     'name': item.name,
                     'path': item.path,
-                    'type': 'tree' if item.type == 'tree' else 'blob',
+                    'type': item.type if item.type in ('tree', 'blob') else 'submodule',
                     'size': getattr(item, 'size', 0),
                 } for item in tree],
             }
@@ -168,6 +168,40 @@ class GitAPIController(http.Controller):
             # empty repo, unknown ref, or unknown path
             return {'ref': ref or repo.default_branch, 'path': path,
                     'tree': []}
+
+    #: files larger than this are not read into memory for browsing
+    _BLOB_SIZE_LIMIT = 2 * 1024 * 1024
+
+    @http.route('/api/git/repositories/<int:repo_id>/blob',
+                type='jsonrpc', auth='user')
+    def api_get_blob(self, repo_id, ref=None, path=None, **kwargs):
+        """Read one file's content at `ref`, for the read-only file browser."""
+        repo = self._repo_or_raise(repo_id)
+        import os
+        if not path or not os.path.isdir(repo._get_repo_path()):
+            return {'path': path, 'binary': True, 'content': '', 'size': 0}
+        try:
+            import git
+            git_repo = git.Repo(repo._get_repo_path())
+            commit = git_repo.commit(ref or repo.default_branch)
+            blob = commit.tree / path
+            size = blob.size
+            if size > self._BLOB_SIZE_LIMIT:
+                return {'path': path, 'binary': True, 'content': '',
+                        'size': size, 'too_large': True}
+            raw = blob.data_stream.read()
+            if b'\0' in raw[:8000]:
+                return {'path': path, 'binary': True, 'content': '',
+                        'size': size}
+            return {
+                'path': path,
+                'binary': False,
+                'content': raw.decode('utf-8', errors='replace'),
+                'size': size,
+            }
+        except Exception:
+            # unknown ref, unknown path, or not a blob
+            return {'path': path, 'binary': True, 'content': '', 'size': 0}
 
     # ------------------------------------------------------------------
     # pull requests

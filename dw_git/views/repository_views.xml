@@ -78,12 +78,21 @@
     </record>
 
     <!-- Form View -->
+    <record id="action_git_file_browser" model="ir.actions.client">
+        <field name="name">Browse Files</field>
+        <field name="tag">dw_git.file_browser</field>
+        <field name="target">current</field>
+    </record>
+
     <record id="view_git_repository_form" model="ir.ui.view">
         <field name="name">git.repository.form</field>
         <field name="model">git.repository</field>
         <field name="arch" type="xml">
             <form string="Repository">
                 <header>
+                    <button name="%(action_git_file_browser)d" type="action" class="btn-secondary" icon="fa-folder-open">
+                        Browse Files
+                    </button>
                     <button name="action_toggle_star" type="object" class="oe_stat_button" icon="fa-star">
                         <field name="star_count" string="Stars"/>
                     </button>
@@ -198,4 +207,5 @@
         <field name="view_mode">form</field>
         <field name="res_id" ref="dw_git_param_repo_base_path"/>
     </record>
+
 </odoo>

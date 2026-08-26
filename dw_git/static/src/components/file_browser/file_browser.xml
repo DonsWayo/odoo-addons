@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="dw_git.GitFileBrowser">
+        <div class="o_git_file_browser d-flex flex-column h-100">
+            <div class="o_git_file_browser_header d-flex align-items-center gap-2 p-2 border-bottom">
+                <strong t-esc="state.repoName"/>
+                <select class="form-select form-select-sm w-auto" t-on-change="onBranchChange">
+                    <option t-foreach="state.branches" t-as="b" t-key="b" t-att-value="b" t-esc="b"
+                            t-att-selected="b === state.ref"/>
+                </select>
+                <nav class="o_git_breadcrumb d-flex align-items-center gap-1 ms-2">
+                    <a href="#" t-on-click.prevent="() => this.goToBreadcrumb('')">
+                        <i class="fa fa-code-fork me-1"/><t t-esc="state.ref"/>
+                    </a>
+                    <t t-foreach="breadcrumbs" t-as="crumb" t-key="crumb.path">
+                        <span class="text-muted">/</span>
+                        <a href="#" t-on-click.prevent="() => this.goToBreadcrumb(crumb.path)" t-esc="crumb.name"/>
+                    </t>
+                </nav>
+            </div>
+            <div class="o_git_file_browser_body d-flex flex-grow-1 overflow-hidden">
+                <div class="o_git_file_tree border-end overflow-auto p-2" style="width: 280px; min-width: 280px;">
+                    <div t-if="state.loading" class="text-muted p-2">Loading…</div>
+                    <div t-elif="state.treeError" class="text-danger p-2" t-esc="state.treeError"/>
+                    <t t-else="">
+                        <div t-foreach="state.entries" t-as="entry" t-key="entry.path"
+                             class="o_git_tree_entry d-flex align-items-center gap-2 px-2 py-1 rounded"
+                             t-att-class="{'o_git_tree_entry_selected': entry.path === state.selectedFile}"
+                             t-on-click="() => this.openEntry(entry)" style="cursor: pointer;">
+                            <i t-att-class="{
+                                'fa fa-folder text-warning': entry.type === 'tree',
+                                'fa fa-file-o text-muted': entry.type === 'blob',
+                                'fa fa-cube text-muted': entry.type === 'submodule',
+                            }"/>
+                            <span t-esc="entry.name" class="text-truncate"/>
+                        </div>
+                    </t>
+                </div>
+                <div class="o_git_file_content flex-grow-1 overflow-auto p-2">
+                    <div t-if="!state.selectedFile" class="text-muted fst-italic p-3">
+                        Select a file to view its content.
+                    </div>
+                    <div t-elif="state.fileError" class="text-danger p-3" t-esc="state.fileError"/>
+                    <div t-elif="state.fileTooLarge" class="text-muted fst-italic p-3">
+                        File too large to preview.
+                    </div>
+                    <div t-elif="state.fileBinary" class="text-muted fst-italic p-3">
+                        Binary file not shown.
+                    </div>
+                    <pre t-else="" class="mb-0"><code t-ref="code" t-esc="state.fileContent"/></pre>
+                </div>
+            </div>
+        </div>
+    </t>
+</templates>

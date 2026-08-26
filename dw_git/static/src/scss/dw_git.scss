@@ -66,3 +66,23 @@
     font-size: .85rem;
     line-height: 1.45;
 }
+
+// Read-only repository file browser: a fixed-height two-pane layout so the
+// tree and file content each scroll independently, GitHub-style.
+.o_git_file_browser {
+    height: calc(100vh - 140px);
+
+    .o_git_tree_entry:hover {
+        background: var(--bs-tertiary-bg, #f5f5f5);
+    }
+
+    .o_git_tree_entry_selected {
+        background: var(--bs-primary-bg-subtle, #e6e0f8);
+        font-weight: 500;
+    }
+
+    .o_git_file_content pre {
+        font-size: .85rem;
+        line-height: 1.45;
+    }
+}

@@ -73,6 +73,8 @@ what is deliberately not implemented yet.
             'dw_git/static/src/scss/dw_git.scss',
             'dw_git/static/src/components/diff_viewer/diff_viewer_field.js',
             'dw_git/static/src/components/diff_viewer/diff_viewer_field.xml',
+            'dw_git/static/src/components/file_browser/file_browser.js',
+            'dw_git/static/src/components/file_browser/file_browser.xml',
         ],
         'web.assets_tests': [
             'dw_git/static/src/tours/**/*',
