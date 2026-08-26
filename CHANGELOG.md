@@ -6,6 +6,30 @@ All notable changes to Git Hosting are recorded here. The format follows
 Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
 `19.0.1.1.0` is the second feature release of Git Hosting for Odoo 19.0.
 
+## [Unreleased]
+
+### Fixed
+
+- **`git push` never registered branches or commits in Odoo.** The commit
+  guard in `_sync_from_git()` called `Registry.in_test_mode()`, which Odoo 19
+  removed. It raised `AttributeError` at the end of every sync; the
+  post-receive hook caught and logged the failure, so pushes appeared to
+  succeed while nothing reached the database — the module's core feature.
+  All 130 tests stayed green because none drove that method to completion.
+  Replaced with the `test_enable` config flag (type-checking the cursor does
+  not work: `TransactionCase` hands out a real `sql_db.Cursor` and
+  monkey-patches `commit()`), and covered by a regression test that fails on
+  the old code.
+- **`make test` could pass against stale code.** It ran `docker compose exec`
+  in the already-running container, so it tested whatever the last `make
+  upgrade` had baked into the image rather than the working tree — a green
+  suite proved nothing about uncommitted changes. `test` and `test-one` now
+  rebuild and recreate the container first, like `upgrade` already did.
+- **Pull request diffs were rendered side-by-side and clipped.** In an Odoo
+  form dialog that halves an already narrow column, so long lines were cut
+  off and a pure add/delete left one side empty. Switched to line-by-line
+  (what GitHub defaults to) and let the diff scroll on its own.
+
 ## [19.0.1.6.0] - 2026-08-26
 
 ### Fixed

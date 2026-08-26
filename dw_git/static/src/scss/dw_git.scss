@@ -67,6 +67,26 @@
     line-height: 1.45;
 }
 
+// diff2html inside an Odoo form: the widget is dropped into a notebook page
+// whose width varies with the dialog, so the diff has to scroll on its own
+// rather than let long source lines spill out of the sheet.
+.o_git_diff_viewer {
+    .d2h-wrapper {
+        overflow-x: auto;
+    }
+
+    .d2h-file-wrapper {
+        margin-bottom: 0;
+    }
+
+    // Only the content span may be `pre`. Putting it on .d2h-code-line makes
+    // the source newline between the +/- prefix and the content render as a
+    // real break, so every diff row becomes three tall.
+    .d2h-code-line-ctn {
+        white-space: pre;
+    }
+}
+
 // Read-only repository file browser: a fixed-height two-pane layout so the
 // tree and file content each scroll independently, GitHub-style.
 .o_git_file_browser {

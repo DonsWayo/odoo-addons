@@ -6,7 +6,9 @@ keep those specific code paths executed, because the pre-audit suite passed
 """
 import json
 import os
+import shutil
 import subprocess
+import tempfile
 
 from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.tests import HttpCase, tagged
@@ -657,3 +659,52 @@ class TestPortalRoutes(HttpCase):
         self.authenticate('portal-reg', 'portal-reg-pw')
         res = self.url_open('/my/repositories', timeout=30)
         self.assertEqual(res.status_code, 200)
+
+
+@tagged('post_install', '-at_install')
+class TestSyncFromGitCommits(DwGitCommon):
+    """_sync_from_git called a Registry API that Odoo 19 removed."""
+
+    def test_sync_from_git_completes(self):
+        """Regression: the guard around cr.commit() called
+        `self.env.registry.in_test_mode()`, which Odoo 19 removed. It raised
+        AttributeError at the end of _sync_from_git, the post-receive hook
+        swallowed and logged it, and pushed branches and commits therefore
+        never reached Odoo. Nothing failed loudly — the suite stayed green
+        because no test drove this method to completion.
+        """
+        base = tempfile.mkdtemp(prefix='dw-git-sync-guard-base-')
+        self.addCleanup(shutil.rmtree, base, True)
+        self.env['ir.config_parameter'].sudo().set_param(
+            'dw_git.repo_base_path', base)
+
+        repo = self._repo('sync-guard', visibility='internal')
+        repo._init_git_repo()
+        path = repo._get_repo_path()
+        self.assertTrue(os.path.isdir(path), 'bare repo was not initialised')
+
+        work = tempfile.mkdtemp(prefix='dw-git-sync-guard-')
+        self.addCleanup(shutil.rmtree, work, True)
+        subprocess.run(['git', 'clone', path, work], check=True,
+                       capture_output=True)
+        with open(os.path.join(work, 'f.txt'), 'w') as fh:
+            fh.write('hello\n')
+        for cmd in (['add', '.'],
+                    ['-c', 'user.email=t@t.com', '-c', 'user.name=T',
+                     'commit', '-qm', 'sync guard commit'],
+                    ['push', '-q', 'origin', 'HEAD:refs/heads/main']):
+            subprocess.run(['git', '-C', work] + cmd, check=True,
+                           capture_output=True)
+
+        # Must not raise, and must persist what it read.
+        repo._sync_from_git()
+
+        self.assertTrue(
+            self.env['git.branch'].search_count([
+                ('repository_id', '=', repo.id), ('name', '=', 'main')]),
+            'branch from the pushed ref was not recorded')
+        self.assertTrue(
+            self.env['git.commit'].search_count([
+                ('repository_id', '=', repo.id),
+                ('message', '=', 'sync guard commit')]),
+            'commit from the pushed ref was not recorded')

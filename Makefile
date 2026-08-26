@@ -79,11 +79,15 @@ missing=[p for mf in glob.glob('*/__manifest__.py') \
          if '*' not in p and not os.path.isfile(p)]; \
 sys.exit('assets declared but absent: '+', '.join(missing)) if missing else print('asset files OK')"
 
-test: ## Run the full test suite
+test: build ## Run the full test suite
+	$(COMPOSE) up -d --force-recreate odoo
+	@until $(COMPOSE) exec -T postgres pg_isready -U odoo >/dev/null 2>&1; do sleep 2; done
 	$(ODOO) -d $(DB) --test-enable --test-tags /$(MODULE) \
 	  --stop-after-init --http-port=8070 $(DBFLAGS)
 
-test-one: ## Run one class or method: make test-one T=TestJsonApi
+test-one: build ## Run one class or method: make test-one T=TestJsonApi
+	$(COMPOSE) up -d --force-recreate odoo
+	@until $(COMPOSE) exec -T postgres pg_isready -U odoo >/dev/null 2>&1; do sleep 2; done
 	$(ODOO) -d $(DB) --test-enable --test-tags /$(MODULE):$(T) \
 	  --stop-after-init --http-port=8070 $(DBFLAGS)
 

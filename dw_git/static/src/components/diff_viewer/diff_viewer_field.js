@@ -33,8 +33,12 @@ export class GitDiffViewerField extends Component {
         }
         this.state.empty = false;
         // eslint-disable-next-line no-undef
+        // Line-by-line, not side-by-side: an Odoo form dialog is far narrower
+        // than a code review page, and side-by-side halves that again — long
+        // lines were being clipped, and a pure add/delete left one column
+        // showing nothing at all.
         this.ui = new Diff2HtmlUI(this.rootRef.el, patch, {
-            outputFormat: "side-by-side",
+            outputFormat: "line-by-line",
             drawFileList: false,
             matching: "lines",
         });

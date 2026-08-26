@@ -32,6 +32,8 @@ what is deliberately not implemented yet.
         'static/description/cover.png',
         'static/description/repositories_screenshot.png',
         'static/description/kanban.png',
+        'static/description/pr_diff.png',
+        'static/description/file_browser.png',
         'static/description/pull_requests.png',
         'static/description/commits.png',
         'static/description/repository_form.png',

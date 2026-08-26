@@ -376,7 +376,18 @@ class GitRepository(models.Model):
         # A push arrives over HTTP; commit so the synced refs survive even if a
         # later step of the request fails. Never commit under the test cursor —
         # it would leak fixtures across tests.
-        if not self.env.registry.in_test_mode():
+        #
+        # Odoo 19 removed Registry.in_test_mode(); calling it raised
+        # AttributeError here on every push, and because the post-receive hook
+        # swallows and logs the failure, pushed branches and commits silently
+        # never reached Odoo.
+        #
+        # Type-checking the cursor does not work as a replacement:
+        # TransactionCase hands out a real sql_db.Cursor and monkey-patches
+        # commit() to raise, so isinstance() cannot tell the two apart. The
+        # config flag is the signal that survives that.
+        from odoo.tools import config
+        if not config['test_enable']:
             self.env.cr.commit()
 
     def write(self, vals):
