@@ -19,7 +19,7 @@
         <field name="model">git.webhook</field>
         <field name="arch" type="xml">
             <list string="Webhooks" sample="1" decoration-muted="is_active == False" decoration-danger="failure_count > 5">
-                <field name="name" widget="ellipsis"/>
+                <field name="name"/>
                 <field name="url" widget="url" string="URL"/>
                 <field name="repository_id" options="{'no_create': True, 'no_open': True}"/>
                 <field name="event_push" string="Push" widget="boolean_toggle" options="{'active': 'fa-check-circle text-success', 'inactive': 'fa-times-circle text-muted'}"/>
@@ -133,7 +133,7 @@
                                     <field name="status" widget="badge" options="{'classes': {'pending': 'bg-warning', 'success': 'bg-success', 'failed': 'bg-danger'}}"/>
                                     <field name="response_code"/>
                                     <field name="duration" string="Duration (s)"/>
-                                    <field name="error_message" widget="ellipsis"/>
+                                    <field name="error_message"/>
                                     <field name="create_date" widget="datetime"/>
                                 </list>
                             </field>
@@ -155,7 +155,7 @@
                 <field name="status" widget="badge" options="{'classes': {'pending': 'bg-warning', 'success': 'bg-success', 'failed': 'bg-danger'}}"/>
                 <field name="response_code" optional="hide"/>
                 <field name="duration" optional="hide" string="Duration (s)"/>
-                <field name="error_message" optional="hide" widget="ellipsis"/>
+                <field name="error_message" optional="hide"/>
                 <field name="create_date" widget="datetime"/>
             </list>
         </field>

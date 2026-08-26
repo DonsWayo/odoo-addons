@@ -32,7 +32,7 @@
         <field name="arch" type="xml">
             <list string="Pull Requests" sample="1" decoration-muted="state == 'closed'" decoration-success="state == 'merged'" decoration-warning="state == 'draft'">
                 <field name="number" string="#" widget="badge" options="{'classes': {'': 'bg-secondary'}}"/>
-                <field name="title" widget="ellipsis" string="Title"/>
+                <field name="title" string="Title"/>
                 <field name="state" widget="badge" string="Status" options="{'classes': {'draft': 'bg-secondary', 'open': 'bg-primary', 'merged': 'bg-success', 'closed': 'bg-danger'}}"/>
                 <field name="repository_id"/>
                 <field name="source_branch_id" string="Source" widget="badge" options="{'classes': {'': 'bg-info'}}"/>
@@ -168,7 +168,7 @@
                         <page string="Changes" name="changes">
                             <field name="file_ids" mode="list,form" readonly="1">
                                 <list string="Changed Files" decoration-success="status == 'added'" decoration-danger="status == 'removed'" decoration-warning="status == 'renamed'" decoration-info="status == 'modified'">
-                                    <field name="filename" widget="ellipsis"/>
+                                    <field name="filename"/>
                                     <field name="status" widget="badge" string="Status" options="{'classes': {'added': 'bg-success', 'modified': 'bg-primary', 'removed': 'bg-danger', 'renamed': 'bg-warning'}}"/>
                                     <field name="additions" string="Additions" widget="badge" options="{'classes': {'0': 'bg-secondary'}}"/>
                                     <field name="deletions" string="Deletions" widget="badge" options="{'classes': {'0': 'bg-secondary'}}"/>
