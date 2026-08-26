@@ -71,6 +71,8 @@ what is deliberately not implemented yet.
     'assets': {
         'web.assets_backend': [
             'dw_git/static/src/scss/dw_git.scss',
+            'dw_git/static/src/components/diff_viewer/diff_viewer_field.js',
+            'dw_git/static/src/components/diff_viewer/diff_viewer_field.xml',
         ],
         'web.assets_tests': [
             'dw_git/static/src/tours/**/*',

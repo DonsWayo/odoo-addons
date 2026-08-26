@@ -255,6 +255,9 @@
                     </div>
                     <notebook>
                         <page string="Diff" name="diff">
+                            <field name="patch" readonly="1" nolabel="1" widget="git_diff_viewer"/>
+                        </page>
+                        <page string="Raw Patch" name="raw_patch">
                             <field name="patch" readonly="1" nolabel="1"
                                    class="font-monospace o-git-patch"
                                    placeholder="No diff recorded. Use Refresh Changes on the pull request to read it from the repository."/>

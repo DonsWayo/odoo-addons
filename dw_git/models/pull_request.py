@@ -308,13 +308,45 @@ class GitPullRequest(models.Model):
                 status = 'renamed'
             else:
                 status = 'modified'
-            patch = (d.diff or b'')
-            if isinstance(patch, bytes):
-                patch = patch.decode('utf-8', errors='replace')
-            added = sum(1 for ln in patch.splitlines()
+            hunk = (d.diff or b'')
+            if isinstance(hunk, bytes):
+                hunk = hunk.decode('utf-8', errors='replace')
+            added = sum(1 for ln in hunk.splitlines()
                         if ln.startswith('+') and not ln.startswith('+++'))
-            removed = sum(1 for ln in patch.splitlines()
+            removed = sum(1 for ln in hunk.splitlines()
                           if ln.startswith('-') and not ln.startswith('---'))
+            # d.diff is only the hunk body (GitPython strips the file
+            # header), so it's neither a valid `git apply` input nor
+            # something a diff-rendering library can attribute to a file.
+            # Rebuild the header GitPython omits, including the
+            # "new/deleted file mode" and "index" lines real git writes —
+            # without them a diff renderer can't tell an added file from a
+            # rename (both show as "a/<path> b/<path>" on the first line).
+            git_path_a = d.a_path or d.b_path
+            git_path_b = d.b_path or d.a_path
+            header_lines = [f"diff --git a/{git_path_a} b/{git_path_b}"]
+            a_sha = d.a_blob.hexsha[:7] if d.a_blob else '0' * 7
+            b_sha = d.b_blob.hexsha[:7] if d.b_blob else '0' * 7
+            mode = d.b_mode or d.a_mode or 0o100644
+            if d.renamed_file:
+                header_lines.append("similarity index 100%")
+                header_lines.append(f"rename from {d.rename_from}")
+                header_lines.append(f"rename to {d.rename_to}")
+            elif d.new_file:
+                header_lines.append(f"new file mode {mode:o}")
+                header_lines.append(f"index 0000000..{b_sha}")
+            elif d.deleted_file:
+                header_lines.append(f"deleted file mode {mode:o}")
+                header_lines.append(f"index {a_sha}..0000000")
+            else:
+                header_lines.append(f"index {a_sha}..{b_sha} {mode:o}")
+            if hunk:
+                old_label = '/dev/null' if d.new_file else f'a/{git_path_a}'
+                new_label = '/dev/null' if d.deleted_file else f'b/{git_path_b}'
+                header_lines.append(f"--- {old_label}")
+                header_lines.append(f"+++ {new_label}")
+            header = '\n'.join(header_lines) + '\n'
+            patch = header + hunk if hunk else header
             rows.append({
                 'pull_request_id': self.id,
                 'filename': d.b_path or d.a_path,

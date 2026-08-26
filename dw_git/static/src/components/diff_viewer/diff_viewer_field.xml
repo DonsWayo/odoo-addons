@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="dw_git.GitDiffViewerField">
+        <div class="o_git_diff_viewer">
+            <div t-if="state.empty" class="text-muted fst-italic p-2">
+                No diff recorded. Use Refresh Changes on the pull request to read it from the repository.
+            </div>
+            <div t-ref="root" class="o_git_diff_viewer_content"/>
+        </div>
+    </t>
+</templates>
