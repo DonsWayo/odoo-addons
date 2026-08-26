@@ -5,3 +5,6 @@ logs/
 __pycache__/
 *.pyc
 docker-compose.override.yml
+
+# Agent worktrees (scratch space, never part of the addon)
+.claude/worktrees/
