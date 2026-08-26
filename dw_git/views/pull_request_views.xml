@@ -31,7 +31,7 @@
         <field name="model">git.pull_request</field>
         <field name="arch" type="xml">
             <list string="Pull Requests" sample="1" decoration-muted="state == 'closed'" decoration-success="state == 'merged'" decoration-warning="state == 'draft'">
-                <field name="number" string="#" widget="badge" options="{'classes': {'': 'bg-dark'}}"/>
+                <field name="number" string="#" widget="badge" options="{'classes': {'': 'bg-secondary'}}"/>
                 <field name="title" widget="ellipsis" string="Title"/>
                 <field name="state" widget="badge" string="Status" options="{'classes': {'draft': 'bg-secondary', 'open': 'bg-primary', 'merged': 'bg-success', 'closed': 'bg-danger'}}"/>
                 <field name="repository_id"/>
@@ -74,7 +74,7 @@
                                 <div>
                                     <span class="badge me-1" t-att-class="record.state.raw_value == 'draft' ? 'bg-secondary' : record.state.raw_value == 'open' ? 'bg-primary' : record.state.raw_value == 'merged' ? 'bg-success' : 'bg-danger'"
                                           t-out="record.state.value"/>
-                                    <span class="badge bg-dark" t-if="record.number.raw_value" t-out="'#' + record.number.raw_value"/>
+                                    <span class="badge bg-secondary" t-if="record.number.raw_value" t-out="'#' + record.number.raw_value"/>
                                 </div>
                                 <span class="text-success small" t-if="record.is_mergeable.raw_value and record.state.raw_value == 'open'">
                                     <i class="fa fa-check-circle me-1" role="img" aria-label="Mergeable"/> Ready
@@ -133,7 +133,12 @@
                         <div class="col-12">
                             <div class="d-flex flex-wrap align-items-center gap-2">
                                 <field name="state" widget="badge" options="{'classes': {'draft': 'bg-secondary', 'open': 'bg-primary', 'merged': 'bg-success', 'closed': 'bg-danger'}}" class="me-2"/>
-                                <field name="number" widget="badge" class="bg-dark me-2" optional="hide"/>
+                                <!-- The badge widget renders its own <span class="badge">, so a
+                                     bg-* in `class` paints the field WRAPPER instead: a square
+                                     black block behind a rounded pill, with the corners bleeding
+                                     out around it. Colour goes through options, as everywhere else. -->
+                                <field name="number" widget="badge" class="me-2"
+                                       options="{'classes': {'': 'bg-secondary'}}"/>
                                 <div class="oe_title flex-grow-1 mb-0">
                                     <h3 class="mb-0"><field name="title" nolabel="1" class="w-100"
                                         placeholder="What does this pull request do?"/></h3>
