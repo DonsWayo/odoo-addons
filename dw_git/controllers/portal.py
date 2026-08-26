@@ -47,6 +47,26 @@ class GitPortalController(http.Controller):
             'open_prs': repository.pull_request_ids.filtered(lambda p: p.state == 'open')[:5],
         })
 
+    @http.route('/git/<string:owner>/<string:repo>/pr/<int:number>', type='http', auth='public', website=True)
+    def portal_pull_request(self, owner, repo, number, **kwargs):
+        """Portal pull request view"""
+        repository = request.env['git.repository'].sudo().search([
+            ('name', '=', repo),
+            ('owner_id.login', '=', owner),
+        ], limit=1)
+
+        if not repository or not repository._check_portal_access(request.env.user):
+            return request.not_found()
+
+        pull_request = repository.pull_request_ids.filtered(lambda pr: pr.number == number)[:1]
+        if not pull_request:
+            return request.not_found()
+
+        return request.render('dw_git.portal_pull_request', {
+            'repository': repository,
+            'pull_request': pull_request,
+        })
+
     @http.route('/git/<string:owner>/<string:repo>/commit/<string:sha>', type='http', auth='public', website=True)
     def portal_commit(self, owner, repo, sha, **kwargs):
         """Portal commit view"""

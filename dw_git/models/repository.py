@@ -225,6 +225,21 @@ class GitRepository(models.Model):
                 repo.clone_url_http = False
                 repo.clone_url_ssh = False
 
+    @api.depends('owner_id', 'name')
+    def _compute_access_url(self):
+        """Compute the portal access URL for the repository.
+
+        portal.mixin provides a default access_url='#'; we override it here
+        to point to the actual repository portal page. Users can share this
+        link to give portal access to the repository.
+        """
+        super()._compute_access_url()
+        for repo in self:
+            if repo.owner_id and repo.name:
+                repo.access_url = f'/git/{repo.owner_id.login}/{repo.name}'
+            else:
+                repo.access_url = '#'
+
     def _get_repo_path(self):
         """Get absolute path for repository"""
         base_path = self.env['ir.config_parameter'].sudo().get_param(

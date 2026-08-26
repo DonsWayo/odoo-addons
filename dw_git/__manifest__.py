@@ -62,6 +62,7 @@ what is deliberately not implemented yet.
         'wizards/clone_wizard_views.xml',
         'views/portal_templates.xml',
         'views/portal_commit.xml',
+        'views/portal_pull_request.xml',
         'views/mail_templates.xml',
         'views/menus.xml',
     ],

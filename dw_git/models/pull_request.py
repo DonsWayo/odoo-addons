@@ -159,6 +159,23 @@ class GitPullRequest(models.Model):
             pr.approval_count = len(approvals)
             pr.changes_requested = bool(changes)
 
+    @api.depends('repository_id.owner_id', 'repository_id.name', 'number')
+    def _compute_access_url(self):
+        """Compute the portal access URL for the pull request.
+
+        portal.mixin provides a default access_url='#'; we override it here
+        to point to the actual pull request portal page. Users can share this
+        link to give portal access to the pull request.
+        """
+        super()._compute_access_url()
+        for pr in self:
+            if pr.repository_id.owner_id and pr.repository_id.name and pr.number:
+                owner_login = pr.repository_id.owner_id.login
+                repo_name = pr.repository_id.name
+                pr.access_url = f'/git/{owner_login}/{repo_name}/pr/{pr.number}'
+            else:
+                pr.access_url = '#'
+
     @api.model_create_multi
     def create(self, vals_list):
         records = super().create(vals_list)
