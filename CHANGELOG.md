@@ -6,7 +6,7 @@ All notable changes to Git Hosting are recorded here. The format follows
 Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
 `19.0.1.1.0` is the second feature release of Git Hosting for Odoo 19.0.
 
-## [Unreleased]
+## [19.0.1.6.0] - 2026-08-26
 
 ### Fixed
 
@@ -61,6 +61,19 @@ Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
   missing `help`, single-character column headers, unregistered widget
   names) — the source of the fixes above, and now safe to re-run whenever
   a view is added.
+- **Pull request diffs render as a real colored, side-by-side diff**
+  (vendored `diff2html`, syntax highlighting, no build step) instead of a
+  plain-text patch. The raw patch is still available on its own "Raw
+  Patch" tab. Fixed the underlying patch data too: GitPython's `Diff.diff`
+  is only the hunk body, not a full unified diff — the header
+  (`diff --git`, `new/deleted file mode`, `index`, rename-from/to) is now
+  rebuilt to match real `git diff` output, which also fixes `git apply`
+  on the raw patch.
+- **A read-only, GitHub-style file browser.** "Browse Files" on the
+  repository form opens a branch selector, a directory-at-a-time file
+  tree, and syntax-highlighted file content (vendored `highlight.js`).
+  Backed by a new `/api/git/repositories/<id>/blob` route; the existing
+  `/tree` route had no UI consumer until now.
 
 ## [19.0.1.5.0] - 2026-08-25
 
