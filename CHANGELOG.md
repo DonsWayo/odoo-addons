@@ -22,11 +22,45 @@ Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
   exist), and none matched the `o_kanban_git_*` classes the views actually
   render. Replaced with styles for the classes in use.
 
+- **Pull request title clipped mid-word.** A `Char` field placed directly
+  inside a bare `<h3>` renders as a default-width `<input>`. Wrapped it in
+  `oe_title`/`w-100` like every other Odoo form title.
+- **Diff-stat columns showing empty cells with a stray tooltip.** Four
+  occurrences of `string="+"` / `string="-"` (single-character headers)
+  across the pull request and commit list views. Renamed to "Additions" /
+  "Deletions".
+- **Commit SHA rendered as a ~550px black slab.** The full 40-character SHA
+  in a `fs-6 p-2` badge, using `widget="monospace"`, which is not a
+  registered Odoo widget and did nothing. Switched to `short_sha` in a
+  smaller badge with a `title` tooltip for the full SHA.
+- **Branch list showed only two columns, no branch name.** Every meaningful
+  field (`name`, `commit_id`, `ahead_commits`, `behind_commits`,
+  `last_commit_date`) had `optional="hide"`.
+- **"Changed Files" opened an auto-generated fallback dialog with an empty
+  Patch field.** `git.pr.file` had no form view at all, and nothing ever
+  computed a diff — the field was only ever populated by demo-seed data with
+  empty patches. Added a real form view and `_sync_changed_files()`, which
+  diffs the PR's source against its merge-base with GitPython and records
+  real unified patches, wired to PR creation and a "Refresh Changes" button.
+- **Empty lists fell back to Odoo's built-in lorem-ipsum sample rows**
+  (e.g. "REF0001", "Volutpat blandit") because none of the 13
+  `ir.actions.act_window` records defined a `help` field. Added proper
+  empty-state messaging to all of them.
+- **Store card thumbnail was illegible.** The Apps Store search-result card
+  renders the `_screenshot`-suffixed image at ~543x278; a raw dense
+  list-view table screenshot was unreadable at that size. Replaced with a
+  1280x640 composite (headline + a real kanban screenshot) matching the
+  card slot's ~1.95 aspect ratio.
+
 ### Added
 
 - `make assets` — verifies every non-glob path in a manifest's `assets`
   exists, wired into `make check` and CI. Confirmed to fail on the exact bug
   above before being committed.
+- A programmatic view-XML audit (models missing a form view, actions
+  missing `help`, single-character column headers, unregistered widget
+  names) — the source of the fixes above, and now safe to re-run whenever
+  a view is added.
 
 ## [19.0.1.5.0] - 2026-08-25
 
