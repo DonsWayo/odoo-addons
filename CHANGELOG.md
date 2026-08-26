@@ -6,7 +6,7 @@ All notable changes to Git Hosting are recorded here. The format follows
 Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
 `19.0.1.1.0` is the second feature release of Git Hosting for Odoo 19.0.
 
-## [Unreleased]
+## [19.0.1.6.1] - 2026-08-26
 
 ### Fixed
 
