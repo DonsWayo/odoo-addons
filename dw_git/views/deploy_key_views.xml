@@ -19,7 +19,7 @@
         <field name="model">git.deploy_key</field>
         <field name="arch" type="xml">
             <list string="Deploy Keys" sample="1" decoration-muted="is_active == False">
-                <field name="name" widget="ellipsis"/>
+                <field name="name"/>
                 <field name="repository_id" options="{'no_create': True, 'no_open': True}"/>
                 <field name="can_push" string="Write Access" widget="boolean_toggle" options="{'active': 'fa-check-circle text-success', 'inactive': 'fa-times-circle text-muted'}"/>
                 <field name="last_used" widget="datetime" string="Last Used"/>
