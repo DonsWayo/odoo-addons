@@ -323,8 +323,29 @@ class GitPullRequest(models.Model):
 
     def action_refresh_changes(self):
         """Recompute the changed-file list and patches from the repository."""
+        import os
         for pr in self:
-            pr._sync_changed_files()
+            if pr._sync_changed_files():
+                continue
+            # _sync_changed_files already returns False when it cannot read
+            # the repository; throwing that away reported success and left
+            # the user pressing a button that could never work, against an
+            # empty diff that told them to press it.
+            path = pr.repository_id._get_repo_path()
+            if not os.path.isdir(path):
+                raise UserError(_(
+                    "There is no git repository on disk for '%(repo)s'.\n\n"
+                    "It was expected at %(path)s. Either nothing has been "
+                    "pushed to this repository yet, or its files were moved "
+                    "or removed from the server.",
+                    repo=pr.repository_id.name, path=path))
+            raise UserError(_(
+                "Could not read a diff for '%(src)s' into '%(tgt)s'.\n\n"
+                "Both branches exist in Odoo, but their commits are not in "
+                "the repository on disk. This happens when records were "
+                "imported or seeded without the matching git history.",
+                src=pr.source_branch_id.name or '?',
+                tgt=pr.target_branch_id.name or '?'))
         return True
 
     def _sync_changed_files(self):
