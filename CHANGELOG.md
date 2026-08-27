@@ -6,6 +6,53 @@ All notable changes to Git Hosting are recorded here. The format follows
 Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
 `19.0.1.1.0` is the second feature release of Git Hosting for Odoo 19.0.
 
+## [19.0.1.7.1] - 2026-08-27
+
+### Security
+
+- **Internal repositories were readable across companies — including over
+  `git clone`.** `git.repository` has a required `company_id` and
+  `_check_company_auto = True`, but no record rule referenced `company_id`,
+  and `_check_repo_access()` never looked at it either. Any employee of any
+  company could read every `internal`-visibility repository, its branches,
+  commits and pull requests — and clone its full source over Smart HTTP with
+  their own access token.
+
+  Both halves are fixed, because they are separate gates:
+
+  - 19 of 20 record rules are now company-scoped, covering the backend and
+    the JSON-RPC API. Only `git.repository` carries `company_id`; the rest
+    scope along their relation to it. The personal access token rule is
+    deliberately left alone — it is already `('user_id', '=', user.id)`, and
+    a token belongs to a person rather than a company.
+  - `_check_repo_access()` enforces company before every other branch, the
+    manager branch included. This is the gate that matters: the git
+    transport, PAT and deploy-key authentication and every portal page run
+    under `sudo()`, where record rules do not apply at all. Scoping the
+    rules alone left `git clone` of another company's repository working
+    exactly as before.
+
+  A Git Manager in one company no longer has any claim on another company's
+  code. The superuser is exempt so internal syncs and crons keep working.
+
+  Verified both directions on a running instance: a user belonging only to
+  Company B is denied the repository, its commits, its branches, its pull
+  requests and the clone, while the owning company retains full access.
+
+### Fixed
+
+- **`make test` reloaded code but not data.** It depended on `build`, which
+  rebuilds the image and recreates the container — so Python changes were
+  picked up while security rules, views and mail templates kept whatever the
+  database was last loaded with. During the fix above the suite reported the
+  company scoping as broken when the code was correct and the database still
+  held the pre-fix rules. `test` and `test-one` now depend on `upgrade`.
+- **`make release-check` lost a race against its own teardown.** Odoo logs
+  "Closed N connections" before postgres has released them, so dropping the
+  throwaway database intermittently failed with "database is being accessed
+  by other users" and took the whole gate down. Backends are terminated
+  before the drop.
+
 ## [19.0.1.7.0] - 2026-08-26
 
 ### Added
