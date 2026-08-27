@@ -792,3 +792,39 @@ class TestMultiCompanyIsolation(DwGitCommon):
         self.assertTrue(
             repo._check_repo_access(self.user, 'read'),
             'company scoping broke transport access to your own repository')
+
+
+@tagged('regression', 'post_install', '-at_install')
+class TestRefreshChangesReportsFailure(DwGitCommon):
+    """A user-facing button that reported success on failure."""
+
+    def test_refresh_changes_explains_a_missing_repository(self):
+        """Regression: _sync_changed_files() returns False when it cannot
+        read the repository, and action_refresh_changes() threw that away
+        and returned True. The diff view told the user to press Refresh
+        Changes; pressing it did nothing and said nothing. Two lies about
+        the same fact.
+        """
+        base = tempfile.mkdtemp(prefix='dw-git-norepo-')
+        self.addCleanup(shutil.rmtree, base, True)
+        self.env['ir.config_parameter'].sudo().set_param(
+            'dw_git.repo_base_path', base)
+
+        repo = self._repo('never-pushed')          # deliberately not on disk
+        pr = self.PR.create({
+            'title': 'no repo behind it',
+            'repository_id': repo.id,
+            'source_branch_id': self._branch(repo, 'feature').id,
+            'target_branch_id': self._branch(repo, 'main').id,
+        })
+        self.assertFalse(os.path.isdir(repo._get_repo_path()),
+                         'precondition: the bare repo must not exist')
+
+        with self.assertRaises(UserError) as caught:
+            pr.action_refresh_changes()
+
+        message = str(caught.exception)
+        self.assertIn(repo.name, message,
+                      'the error should name the repository')
+        self.assertIn(repo._get_repo_path(), message,
+                      'the error should say where it looked')
