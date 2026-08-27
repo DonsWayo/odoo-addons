@@ -421,7 +421,23 @@ class GitRepository(models.Model):
         return result
 
     def _check_repo_access(self, user, operation='read'):
-        """Check if user has access to repository"""
+        """Check if user has access to repository.
+
+        Company scoping is enforced here rather than only in record rules,
+        because this method is the *only* gate on every path that runs
+        under sudo() — the git transport, PAT and deploy-key
+        authentication, and the portal — and ir.rule does not apply under
+        sudo. Scoping the rules alone left `git clone` of another
+        company's internal repository working exactly as before.
+
+        It is checked before every other branch, the manager branch
+        included: a Git Manager in one company has no claim on another
+        company's code.
+        """
+        if (not user._is_superuser()
+                and self.company_id
+                and self.company_id not in user.company_ids):
+            return False
         if user.has_group('dw_git.group_git_manager'):
             return True
         if user == self.owner_id:

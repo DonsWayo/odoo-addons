@@ -93,15 +93,17 @@ missing=[p for mf in glob.glob('*/__manifest__.py') \
          if '*' not in p and not os.path.isfile(p)]; \
 sys.exit('assets declared but absent: '+', '.join(missing)) if missing else print('asset files OK')"
 
-test: build ## Run the full test suite
-	$(COMPOSE) up -d --force-recreate odoo
-	@until $(COMPOSE) exec -T postgres pg_isready -U odoo >/dev/null 2>&1; do sleep 2; done
+test: upgrade ## Run the full test suite
+	@# Depends on `upgrade`, not just `build`. Rebuilding the image reloads
+	@# Python, but security rules, views and mail templates are DATA: without
+	@# -u they keep whatever the database was last loaded with, so the suite
+	@# happily tests record rules you edited an hour ago. That cost a real
+	@# debugging session — a company-scoping fix looked broken because the
+	@# database still held the pre-fix rule.
 	$(ODOO) -d $(DB) --test-enable --test-tags /$(MODULE) \
 	  --stop-after-init --http-port=8070 $(DBFLAGS)
 
-test-one: build ## Run one class or method: make test-one T=TestJsonApi
-	$(COMPOSE) up -d --force-recreate odoo
-	@until $(COMPOSE) exec -T postgres pg_isready -U odoo >/dev/null 2>&1; do sleep 2; done
+test-one: upgrade ## Run one class or method: make test-one T=TestJsonApi
 	$(ODOO) -d $(DB) --test-enable --test-tags /$(MODULE):$(T) \
 	  --stop-after-init --http-port=8070 $(DBFLAGS)
 

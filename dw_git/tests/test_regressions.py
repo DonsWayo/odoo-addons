@@ -708,3 +708,87 @@ class TestSyncFromGitCommits(DwGitCommon):
                 ('repository_id', '=', repo.id),
                 ('message', '=', 'sync guard commit')]),
             'commit from the pushed ref was not recorded')
+
+
+@tagged('regression', 'post_install', '-at_install')
+class TestMultiCompanyIsolation(DwGitCommon):
+    """Record rules never mentioned company_id."""
+
+    def test_internal_repo_is_not_readable_from_another_company(self):
+        """Regression: `visibility == 'internal'` was an unqualified OR branch
+        in the repository rule, and no rule in the module referenced
+        company_id at all. Any employee of any company could therefore read
+        every internal repository — and, through the same gap in the child
+        rules, its branches, commits and pull requests.
+
+        git.repository carries company_id; everything else reaches it through
+        repository_id, so each child rule is scoped along that path.
+        """
+        other_co = self.env['res.company'].create({'name': 'Other Co'})
+        outsider = self._create_user('outsider')
+        outsider.write({
+            'company_ids': [(6, 0, [other_co.id])],
+            'company_id': other_co.id,
+            'group_ids': [(4, self.env.ref('dw_git.group_git_user').id)],
+        })
+
+        repo = self._repo('cross-company', visibility='internal',
+                          company_id=self.env.company.id)
+        branch = self._branch(repo, 'main')
+        commit = self.Commit.create({
+            'sha': 'c' * 40, 'message': 'secret work',
+            'repository_id': repo.id,
+        })
+        pr = self.PR.create({
+            'title': 'secret pr', 'repository_id': repo.id,
+            'source_branch_id': self._branch(repo, 'feature').id,
+            'target_branch_id': branch.id,
+        })
+
+        # ir.rule evaluates `company_ids` from env.companies, which reads
+        # allowed_company_ids off the CONTEXT and only falls back to the
+        # user's own companies. with_user() keeps the calling environment's
+        # context, so without setting it here the rule would still be
+        # evaluated against the *previous* user's companies — the test would
+        # pass in isolation and fail inside the suite. A real HTTP session
+        # sets this key from the session, and Odoo raises AccessError if a
+        # user tries to widen it beyond their own companies.
+        as_outsider = self.env(
+            user=outsider,
+            context={'allowed_company_ids': outsider.company_ids.ids},
+        )
+
+        # the outsider must see none of it
+        self.assertFalse(
+            self.Repo.with_env(as_outsider).search([('id', '=', repo.id)]),
+            "another company's internal repository is readable")
+        for record, label in ((commit, 'commit'), (branch, 'branch'), (pr, 'pull request')):
+            self.assertFalse(
+                record.with_env(as_outsider).search([('id', '=', record.id)]),
+                f"another company's {label} is readable")
+
+        # Record rules are not the only gate, and on the paths that matter
+        # most they are not the gate at all: the git transport, PAT and
+        # deploy-key auth, and the portal all run under sudo(), where
+        # ir.rule does not apply. _check_repo_access is what guards those,
+        # so assert it directly — scoping only the rules left `git clone`
+        # of another company's internal repository working unchanged.
+        self.assertFalse(
+            repo._check_repo_access(outsider, 'read'),
+            "_check_repo_access lets another company read an internal repo; "
+            "git clone and the portal bypass record rules via sudo()")
+        self.assertFalse(
+            repo._check_portal_access(outsider),
+            "_check_portal_access lets another company read an internal repo")
+
+        # and the owner must still see all of it — a rule that denies
+        # everyone is not a fix
+        self.assertTrue(
+            self.Repo.with_user(self.user).search([('id', '=', repo.id)]),
+            'company scoping broke legitimate access to your own repository')
+        self.assertTrue(
+            commit.with_user(self.user).search([('id', '=', commit.id)]),
+            'company scoping broke legitimate access to your own commits')
+        self.assertTrue(
+            repo._check_repo_access(self.user, 'read'),
+            'company scoping broke transport access to your own repository')
