@@ -767,6 +767,20 @@ class TestMultiCompanyIsolation(DwGitCommon):
                 record.with_env(as_outsider).search([('id', '=', record.id)]),
                 f"another company's {label} is readable")
 
+        # Record rules are not the only gate, and on the paths that matter
+        # most they are not the gate at all: the git transport, PAT and
+        # deploy-key auth, and the portal all run under sudo(), where
+        # ir.rule does not apply. _check_repo_access is what guards those,
+        # so assert it directly — scoping only the rules left `git clone`
+        # of another company's internal repository working unchanged.
+        self.assertFalse(
+            repo._check_repo_access(outsider, 'read'),
+            "_check_repo_access lets another company read an internal repo; "
+            "git clone and the portal bypass record rules via sudo()")
+        self.assertFalse(
+            repo._check_portal_access(outsider),
+            "_check_portal_access lets another company read an internal repo")
+
         # and the owner must still see all of it — a rule that denies
         # everyone is not a fix
         self.assertTrue(
@@ -775,3 +789,6 @@ class TestMultiCompanyIsolation(DwGitCommon):
         self.assertTrue(
             commit.with_user(self.user).search([('id', '=', commit.id)]),
             'company scoping broke legitimate access to your own commits')
+        self.assertTrue(
+            repo._check_repo_access(self.user, 'read'),
+            'company scoping broke transport access to your own repository')
