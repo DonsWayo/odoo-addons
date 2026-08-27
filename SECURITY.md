@@ -24,6 +24,47 @@ no paid maintainers, so please allow reasonable time before disclosing.
 
 ## Known past vulnerabilities
 
+### 19.0.1.0.0 - 19.0.1.7.0 - cross-company repository disclosure
+
+Fixed in **19.0.1.7.1**. Only affects databases running **more than one
+company**. Single-company installs were never exposed by this.
+
+If you ran any version up to and including `19.0.1.7.0` with multiple
+companies, treat the following as having happened:
+
+**Any employee of any company could read every `internal`-visibility
+repository in the database, regardless of which company owned it** — its
+branches, commits and pull requests in the backend and the JSON-RPC API, and
+its complete source history by `git clone` over Smart HTTP using their own
+personal access token.
+
+Two independent gates were both missing the check:
+
+1. **No record rule referenced `company_id`.** `git.repository` has a
+   required `company_id` and sets `_check_company_auto = True`, but the
+   repository rule's `visibility == 'internal'` branch was an unqualified
+   `OR`, and no rule in the module scoped by company.
+2. **`_check_repo_access()` never looked at company either.** This is the
+   only gate on the git transport, on PAT and deploy-key authentication and
+   on the portal, because those paths run under `sudo()` where record rules
+   do not apply. Fixing the rules alone would have left `git clone` working
+   exactly as before.
+
+A Git Manager in one company also had full access to every other company's
+repositories.
+
+**Required action after upgrading:**
+
+- **Review access logs for clones you cannot account for**, particularly
+  `GET /git/<owner>/<repo>.git/info/refs` and `git-upload-pack` requests from
+  users outside the owning company.
+- Treat the contents of any multi-company `internal` repository as having
+  been readable by every employee in the database. Rotate any credential that
+  was committed to one.
+- No token rotation is required for this issue specifically: tokens were
+  never disclosed, they were simply honoured too widely. Rotation is still
+  wise if a clone you cannot account for appears in the logs.
+
 ### 19.0.1.0.0 — token authorisation and credential exposure
 
 Fixed in **19.0.1.1.0**. Full detail in
