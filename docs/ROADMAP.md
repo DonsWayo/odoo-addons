@@ -1,146 +1,160 @@
-# What needs a rethink
+# Roadmap
 
-Findings from reading the module as a whole rather than defect-by-defect.
-Everything here is verified against the code, not inferred.
+Findings from reading the module defect-by-defect. Everything here is
+verified against the code and against a running server, not inferred.
 
-## Dead integrations — declared, wired to nothing
+Last revised 2026-08-28, against 19.0.1.8.0.
 
-These make the module look more integrated than it is. Each is a few hours of
-work, and together they are most of what separates Git Hosting from "a Git server
-that happens to live in Odoo".
+---
 
-### 1. Five mail templates exist. None is ever sent.
+## The failure mode that keeps recurring
 
-`views/mail_templates.xml` defines `mail_template_git_pr_created`,
-`_pr_review_request`, `_pr_merged`, `_pr_closed` and `_webhook_failed`. The
-only `message_post` in the entire module is a failure notice in the mirror
-cron.
+Worth stating first, because it explains most of what follows and most of
+what has been fixed.
 
-**Nobody is notified of anything.** A pull request opens in silence; a review
-request never reaches the reviewer; a merge tells no one. For a collaboration
-tool this is the largest functional hole after webhook delivery — and unlike
-webhooks it needs no new design, only wiring the templates that already exist
-into `action_merge`, `action_close` and `git.pr.review.create`.
+> A capability is claimed, nothing verifies it against a running system,
+> and it fails **silently** — no exception, no failing test, at most a log
+> line.
 
-### 2. `mail.activity.mixin` is inherited and never used
+Confirmed instances, all found by using the product rather than by the
+suite:
 
-No `activity_schedule()` anywhere. Requesting a review should create an
-activity on the reviewer, which is how every other Odoo app tells a person
-they owe someone something. Right now `reviewer_ids` is a list nobody is told
-about.
-
-### 3. `portal.mixin` is inherited but its contract is unmet
-
-Both `git.repository` and `git.pull_request` inherit `portal.mixin` and never
-override `_compute_access_url`, so the mixin's default applies and
-`access_url` is literally `'#'`. Every portal share link points nowhere.
-
-### 4. `project_id` is a field nobody reads
-
-`git.repository.project_id` exists, and a search filter groups by it. Nothing
-else in the module mentions it — the whole `project` dependency exists to
-support one dead field.
-
-The obvious integration is the one every developer expects: parse commit
-messages and PR titles for task references, link them, and optionally close
-the task on merge. Until that exists, either build it or drop `project` from
-`depends`.
-
-## Design decisions worth revisiting
-
-### 5. Pull request numbers are global, not per repository
-
-`number` draws from one `ir.sequence`. The screenshots show it: three open
-PRs across three repositories numbered **61, 62 and 17**. GitHub, GitLab and
-Gitea all number per repository, and users will read `#61` as "the 61st PR in
-this repo".
-
-This is cheap to fix now and expensive later — changing it after people have
-linked to PR numbers means renumbering live data.
-
-### 6. Repository paths are keyed on `res.users.login`
-
-`_get_repo_path()` returns `<base>/<owner.login>/<name>.git`, and the clone
-URL and every controller route use `owner_id.login` too.
-
-Two consequences:
-
-- **Renaming a user orphans every repository they own.** `write()` migrates
-  the directory when `owner_id` or `name` changes, but nothing watches
-  `res.users.login`. There is no `res.users` override in the module.
-- **Logins are usually email addresses**, so real paths become
-  `/var/lib/odoo/git/repos/alice@example.com/web.git` and clone URLs carry an
-  `@` before the host.
-
-A stable, immutable slug on the repository — or on the owner — would remove
-both problems. That is a schema change, so it is better decided early.
-
-### 7. Multi-company is unguarded
-
-`git.repository` has a required `company_id` and sets
-`_check_company_auto = True`, but **no record rule mentions `company_id`**.
-In a multi-company database, an `internal` repository belonging to company A
-is readable by every employee of company B.
-
-Either add the company clause to the rules or drop `company_id` and say the
-module is single-company.
-
-### 8. No translations
-
-There is no `i18n/` directory and no `.pot` template, so the module is
-English-only on the Apps Store regardless of the user's language.
-
-## Integrations worth building, in order of value
-
-| | Integration | Why |
-|---|---|---|
-| 1 | **mail** — send the templates that exist | Silence is the single most surprising thing about using it today |
-| 2 | **mail.activity** — review requests as activities | Puts reviews in the reviewer's Odoo inbox, where their other work is |
-| 3 | **project** — commits and PRs linked to tasks | The reason to host Git in an ERP at all; nobody else can do this as naturally |
-| 4 | **portal** — implement `_compute_access_url` | Makes sharing a repository or PR with a customer actually work |
-| 5 | **website** | Public repository pages, if public visibility is ever added |
-| 6 | **bus** — live PR and CI status | Nice, not necessary; costs a dependency that was just removed |
-
-## Repository shape: growing past one module
-
-The repository is **already the right shape for a monorepo.** The Apps Store
-requires "one folder per App at the root", and `dw_git/` is exactly that.
-Adding `odoo_cicd/` or `odoo_containers/` beside it needs **no change to the
-Apps Store registration** — the scan walks the registered branch and picks up
-every module folder it finds.
-
-What is single-module today is the *tooling*, not the layout:
-
-| File | Assumption to remove |
+| What was claimed | What happened |
 |---|---|
-| `Dockerfile` | `COPY dw_git /opt/dw_git` |
-| `entrypoint.sh` | copies one directory |
-| `Makefile` | `MODULE := dw_git` |
-| `.github/workflows/ci.yml` | installs and tests one module |
-| `ruff.toml` | lints `dw_git/` |
-| `README.md`, `CHANGELOG.md`, `docs/` | describe one module |
+| `git push` records commits | `Registry.in_test_mode()` was removed in Odoo 19; the hook swallowed the `AttributeError` and recorded nothing |
+| Five mail templates notify people | `${...}` has been dead since Odoo 14; `email_to` rendered empty, bodies emitted their own source |
+| Diffs are syntax-highlighted | diff2html's *slim* bundle carries no highlight.js; it was never fetched |
+| "Test webhook sent!" | `ping` is in no subscription list, so the button fell through the event filter and did nothing |
+| Multi-company isolation | record rules protected the ORM; `git clone` still worked, because the controller runs `sudo()` |
+| Deploy keys are narrower than their owner | the deploy-key branch never called `_check_repo_access`, so it outlived company scoping ([#30]) |
+| `auto_delete_head_branch` cleans up | the `unlink()` could never succeed, and its failure aborted the transaction, killing the merge email ([#32]) |
+| Browser tours pass | Odoo silently skips tours with no Chrome or `websocket-client`, reporting "0 failed" |
 
-### Naming
+**Guards now in place**, each one closing the specific hole that let an
+instance through:
 
-**Do not call it `DonsWayo/odoo`.** It reads as a fork of `odoo/odoo`, which
-is what people will assume from the URL alone, and it leans on the Odoo
-trademark for a repository that is not Odoo. `DonsWayo/odoo-addons` is the
-convention most vendors use and says exactly what it holds.
+- `make assets` — checks manifest bundles *and* paths hardcoded in JS and
+  fetched at runtime with `loadJS`/`loadCSS`. A manifest-only check
+  reported "OK" while highlight.js was never fetched.
+- `make coverage` — measured line coverage. Grepping test files for method
+  names calls `upload_pack` untested when every clone test drives it.
+- `make test` depends on `upgrade`, not `build`. Rebuilding reloads Python
+  but not **data**: without `-u`, security rules, views and mail templates
+  keep whatever the database last loaded. A correct company-scoping fix
+  looked broken for an hour because of this.
+- CI fails on skipped tours; Chrome and `websocket-client` are in the image.
+- `make seed` builds **real** bare repositories with real commits, so a
+  diff that does not render locally is a bug, not a gap in the fixture.
+- mailpit in the stack, so notification mail can actually be read.
 
-The GitHub rename itself is safe — GitHub redirects the old URL for git
-operations — but update the Apps Store registration afterwards from *My
-Repos* rather than relying on the redirect.
+The lesson generalises: **a test that asserts structure is not a test that
+asserts behaviour.** A tour asserting `.d2h-ins` exists passed happily
+while nothing on the page had any colour.
 
-### Versioning across modules
+---
 
-Odoo versions each module independently in its own manifest, so a single
-repository-wide tag stops making sense. Prefix the tag with the module:
-`dw_git-v19.0.1.4.0`. Keep `CHANGELOG.md` per module, inside the module
-folder, and let the root README be an index.
+## Closed since the first revision
 
-### Sequencing
+| # | Finding | Resolution |
+|---|---|---|
+| 1 | Five mail templates exist, none is ever sent | Wired into `action_merge`, `action_close`, PR creation and review requests. Both render engines now covered by tests — `subject`/`email_to` are `inline_template` (`{{ }}`), `body_html` is QWeb (`<t t-out/>`) |
+| 2 | `mail.activity.mixin` inherited and never used | `activity_schedule()` on each newly requested reviewer |
+| 3 | `portal.mixin` contract unmet, `access_url` was `'#'` | `_compute_access_url` on both models: `/git/{owner}/{repo}` and `…/pr/{number}` |
+| 7 | Multi-company is unguarded | 19 record rules scoped on `company_ids`, **and** a company check inside `_check_repo_access`, which is the only gate on the `sudo()` paths |
+| 8 | No translations | `dw_git/i18n/dw_git.pot`, `make i18n` |
 
-Do not restructure ahead of need. The cheap move now is to make the tooling
-take a **list** of modules instead of one name, so that adding module two is
-a one-line change rather than a refactor. Rename the repository when there is
-actually a second module to put in it.
+Note that #7 needed **two** fixes. The record rules alone looked complete
+and were not: the git transport runs under `sudo()`, which bypasses
+`ir.rule` entirely, so `git clone` still succeeded across companies. A
+subagent review caught that; it was right and the first fix was not.
+
+---
+
+## Open
+
+### #9 — Repository paths are keyed on `res.users.login` — *highest risk*
+
+Bare repos live at `<base>/<owner.login>/<name>.git`. `login` is mutable.
+Renaming a user orphans every repository they own: the records point at a
+directory that no longer exists, and clone returns 404 with the data
+sitting untouched on disk under the old name.
+
+There is now a migration in `_sync_from_git` for the rename case, but the
+underlying design is still wrong. Paths should be keyed on an immutable
+id. This is the one item that can lose access to real customer data.
+
+### #8 — Pull request numbers are global, not per repository
+
+`number` comes from a single `ir.sequence`, so the first PR in a new
+repository might be `#795`. Every Git host numbers per repository, and
+users read the number as "the 795th PR **here**". Fixing it after release
+means renumbering existing data or living with a discontinuity.
+
+### #31 — `api_get_tree` / `api_get_blob` swallow every exception
+
+Both wrap their body in `except Exception` and return an empty result. A
+missing repository, a bad ref and a genuine bug are indistinguishable from
+an empty directory. The JSON-RPC caller cannot tell absence from failure.
+Same shape as the webhook button.
+
+### #21 — Portal is advertised but unreachable
+
+Both models implement portal URLs and the pages render, but `member_ids`
+is restricted to internal users and no portal ACLs ship, so no portal user
+can legitimately be given a repository. The decision is binary: grant
+portal access properly, or drop the portal and stop advertising it.
+
+### #7 — `project_id` is a field nobody reads
+
+`git.repository.project_id` exists and is filterable, and nothing else in
+the module mentions it. The entire `project` dependency exists to support
+one dead field. Either implement the integration below or drop both.
+
+### #19 — `widget="badge"` on Integer fields
+
+Warns in Odoo 19 and forces enumerated colour maps. Cosmetic.
+
+---
+
+## Not yet built, in order of value
+
+1. **`project` — commits and PRs linked to tasks.** Parse task references
+   out of commit messages and PR titles. This is the reason to host Git
+   inside an ERP at all, and the one thing no standalone Git host can do
+   as naturally. It also gives `project_id` (#7) a purpose.
+2. **Webhook delivery.** Payloads are built and signed correctly; there is
+   no HTTP client anywhere in `webhook.py`. The button now says so
+   plainly, which is honest but not a feature. Needs a queue and retry,
+   not just a `requests.post`.
+3. **Per-repository PR numbering** (#8) — cheaper now than later.
+4. **`website`** — public repository pages, if public visibility is added.
+5. **`bus`** — live PR status. Nice, not necessary; costs a dependency.
+
+---
+
+## Coverage
+
+Run `make coverage` for current numbers; do not quote figures from memory.
+
+Two things the number does not capture, and which have both hidden real
+bugs here:
+
+- **Executed is not asserted.** Every line of the mail templates was
+  executed while they rendered their own source to nobody.
+- **Filesystem state is not transactional.** Odoo rolls the database back
+  between tests; nothing rolls back `refs/heads`. A test asserting a bare
+  repo was empty passed or failed on alphabetical execution order — see
+  the note in `TestDeployKeyTransportAuthorisation`.
+
+---
+
+## Repository shape
+
+The monorepo split is done: `MODULES` in the `Makefile` drives install,
+upgrade, test and lint, so adding a module means editing one list. The
+`Dockerfile` copies every addon directory at the repo root, `entrypoint.sh`
+materialises them all and prunes stale ones, and CI reads the same list.
+
+Remaining single-module assumptions live only in prose — `README.md`,
+`CHANGELOG.md` and `docs/` still describe one module — and in
+`ruff.toml`'s explicit `dw_git/` path.

@@ -216,6 +216,110 @@ SPECS = [
     },
 ]
 
+
+# ---------------------------------------------------------- real project
+#: A genuinely real repository, mirrored from GitHub. The three synthetic
+#: repos above are deterministic and fast, which is what you want when
+#: asserting a specific diff — but they are also tiny, and tiny fixtures
+#: hide whole categories of problem: a file tree that only ever has five
+#: entries never exercises directory nesting, a two-line diff never
+#: exercises the viewer's width or scrolling, and 3 commits never exercise
+#: pagination or the 50-commit sync ceiling.
+#:
+#: Override with DW_GIT_SEED_MIRROR_URL, or skip entirely with
+#: DW_GIT_SEED_MIRROR=0 (offline).
+#: `or` rather than a get() default throughout: make passes these through
+#: as empty strings when the caller did not set them, and an empty string
+#: is *present*, so a get() default never applies. That silently disabled
+#: the mirror on the first run and printed nothing about it.
+#: This module's own repository, by default — dogfooding. Its history is
+#: real, it mixes Python, XML, JS and SCSS (so syntax highlighting is
+#: exercised across languages rather than one), and its tree is deep
+#: enough that the file browser has to walk directories.
+MIRROR_URL = (os.environ.get('DW_GIT_SEED_MIRROR_URL')
+              or 'https://github.com/DonsWayo/odoo-addons.git')
+MIRROR_NAME = os.environ.get('DW_GIT_SEED_MIRROR_NAME') or 'odoo-addons'
+#: how far back the PR's target branch sits — a real, multi-file diff
+MIRROR_PR_DEPTH = int(os.environ.get('DW_GIT_SEED_MIRROR_DEPTH') or '15')
+
+
+def mirror_real_project():
+    """Mirror a real GitHub repository and open a real pull request on it.
+
+    Everything goes through the same code paths a genuine push would:
+    the bare repo is served by git http-backend, branches and commits are
+    imported by _sync_from_git(), and the diff is produced by
+    action_refresh_changes() against the real merge base.
+    """
+    bare = os.path.join(BASE, admin.login, MIRROR_NAME + '.git')
+    subprocess.run(['rm', '-rf', bare], check=True)
+    os.makedirs(os.path.dirname(bare), exist_ok=True)
+
+    print('SEED: mirroring %s (this needs network)' % MIRROR_URL)
+    try:
+        # a full bare clone, not a blobless one: this repo is *served* over
+        # Smart HTTP, and a partial clone cannot answer a fetch for blobs
+        # it does not have.
+        subprocess.run(['git', 'clone', '-q', '--bare', MIRROR_URL, bare],
+                       check=True, capture_output=True, timeout=600)
+    except Exception as exc:
+        print('SEED: mirror skipped — %s' % exc)
+        return None
+
+    head = subprocess.run(
+        ['git', 'symbolic-ref', '--short', 'HEAD'], cwd=bare,
+        capture_output=True, text=True).stdout.strip() or 'main'
+
+    # a real target branch, N commits behind the default branch, so the
+    # pull request carries a genuine multi-file diff instead of one hunk
+    target_name = 'release/behind'
+    base_sha = subprocess.run(
+        ['git', 'rev-parse', f'{head}~{MIRROR_PR_DEPTH}'], cwd=bare,
+        capture_output=True, text=True).stdout.strip()
+    if base_sha:
+        subprocess.run(['git', 'update-ref',
+                        f'refs/heads/{target_name}', base_sha],
+                       cwd=bare, check=True, capture_output=True)
+
+    repo = Repo.create({
+        'name': MIRROR_NAME,
+        'description': 'Mirrored from %s — real history, real diffs.'
+                       % MIRROR_URL,
+        'owner_id': admin.id,
+        'visibility': 'internal',
+        'default_branch': head,
+        'is_mirror': True,
+        'mirror_url': MIRROR_URL,
+    })
+    # the real import path, not hand-built records
+    repo._sync_from_git()
+
+    Branch_ = env['git.branch']
+    src = Branch_.search([('repository_id', '=', repo.id),
+                          ('name', '=', head)], limit=1)
+    tgt = Branch_.search([('repository_id', '=', repo.id),
+                          ('name', '=', target_name)], limit=1)
+    pr = None
+    if src and tgt:
+        pr = PR.create({
+            'title': 'Ship the last %d commits to %s'
+                     % (MIRROR_PR_DEPTH, target_name),
+            'description': '<p>A real pull request against real upstream '
+                           'history, for exercising the diff viewer and the '
+                           'file browser at a realistic size.</p>',
+            'state': 'open',
+            'repository_id': repo.id,
+            'source_branch_id': src.id,
+            'target_branch_id': tgt.id,
+            'author_id': admin.id,
+        })
+        pr.action_refresh_changes()
+
+    bob = User.search([('login', '=', 'bob')], limit=1)
+    if bob:
+        repo.write({'member_ids': [(4, bob.id)]})
+    return repo, pr
+
 def configure_local_mail():
     """Point Odoo at the mailpit container so notifications are readable.
 
@@ -262,6 +366,23 @@ for spec in SPECS:
     repo, pr, commits = build_repo(spec)
     patched = len(pr.file_ids.filtered('patch'))
     report.append((repo.name, commits, len(pr.file_ids), patched))
+
+if (os.environ.get('DW_GIT_SEED_MIRROR') or '1') == '1':
+    if Repo.search_count([('name', '=', MIRROR_NAME)]):
+        print('SEED: %s already exists, skipping (DW_GIT_RESET=1 to rebuild)'
+              % MIRROR_NAME)
+    else:
+        result = mirror_real_project()
+        if result:
+            repo, pr = result
+            files = len(pr.file_ids) if pr else 0
+            patched = len(pr.file_ids.filtered('patch')) if pr else 0
+            report.append((repo.name, repo.commit_count, files, patched))
+        else:
+            print('SEED: WARNING — the real-project mirror did NOT run. '
+                  'The demo data is synthetic only.')
+else:
+    print('SEED: real-project mirror disabled (DW_GIT_SEED_MIRROR=0)')
 
 env.cr.commit()
 

@@ -23,7 +23,7 @@ http://dl.google.com/linux/chrome/deb/ stable main" \
        fi \
     && rm -rf /var/lib/apt/lists/* \
     && pip install --no-cache-dir --break-system-packages \
-         GitPython==3.1.59 websocket-client==1.8.0
+         GitPython==3.1.59 websocket-client==1.8.0 coverage==7.6.10
 USER odoo
 
 # every addon folder at the repo root; add a module and this keeps working
