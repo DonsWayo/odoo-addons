@@ -117,14 +117,11 @@ xml: ## Every XML file parses (do this before `make build`)
 	  [ET.parse(f) for f in fs]; \
 	  print(f'XML OK ({len(fs)} files)')"
 
-assets: ## Every file named in a manifest's assets actually exists
-	@python3 -c "\
-import ast, glob, os, sys; \
-missing=[p for mf in glob.glob('*/__manifest__.py') \
-         for paths in ast.literal_eval(open(mf).read()[open(mf).read().index('{'):]).get('assets',{}).values() \
-         for e in paths for p in [e[0] if isinstance(e,(list,tuple)) else e] \
-         if '*' not in p and not os.path.isfile(p)]; \
-sys.exit('assets declared but absent: '+', '.join(missing)) if missing else print('asset files OK')"
+assets: ## Every static asset referenced anywhere actually exists
+	@# Checks BOTH the manifest bundles and the paths hardcoded in JS and
+	@# fetched with loadJS/loadCSS. A manifest-only check reported "OK" while
+	@# the diff viewer's highlight.js was never fetched at all.
+	@python3 qa/check_assets.py
 
 test: upgrade ## Run the full test suite
 	@# Depends on `upgrade`, not just `build`. Rebuilding the image reloads
