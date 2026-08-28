@@ -9,12 +9,18 @@ import { registry } from "@web/core/registry";
  * actually colouring the file rather than dumping plain text.
  */
 registry.category("web_tour.tours").add("dw_git_file_browser", {
-    url: "/odoo/action-dw_git.action_git_repository",
+    // Started on a specific repository's FORM by the test, not on the list
+    // — see the note in pr_diff_tour.js.
+    // No `url` here on purpose. A tour that declares one makes the tour
+    // service navigate to it when the tour starts, which threw away the
+    // startUrl the test passed — the browser loaded the record, then
+    // immediately reloaded the bare action and landed on the LIST, so
+    // .o_form_view never appeared. The test supplies the URL.
     steps: () => [
         {
-            trigger: ".o_list_view .o_data_row",
-            content: "Open the first repository",
-            run: "click",
+            trigger: ".o_form_view",
+            content: "Repository form is open",
+            run: false,
         },
         {
             trigger: "button:contains('Browse Files')",
@@ -27,9 +33,18 @@ registry.category("web_tour.tours").add("dw_git_file_browser", {
             run: false,
         },
         {
-            trigger: ".o_git_file_browser select option",
+            // Trigger on the <select>, not on "select option". Odoo's tour
+            // engine only matches VISIBLE elements, and an <option> has no
+            // layout box of its own, so it can never match however
+            // correctly it is rendered. Assert the contents in run().
+            trigger: ".o_git_file_browser select",
             content: "The branch selector is populated",
-            run: false,
+            run: () => {
+                const sel = document.querySelector(".o_git_file_browser select");
+                if (!sel.options.length) {
+                    throw new Error("branch selector rendered no options");
+                }
+            },
         },
         {
             trigger: ".o_git_file_tree .o_git_tree_entry",

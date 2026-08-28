@@ -23,7 +23,23 @@ http://dl.google.com/linux/chrome/deb/ stable main" \
        fi \
     && rm -rf /var/lib/apt/lists/* \
     && pip install --no-cache-dir --break-system-packages \
-         GitPython==3.1.59 websocket-client==1.8.0 coverage==7.6.10
+         GitPython==3.1.59 websocket-client==1.8.0 coverage==7.6.10 \
+         playwright==1.49.1
+
+# A Chromium that exists on arm64. Google ships no arm64 Linux Chrome and
+# Ubuntu's `chromium` is a snap stub, so on Apple Silicon there was simply
+# no browser: Odoo skipped every tour and still reported "0 failed". The
+# whole UI layer went untested locally for the project's life, and four
+# real bugs were hiding behind that silence. Playwright publishes a real
+# linux-arm64 build, so use it wherever google-chrome is absent.
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
+RUN if ! command -v google-chrome >/dev/null 2>&1; then \
+      playwright install chromium \
+      && playwright install-deps chromium \
+      && ln -sf "$(find /opt/playwright -name chrome -type f -path '*chrome-linux*' | head -1)" \
+                /usr/local/bin/chromium \
+      && chmod -R a+rX /opt/playwright ; \
+    fi
 USER odoo
 
 # every addon folder at the repo root; add a module and this keeps working

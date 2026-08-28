@@ -11,16 +11,21 @@ import { registry } from "@web/core/registry";
  * the patch, and the coloured markup diff2html produces.
  */
 registry.category("web_tour.tours").add("dw_git_pr_diff", {
-    url: "/odoo/action-dw_git.action_git_pull_request",
+    // The test starts this tour on a specific pull request's FORM, built in
+    // setUpClass with a known patch — not on the list. Opening "the first
+    // row" would depend on ordering and on whatever else the database holds,
+    // and there is no list view on a record URL at all: the tour used to
+    // click a row inside the form's own one2many and navigate away from the
+    // record it was supposed to be testing.
+    // No `url` here on purpose. A tour that declares one makes the tour
+    // service navigate to it when the tour starts, which threw away the
+    // startUrl the test passed — the browser loaded the record, then
+    // immediately reloaded the bare action and landed on the LIST, so
+    // .o_form_view never appeared. The test supplies the URL.
     steps: () => [
         {
-            trigger: ".o_list_view .o_data_row",
-            content: "Open the first pull request",
-            run: "click",
-        },
-        {
             trigger: ".o_form_view",
-            content: "Pull request form opened",
+            content: "Pull request form is open",
             run: false,
         },
         {
@@ -29,13 +34,21 @@ registry.category("web_tour.tours").add("dw_git_pr_diff", {
             run: "click",
         },
         {
-            trigger: ".o_field_one2many .o_data_row",
+            // Click a CELL, not the <tr>. Odoo opens a list record from the
+            // cell; clicking the row element fired no request at all, so the
+            // dialog never opened and the tour timed out waiting for it.
+            trigger: ".o_field_one2many .o_data_row .o_data_cell",
             content: "A changed file is listed",
             run: "click",
         },
         {
-            trigger: ".modal .o_form_view, .o_form_view:has(.o_git_diff_viewer)",
-            content: "The changed-file record opened",
+            // Anchor on the widget, not on a dialog container class. The
+            // record opens in a dialog whose wrapper markup differs between
+            // Odoo versions (.modal vs .o_dialog), and every following step
+            // asserts inside the viewer anyway — so the viewer existing IS
+            // the thing worth waiting for.
+            trigger: ".o_git_diff_viewer",
+            content: "The changed-file record opened, with the diff viewer",
             run: false,
         },
         {
@@ -99,9 +112,23 @@ registry.category("web_tour.tours").add("dw_git_pr_diff", {
             run: "click",
         },
         {
-            trigger: "textarea:value(diff --git)",
+            // Not "textarea:value(...)": the field is readonly, and Odoo
+            // renders a readonly text field as a span, never a textarea —
+            // textareas only exist in edit mode, so that trigger could not
+            // match however correct the patch was. .o-git-patch is the Raw
+            // Patch page's own class; the Diff page holds a second field
+            // with the same name.
+            trigger: ".o-git-patch",
             content: "The raw patch is a real unified diff",
-            run: false,
+            run: () => {
+                const el = document.querySelector(".o-git-patch");
+                const text = el.textContent || "";
+                if (!text.includes("diff --git")) {
+                    throw new Error(
+                        "raw patch is missing its 'diff --git' header: " +
+                        text.slice(0, 120));
+                }
+            },
         },
     ],
 });
