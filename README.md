@@ -95,6 +95,50 @@ portal page. One link, right destination.
 > in [#21](https://github.com/DonsWayo/odoo-addons/issues/21) — the decision
 > is whether to grant portal access properly or drop the portal.
 
+## Finding your way around
+
+Only four things live in the menu. Everything else — branches, commits, the
+file tree, diffs, reviews — is reached from *inside* a repository or a pull
+request. That is deliberate (those records only mean anything in the context
+of one repo), but it does mean the most interesting screens are not where
+people look first.
+
+```
+Git
+├── Repositories ──────── list / kanban → open one
+│     ├── header  ▸ Browse Files ......... the file tree (branch selector,
+│     │                                    directory-at-a-time, highlighted)
+│     ├── header  ▸ Stars
+│     └── stat buttons ▸ Branches · Commits · Pull Requests
+│           tabs        ▸ Members · Settings · chatter
+│
+├── Pull Requests ─────── list → open one
+│     ├── tabs    ▸ Description
+│     │           ▸ Changes ............... click any filename → diff dialog
+│     │                                     (Diff tab = rendered + highlighted,
+│     │                                      Raw Patch tab = git apply-able)
+│     │           ▸ Reviews · Commits · Settings
+│     └── header  ▸ Merge · Squash & Merge · Rebase & Merge · Close
+│                 ▸ Refresh Changes ....... recompute the diff vs merge base
+│
+└── Configuration
+      ├── Repository Base Path ........... where bare repos live on disk
+      ├── Webhooks ....................... payloads are built and signed,
+      │                                    but not delivered (see Limitations)
+      ├── Personal Access Tokens ......... clone/push over HTTP
+      └── Deploy Keys .................... per-repository, optional push
+```
+
+**The two people miss most often:**
+
+- **The file tree** is the `Browse Files` button in the repository form
+  header (folder icon), *not* a menu entry. It is a client action bound to
+  the open repository, so it has no meaning — and no entry — outside one.
+- **The diff** is not on the PR form directly. Open the **Changes** tab and
+  click a filename; the diff opens in a dialog with `Diff` and `Raw Patch`
+  tabs. If it is empty, press **Refresh Changes** in the header — it will
+  now tell you why it failed instead of silently doing nothing.
+
 ## Screenshots
 
 |  |  |
