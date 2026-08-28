@@ -18,6 +18,12 @@ class GitHTTPController(http.Controller):
     - POST /git/<owner>/<repo>.git/git-receive-pack                      # push
     """
 
+    #: PATH_INFO must be derived from the DIRECTORY, not from the
+    #: repository's display name. git-http-backend resolves PATH_INFO under
+    #: GIT_PROJECT_ROOT, so once the on-disk layout became <base>/<id>.git
+    #: (#9) a PATH_INFO of /<name>.git pointed at nothing: info/refs still
+    #: answered 200 with an unusable body and clone died with "the remote
+    #: end hung up unexpectedly".
     def _get_repo_path(self, repository):
         """Get filesystem path for repository"""
         return repository._get_repo_path()
@@ -177,7 +183,7 @@ class GitHTTPController(http.Controller):
             ['http-backend'],
             input_data=None,
             env={
-                'PATH_INFO': f'/{repository.name}.git/info/refs',
+                'PATH_INFO': f'/{os.path.basename(repo_path)}/info/refs',
                 'QUERY_STRING': f'service={service}',
                 'REQUEST_METHOD': 'GET',
                 'CONTENT_TYPE': '',
@@ -215,7 +221,7 @@ class GitHTTPController(http.Controller):
             ['http-backend'],
             input_data=data,
             env={
-                'PATH_INFO': f'/{repository.name}.git/git-upload-pack',
+                'PATH_INFO': f'/{os.path.basename(repo_path)}/git-upload-pack',
                 'QUERY_STRING': '',
                 'REQUEST_METHOD': 'POST',
                 'CONTENT_TYPE': 'application/x-git-upload-pack-request',
@@ -258,7 +264,7 @@ class GitHTTPController(http.Controller):
             ['http-backend'],
             input_data=data,
             env={
-                'PATH_INFO': f'/{repository.name}.git/git-receive-pack',
+                'PATH_INFO': f'/{os.path.basename(repo_path)}/git-receive-pack',
                 'QUERY_STRING': '',
                 'REQUEST_METHOD': 'POST',
                 'CONTENT_TYPE': 'application/x-git-receive-pack-request',
