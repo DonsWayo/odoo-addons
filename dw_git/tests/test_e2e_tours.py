@@ -57,3 +57,95 @@ class TestDwGitUiE2E(HttpCase):
             'name': 'e2e-token', 'user_id': self.env.ref('base.user_admin').id})
         self.start_tour('/odoo/action-dw_git.action_git_personal_access_token',
                         'dw_git_pat_list', login='admin')
+
+
+@tagged('e2e', 'at_install', '-post_install')
+class TestDwGitDiffAndBrowserE2E(HttpCase):
+    """Tours over the two views that render code.
+
+    These need a repository with real git history behind them — a record
+    with no bare repo produces an empty tree and an empty diff, which is
+    precisely the state that made the UI look broken to a user. Building
+    the repo for real is the point: the tour then proves the whole chain,
+    from `git push` through the tree/blob routes to the rendered markup.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        import os
+        import shutil
+        import subprocess
+        import tempfile
+
+        cls.base = tempfile.mkdtemp(prefix='dw-git-e2e-view-')
+        cls.addClassCleanup(shutil.rmtree, cls.base, True)
+        cls.env['ir.config_parameter'].sudo().set_param(
+            'dw_git.repo_base_path', cls.base)
+
+        owner = cls.env.ref('base.user_admin')
+        cls.repo = cls.env['git.repository'].create({
+            'name': 'e2e-viewer', 'owner_id': owner.id,
+            'visibility': 'internal'})
+        cls.repo._init_git_repo()
+
+        work = tempfile.mkdtemp(prefix='dw-git-e2e-work-')
+        cls.addClassCleanup(shutil.rmtree, work, True)
+        bare = cls.repo._get_repo_path()
+
+        def git(*args, cwd=work):
+            subprocess.run(['git'] + list(args), cwd=cwd, check=True,
+                           capture_output=True)
+
+        def commit(msg, path, content):
+            with open(os.path.join(work, path), 'w') as fh:
+                fh.write(content)
+            git('add', '-A')
+            git('-c', 'user.email=e2e@t.com', '-c', 'user.name=E2E',
+                'commit', '-qm', msg)
+
+        subprocess.run(['git', 'clone', '-q', bare, work], check=True,
+                       capture_output=True)
+        git('symbolic-ref', 'HEAD', 'refs/heads/main')
+        commit('Add greeter', 'greet.py',
+               'def greet(name):\n    return f"Hello, {name}!"\n')
+        git('push', '-q', 'origin', 'HEAD:refs/heads/main')
+        main_sha = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=work,
+                                  capture_output=True, text=True).stdout.strip()
+
+        git('checkout', '-q', '-b', 'feature/validate')
+        commit('Validate the name', 'greet.py',
+               'def greet(name):\n'
+               '    if not name:\n'
+               '        raise ValueError("name is required")\n'
+               '    return f"Hello, {name}!"\n')
+        git('push', '-q', 'origin', 'HEAD:refs/heads/feature/validate')
+        feat_sha = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=work,
+                                  capture_output=True, text=True).stdout.strip()
+
+        Branch = cls.env['git.branch']
+        main_b = Branch.create({'name': 'main', 'repository_id': cls.repo.id,
+                                'commit_sha': main_sha})
+        feat_b = Branch.create({'name': 'feature/validate',
+                                'repository_id': cls.repo.id,
+                                'commit_sha': feat_sha})
+        cls.pr = cls.env['git.pull_request'].create({
+            'title': 'Validate the name', 'repository_id': cls.repo.id,
+            'source_branch_id': feat_b.id, 'target_branch_id': main_b.id,
+            'state': 'open', 'author_id': owner.id})
+        cls.pr.action_refresh_changes()
+
+    def test_06_pr_diff_renders(self):
+        """The diff dialog shows coloured, readable diff markup."""
+        self.assertTrue(
+            self.pr.file_ids.filtered('patch'),
+            'precondition: the PR must have a real patch to render')
+        self.start_tour(
+            f'/odoo/action-dw_git.action_git_pull_request/{self.pr.id}',
+            'dw_git_pr_diff', login='admin')
+
+    def test_07_file_browser_renders_highlighted_source(self):
+        """Browse Files loads the tree and highlights a file."""
+        self.start_tour(
+            f'/odoo/action-dw_git.action_git_repository/{self.repo.id}',
+            'dw_git_file_browser', login='admin')

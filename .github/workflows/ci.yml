@@ -159,6 +159,24 @@ jobs:
           fi
           grep -oE "dw_git: [0-9]+ tests" test.log | tail -1
 
+      - name: Assert browser tours actually ran
+        run: |
+          # Odoo SKIPS tours when Chrome or websocket-client is missing and
+          # still reports "0 failed". Every tour in this module was skipped
+          # for the life of the project and read as passing. A green suite
+          # that skipped the browser layer must not be green.
+          if grep -qE "skipped .*(Chrome|websocket-client|devtools port)" test.log; then
+            echo "::error::browser tours were SKIPPED, not passed"
+            grep -E "skipped .*(Chrome|websocket-client|devtools port)" test.log | head
+            exit 1
+          fi
+          tours=$(grep -coE "Tour .* succeeded|tour .* succeeded" test.log || true)
+          echo "browser tours succeeded: ${tours}"
+          if [ "${tours}" -eq 0 ]; then
+            echo "::error::no browser tour reported success — the e2e layer did not run"
+            exit 1
+          fi
+
       - name: Upload logs
         if: always()
         uses: actions/upload-artifact@v7
