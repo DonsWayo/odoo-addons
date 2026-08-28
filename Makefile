@@ -15,7 +15,7 @@ RUFF     := uvx ruff
 
 .DEFAULT_GOAL := help
 .PHONY: help build up down clean logs shell psql install upgrade test test-one \
-        qa lint fmt xml assets check release-check drop-release-check versions i18n seed browser mail mail-clear
+        qa lint fmt xml assets check release-check drop-release-check versions i18n seed browser mail mail-clear coverage
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -132,6 +132,24 @@ test: upgrade ## Run the full test suite
 	@# database still held the pre-fix rule.
 	$(ODOO) -d $(DB) --test-enable --test-tags /$(MODULE) \
 	  --stop-after-init --http-port=8070 $(DBFLAGS)
+
+coverage: upgrade ## Measured line coverage of the addon
+	@# Measured, not guessed. Grepping test files for method names claims
+	@# `upload_pack` is untested when every clone test drives it, and calls
+	@# a method covered when a test only names it in a docstring. This runs
+	@# the real suite under coverage.py and reports what actually executed.
+	@# Flags rather than a .coveragerc: the addon is baked into the image,
+	@# so a config file in the repo would not be there to read. COVERAGE_FILE
+	@# is set because the odoo user's home is / and coverage cannot write
+	@# its data file there.
+	$(COMPOSE) exec -T -e COVERAGE_FILE=/tmp/.coverage odoo coverage run \
+	  --source=/mnt/extra-addons/$(MODULE) \
+	  --omit='*/tests/*,*/__init__.py' \
+	  /usr/bin/odoo -d $(DB) --test-enable --test-tags /$(MODULE) \
+	  --stop-after-init --http-port=8070 $(DBFLAGS)
+	@echo
+	$(COMPOSE) exec -T -e COVERAGE_FILE=/tmp/.coverage odoo \
+	  coverage report -m --precision=1 --skip-empty
 
 test-one: upgrade ## Run one class or method: make test-one T=TestJsonApi
 	$(ODOO) -d $(DB) --test-enable --test-tags /$(MODULE):$(T) \
