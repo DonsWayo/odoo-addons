@@ -62,3 +62,32 @@ def migrate(cr, version):
     _logger.info(
         "dw_git: repository layout migrated to id-keyed paths — "
         "%s moved, %s already present, %s missing", moved, skipped, missing)
+
+    _renumber_pull_requests(cr)
+
+
+def _renumber_pull_requests(cr):
+    """Renumber pull requests per repository, oldest first (#8).
+
+    Numbers came from a single global ir.sequence, so the first pull
+    request in a new repository could be #795. They are now per
+    repository, and existing data has to be brought into that shape or the
+    unique constraint on (repository_id, number) cannot hold.
+
+    Ordered by id, which is creation order, so the sequence within each
+    repository still reflects the order they were opened.
+    """
+    cr.execute("""
+        SELECT id, repository_id FROM git_pull_request
+         WHERE repository_id IS NOT NULL
+         ORDER BY repository_id, id
+    """)
+    seen = {}
+    for pr_id, repo_id in cr.fetchall():
+        seen[repo_id] = seen.get(repo_id, 0) + 1
+        cr.execute("UPDATE git_pull_request SET number = %s WHERE id = %s",
+                   (seen[repo_id], pr_id))
+    if seen:
+        _logger.info(
+            "dw_git: renumbered pull requests per repository across %s "
+            "repositories", len(seen))

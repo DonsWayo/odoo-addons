@@ -16,7 +16,9 @@ class GitPullRequest(models.Model):
         string='PR Number',
         readonly=True,
         copy=False,
-        default=lambda self: self.env['ir.sequence'].next_by_code('git.pull.request') or 1
+        index=True,
+        help="Per-repository, starting at 1 — the number users read as "
+             "'the Nth pull request in THIS repository'.",
     )
     name = fields.Char(compute='_compute_name', store=True)
 
@@ -176,8 +178,43 @@ class GitPullRequest(models.Model):
             else:
                 pr.access_url = '#'
 
+    # models.Constraint, not the old _sql_constraints list: Odoo 19
+    # replaced that API and silently ignores the list, so the constraint
+    # was never created and a duplicate number was accepted.
+    _number_per_repository_uniq = models.Constraint(
+        'unique(repository_id, number)',
+        'A pull request with this number already exists in this repository.',
+    )
+
+    def _next_number(self, repository_id):
+        """The next free pull request number within one repository.
+
+        Numbers used to come from a single global ir.sequence, so the first
+        pull request in a brand new repository could be #795. Every Git
+        host numbers per repository, and users read the number as "the Nth
+        pull request in THIS repo" — a number that counts every PR on the
+        server is not the number they think they are reading.
+
+        The row lock is the point. Two clients opening a pull request
+        against the same repository at the same moment would otherwise
+        both read the same MAX and both take it; SELECT ... FOR UPDATE on
+        the repository row serialises them. The unique constraint above is
+        the backstop if anything ever reaches this by another path.
+        """
+        self.env.cr.execute(
+            "SELECT id FROM git_repository WHERE id = %s FOR UPDATE",
+            (repository_id,))
+        self.env.cr.execute(
+            "SELECT COALESCE(MAX(number), 0) FROM git_pull_request "
+            "WHERE repository_id = %s",
+            (repository_id,))
+        return self.env.cr.fetchone()[0] + 1
+
     @api.model_create_multi
     def create(self, vals_list):
+        for vals in vals_list:
+            if not vals.get('number') and vals.get('repository_id'):
+                vals['number'] = self._next_number(vals['repository_id'])
         records = super().create(vals_list)
         for pr in records:
             # best effort: a PR can legitimately exist before its bare repo

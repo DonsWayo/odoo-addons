@@ -10,8 +10,11 @@ import shutil
 import subprocess
 import tempfile
 
+from psycopg2 import IntegrityError
+
 from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.tests import HttpCase, tagged
+from odoo.tools import mute_logger
 
 from .common import DwGitCommon
 
@@ -630,6 +633,60 @@ class TestJsonApi(HttpCase):
         self.assertNotEqual(result.get('name'), 'not-yours',
                             'outsider read a private repository')
         del outsider
+
+
+@tagged('regression', 'post_install', '-at_install')
+class TestPullRequestNumbersArePerRepository(DwGitCommon):
+    """Regression for #8.
+
+    Numbers came from one global ir.sequence, so the first pull request in
+    a brand new repository could be #795. Every Git host numbers per
+    repository, and that is how users read the number: "the Nth pull
+    request in THIS repo".
+    """
+
+    def _pr(self, repo, title='pr'):
+        main = self.Branch.create({
+            'name': f'main-{title}', 'repository_id': repo.id,
+            'commit_sha': 'a' * 40})
+        feat = self.Branch.create({
+            'name': f'feat-{title}', 'repository_id': repo.id,
+            'commit_sha': 'b' * 40})
+        return self.PR.create({
+            'title': title, 'repository_id': repo.id,
+            'source_branch_id': feat.id, 'target_branch_id': main.id})
+
+    def test_first_pull_request_in_a_repository_is_number_one(self):
+        repo = self._repo('numbering-a')
+        self.assertEqual(self._pr(repo, 'first').number, 1)
+
+    def test_numbers_increment_within_a_repository(self):
+        repo = self._repo('numbering-b')
+        self.assertEqual(
+            [self._pr(repo, 'one').number, self._pr(repo, 'two').number,
+             self._pr(repo, 'three').number],
+            [1, 2, 3])
+
+    def test_each_repository_numbers_independently(self):
+        a, b = self._repo('numbering-c'), self._repo('numbering-d')
+        self._pr(a, 'a1')
+        self._pr(a, 'a2')
+        self.assertEqual(
+            self._pr(b, 'b1').number, 1,
+            'a new repository starts at 1 regardless of other repositories')
+        self.assertEqual(self._pr(a, 'a3').number, 3)
+
+    def test_a_duplicate_number_in_one_repository_is_refused(self):
+        repo = self._repo('numbering-e')
+        first = self._pr(repo, 'one')
+        clash = self._pr(repo, 'two')
+        with self.assertRaises(IntegrityError), mute_logger('odoo.sql_db'):
+            clash.write({'number': first.number})
+            self.env.flush_all()
+
+    def test_the_same_number_may_exist_in_two_repositories(self):
+        a, b = self._repo('numbering-f'), self._repo('numbering-g')
+        self.assertEqual(self._pr(a, 'x').number, self._pr(b, 'y').number)
 
 
 @tagged('regression', 'post_install', '-at_install')
