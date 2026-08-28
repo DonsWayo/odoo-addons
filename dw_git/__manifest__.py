@@ -1,6 +1,6 @@
 {
     'name': 'Git Hosting',
-    'version': '19.0.1.8.0',
+    'version': '19.0.1.9.0',
     'category': 'Tools/Development',
     'summary': 'Self-hosted Git repository hosting and code review inside Odoo: '
                'clone and push over HTTPS, pull requests, branch protection, '
@@ -80,6 +80,7 @@ https://github.com/DonsWayo/odoo-addons
     'assets': {
         'web.assets_backend': [
             'dw_git/static/src/scss/dw_git.scss',
+            'dw_git/static/src/components/badge/git_badge_field.js',
             'dw_git/static/src/components/diff_viewer/diff_viewer_field.js',
             'dw_git/static/src/components/diff_viewer/diff_viewer_field.xml',
             'dw_git/static/src/components/file_browser/file_browser.js',

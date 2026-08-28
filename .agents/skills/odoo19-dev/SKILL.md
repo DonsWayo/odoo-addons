@@ -1,6 +1,6 @@
 ---
 name: odoo19-dev
-description: Odoo 19 module development rules for THIS project (dw_git). Use when writing or editing XML views (form, list, kanban, search), Python models, controllers, or manifests in dw_git/, or when Odoo throws view validation errors, "Missing 'card' template", "Forbidden owl directive", "Unknown field/action", or CSS bundle errors. Encodes every Odoo 17→19 breaking change hit in this repo.
+description: Odoo 19 module development rules for THIS project (dw_git). Use when writing or editing XML views (form, list, kanban, search), Python models, controllers, manifests, Owl components, field widgets, browser tours or tests in dw_git/, or when Odoo throws view validation errors, "Missing 'card' template", "Forbidden owl directive", "Unknown field/action", "Invalid props for component", "widget don't support the type", CSS bundle errors, InFailedSqlTransaction, or when a browser tour fails or is skipped. Encodes every Odoo 17->19 breaking change and every silent-failure mode hit in this repo.
 always-apply: false
 ---
 
@@ -360,3 +360,139 @@ grep -oE '^\.[a-zA-Z0-9_-]+' dw_git/static/src/scss/*.scss | sort -u    # styled
 - `doc/index.rst` becomes the Documentation tab and must be pure valid RST.
 - The dashboard's `Scan` **checkbox** is `auto_scan` (a setting); the `Scan`
   **link** is the trigger. A scan completes in about a minute.
+
+## Owl 2 in Odoo 19 (audit round 5 — the UI layer, tested for the first time)
+
+Every rule below fixed a bug that shipped and was invisible to a green suite.
+
+- **`t-out` ESCAPES a plain string.** Returning raw HTML from a getter renders
+  visible `<span class="hljs-keyword">` tags. Wrap in `markup()` from
+  `@odoo/owl`. There is no warning.
+- **Never mutate DOM that Owl owns.** `hljs.highlightElement(el)` replaces the
+  element's children, destroying the text node Owl created for `t-esc`. Owl
+  keeps writing into the now-detached node, so the pane freezes on the first
+  value forever while the rest of the UI updates. Compute the markup and let
+  Owl render it.
+- **Client actions receive more props than `action`.** Odoo passes `actionId`,
+  `updateActionState` and `className` too. Declaring only `action` raises
+  `Invalid props for component 'X': unknown key 'actionId'` — but ONLY in dev
+  and test mode, because Owl skips prop validation in production. Use
+  `static props = ["*"]`.
+- **`.o_field_widget { display: inline-block }`** applies to the wrapper Odoo
+  generates for a custom widget (`o_field_<name>`). Inline-block shrinks to
+  content, so a widget renders as narrow as its longest line. Style the
+  wrapper, not just its insides.
+
+## Field widgets: supportedTypes and options are both enforced silently
+
+- `badge` supports **selection, many2one, char** only. On an Integer it logs
+  "The widget: badge don't support the type integer" to the browser console
+  and falls back — no failure, so it survived 23 times here.
+- `badge` has **no `classes` option**. Its only supported option is
+  `color_field`; colour comes from `decoration-*` attributes. Elaborate
+  `options="{'classes': {...}}"` maps are read by nothing and every badge
+  renders default grey, looking exactly as it would if it worked.
+- To widen a widget, extend it: spread the exported descriptor and add types.
+  See `dw_git/static/src/components/badge/git_badge_field.js`.
+- `make assets` runs `qa/check_widgets.py`, which fails on a widget used
+  against a type it does not support. Console warnings do not fail builds.
+
+## Browser tours — the traps that cost a full day
+
+- **A tour that declares `url:` navigates there on start**, discarding the
+  `startUrl` the test passed. Every record-based tour then tests the LIST.
+  If the test supplies the URL, the tour must not declare one.
+- **Tours only trigger on VISIBLE elements.** `select option` can never match:
+  an `<option>` has no layout box. Assert on the `<select>` and inspect its
+  options in `run()`.
+- **List records open from the CELL**, not the `<tr>`. Clicking the row fires
+  no request at all and the dialog never opens.
+- **A readonly field is a `<span>`, not a `<textarea>`.** `textarea:value(...)`
+  cannot match one; textareas exist only in edit mode.
+- **Odoo puts the field name on the wrapper div**, not the input:
+  `[name='x'] input`, never `input[name='x']`.
+- **Target buttons by class, not text.** Odoo renders duplicate control-panel
+  buttons per viewport and the hidden one can match first. Use
+  `.o_list_button_add` for New. Text matching passed under Chromium 131
+  locally and hung under Chrome 152 in CI.
+- **A step with no `run` only WAITS** — it never clicks.
+- **`search_default_*` in an action's context filters your fixture away.**
+  `action_git_repository` sets `search_default_my_repos`
+  (`[('owner_id','=',uid)]`), so a fixture owned by anyone other than the
+  login the tour uses is invisible. Own fixtures as the user that logs in.
+- Odoo logs success as **`TOUR <name> SUCCEEDED`** — uppercase. A
+  case-sensitive grep for "succeeded" matches nothing, which is how the CI
+  guard failed the build on the first genuinely green run.
+
+## Tours skip themselves, silently
+
+Odoo SKIPS every tour when Chrome or `websocket-client` is missing and still
+reports **"0 failed"**. Google ships no arm64 Linux Chrome and Ubuntu's
+`chromium` is a snap stub, so on Apple Silicon there is no browser at all and
+the entire UI layer goes untested while every run looks green.
+
+The Dockerfile installs Playwright's Chromium wherever `google-chrome` is
+absent; Odoo finds it via `find_in_path` or `ODOO_BROWSER_BIN`. Both
+`make test` and CI fail when a tour is skipped, and CI pins the count against
+the number of tours registered under `static/src/tours`. `> 0` would still
+pass if six of seven quietly stopped running.
+
+**Green is often the absence of a test, not the presence of a pass.**
+
+## Test isolation: what rolls back and what does not
+
+- **The filesystem does not roll back.** Odoo rolls the database back between
+  tests; nothing rolls back `refs/heads`. A bare repo built in `setUpClass`
+  carries state across every test in the class, and tests run alphabetically —
+  so a test asserting "the bare repo is empty" passes or fails on execution
+  ORDER. Assert on movement (snapshot before, compare after), not on absence.
+- Writing identical bytes in two tests that share a bare repo leaves nothing
+  staged and `git commit` exits 1. Make fixture content unique per test.
+- **Mail template validation is data-dependent.** `_check_can_be_rendered`
+  renders over `search([], limit=1)` and **returns early when the table is
+  empty**. A test asserting a bad template is refused passes on a seeded
+  database and fails on a fresh one. Create a record first.
+- Data created in `setUp` AND `setUpClass` IS visible to HTTP requests through
+  the shared test cursor — verified with a probe. Do not go looking there
+  first; it cost hours.
+
+## PostgreSQL: a swallowed exception still poisons the transaction
+
+`except Exception: pass` around an ORM write does NOT contain the failure. In
+PostgreSQL a failed statement aborts the WHOLE transaction; catching the
+Python exception does not revive it, and every later query raises
+`InFailedSqlTransaction`. Here a failed branch `unlink()` during merge killed
+the merge notification that ran three lines later — merge reported success,
+no branch deleted, no mail sent, one log line.
+
+Use `with self.env.cr.savepoint():` around anything allowed to fail.
+
+Related: a `required=True` Many2one gets `ondelete='restrict'`. A record
+pinned by its own parent can never be unlinked, so "delete the child on
+merge" style cleanup silently never works.
+
+## Do not swallow exceptions into a plausible empty result
+
+`api_get_tree`/`api_get_blob` wrapped their body in `except Exception` and
+returned an empty listing. A missing repository, an unknown ref, a mistyped
+path and a genuine bug were indistinguishable from an empty directory. Report
+the reason (`no_repository`, `unknown_ref`, `not_found`, …) and let unexpected
+exceptions propagate. A bug that looks like an empty directory is a bug nobody
+reports.
+
+## Never key a filesystem path on a mutable field
+
+Bare repos lived at `<base>/<owner.login>/<name>.git`. `res.users.login` is
+mutable, so renaming a user orphaned every repository they owned — records
+pointing at a directory that no longer existed, clone 404, data intact on disk
+under the old name. A `write()` override chased the repository rename and made
+it look handled; nothing hooked `res.users.write`. Key on the record id and the
+class of bug disappears rather than needing a second hook.
+
+## Measure coverage, do not grep for it
+
+Grepping test files for method names calls `upload_pack` untested when every
+clone test drives it, and calls a method covered when a test only names it in
+a docstring. `make coverage` runs the suite under coverage.py. Note what it
+still cannot see: **executed is not asserted** — every line of the mail
+templates ran while they rendered their own source to nobody.

@@ -10,8 +10,11 @@ import shutil
 import subprocess
 import tempfile
 
+from psycopg2 import IntegrityError
+
 from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.tests import HttpCase, tagged
+from odoo.tools import mute_logger
 
 from .common import DwGitCommon
 
@@ -630,6 +633,250 @@ class TestJsonApi(HttpCase):
         self.assertNotEqual(result.get('name'), 'not-yours',
                             'outsider read a private repository')
         del outsider
+
+
+@tagged('regression', 'post_install', '-at_install')
+class TestPullRequestNumbersArePerRepository(DwGitCommon):
+    """Regression for #8.
+
+    Numbers came from one global ir.sequence, so the first pull request in
+    a brand new repository could be #795. Every Git host numbers per
+    repository, and that is how users read the number: "the Nth pull
+    request in THIS repo".
+    """
+
+    def _pr(self, repo, title='pr'):
+        main = self.Branch.create({
+            'name': f'main-{title}', 'repository_id': repo.id,
+            'commit_sha': 'a' * 40})
+        feat = self.Branch.create({
+            'name': f'feat-{title}', 'repository_id': repo.id,
+            'commit_sha': 'b' * 40})
+        return self.PR.create({
+            'title': title, 'repository_id': repo.id,
+            'source_branch_id': feat.id, 'target_branch_id': main.id})
+
+    def test_first_pull_request_in_a_repository_is_number_one(self):
+        repo = self._repo('numbering-a')
+        self.assertEqual(self._pr(repo, 'first').number, 1)
+
+    def test_numbers_increment_within_a_repository(self):
+        repo = self._repo('numbering-b')
+        self.assertEqual(
+            [self._pr(repo, 'one').number, self._pr(repo, 'two').number,
+             self._pr(repo, 'three').number],
+            [1, 2, 3])
+
+    def test_each_repository_numbers_independently(self):
+        a, b = self._repo('numbering-c'), self._repo('numbering-d')
+        self._pr(a, 'a1')
+        self._pr(a, 'a2')
+        self.assertEqual(
+            self._pr(b, 'b1').number, 1,
+            'a new repository starts at 1 regardless of other repositories')
+        self.assertEqual(self._pr(a, 'a3').number, 3)
+
+    def test_a_duplicate_number_in_one_repository_is_refused(self):
+        repo = self._repo('numbering-e')
+        first = self._pr(repo, 'one')
+        clash = self._pr(repo, 'two')
+        with self.assertRaises(IntegrityError), mute_logger('odoo.sql_db'):
+            clash.write({'number': first.number})
+            self.env.flush_all()
+
+    def test_the_same_number_may_exist_in_two_repositories(self):
+        a, b = self._repo('numbering-f'), self._repo('numbering-g')
+        self.assertEqual(self._pr(a, 'x').number, self._pr(b, 'y').number)
+
+
+@tagged('regression', 'post_install', '-at_install')
+class TestRenamesDoNotOrphanRepositories(HttpCase):
+    """Regression for #9.
+
+    The bare repo used to live at <base>/<owner.login>/<name>.git, and
+    res.users.login is mutable. Renaming a user orphaned every repository
+    they owned: the record pointed at a directory that no longer existed,
+    clone 404'd, and the data sat on disk under the old name with nothing
+    in the UI to say so. A write() override on git.repository chased the
+    path when the REPOSITORY was renamed, but nothing hooked
+    res.users.write, so the dangerous half was uncovered.
+
+    Paths are now keyed on the record id, which never changes.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.base = tempfile.mkdtemp(prefix='dw-git-rename-')
+        cls.addClassCleanup(shutil.rmtree, cls.base, True)
+        cls.env['ir.config_parameter'].sudo().set_param(
+            'dw_git.repo_base_path', cls.base)
+        cls.owner = cls.env['res.users'].create({
+            'name': 'Rename Owner', 'login': 'rename-me',
+            'email': 'ro@t.com'})
+        cls.repo = cls.env['git.repository'].create({
+            'name': 'rename-repo', 'owner_id': cls.owner.id})
+        cls.repo._init_git_repo()
+
+    def _push_a_commit(self):
+        work = tempfile.mkdtemp(prefix='dw-git-rename-work-')
+        self.addCleanup(shutil.rmtree, work, True)
+        subprocess.run(['git', 'clone', '-q', self.repo._get_repo_path(), work],
+                       check=True, capture_output=True)
+        # Unique content per test: the bare repo is built once in
+        # setUpClass and lives on the filesystem, which no rollback undoes.
+        # Writing identical bytes leaves nothing staged and `git commit`
+        # exits 1 on an empty commit.
+        with open(os.path.join(work, 'f.txt'), 'w') as fh:
+            fh.write(f'{self._testMethodName}\n')
+        for args in (['add', '-A'],
+                     ['-c', 'user.email=a@b.c', '-c', 'user.name=T',
+                      'commit', '-qm', f'seed {self._testMethodName}'],
+                     ['push', '-q', 'origin', 'HEAD:refs/heads/main']):
+            subprocess.run(['git', *args], cwd=work, check=True,
+                           capture_output=True)
+
+    def test_path_does_not_contain_the_owner_login(self):
+        self.assertNotIn(
+            self.owner.login, self.repo._get_repo_path(),
+            'the on-disk path must not embed a mutable login')
+
+    def test_renaming_the_owner_login_keeps_the_repository_readable(self):
+        self._push_a_commit()
+        path_before = self.repo._get_repo_path()
+        self.assertTrue(os.path.isdir(path_before))
+
+        self.owner.write({'login': 'renamed-owner'})
+        self.env.flush_all()
+
+        self.assertEqual(
+            self.repo._get_repo_path(), path_before,
+            'renaming the owner must not move the repository')
+        self.assertTrue(
+            os.path.isdir(self.repo._get_repo_path()),
+            'the bare repo must still be where the record says it is')
+        # and it is still a working repository, not just a directory
+        out = subprocess.run(
+            ['git', 'rev-parse', 'refs/heads/main'],
+            cwd=self.repo._get_repo_path(), capture_output=True, text=True)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(len(out.stdout.strip()), 40)
+
+    def test_renaming_the_repository_keeps_it_readable(self):
+        self._push_a_commit()
+        path_before = self.repo._get_repo_path()
+        self.repo.write({'name': 'renamed-repo'})
+        self.env.flush_all()
+        self.assertEqual(self.repo._get_repo_path(), path_before)
+        self.assertTrue(os.path.isdir(self.repo._get_repo_path()))
+
+    def test_clone_url_still_uses_the_friendly_owner_and_name(self):
+        # the URL is a lookup, not a path: it may keep changing
+        self.repo.invalidate_recordset(['clone_url_http'])
+        self.assertIn(f'/{self.repo.owner_id.login}/{self.repo.name}.git',
+                      self.repo.clone_url_http)
+
+
+@tagged('regression', 'post_install', '-at_install')
+class TestApiDistinguishesAbsenceFromFailure(HttpCase):
+    """Regression for #31.
+
+    api_get_tree and api_get_blob wrapped their whole body in
+    `except Exception` and returned an empty result. A missing repository,
+    an unknown ref, a mistyped path and a genuine bug were therefore
+    indistinguishable from an empty directory: the caller got a plausible,
+    wrong answer with no way to know. Same shape as the webhook button that
+    reported "sent" without sending.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.base = tempfile.mkdtemp(prefix='dw-git-api-err-')
+        cls.addClassCleanup(shutil.rmtree, cls.base, True)
+        cls.env['ir.config_parameter'].sudo().set_param(
+            'dw_git.repo_base_path', cls.base)
+        cls.user = cls.env['res.users'].create({
+            'name': 'ApiErr', 'login': 'api-err', 'email': 'ae@t.com',
+            'password': 'api-err-pw',
+            'group_ids': [(4, cls.env.ref('base.group_user').id)]})
+        cls.repo = cls.env['git.repository'].create({
+            'name': 'api-err-repo', 'owner_id': cls.user.id})
+        cls.repo._init_git_repo()
+
+        work = tempfile.mkdtemp(prefix='dw-git-api-err-work-')
+        cls.addClassCleanup(shutil.rmtree, work, True)
+        subprocess.run(['git', 'clone', '-q', cls.repo._get_repo_path(), work],
+                       check=True, capture_output=True)
+        with open(os.path.join(work, 'kept.py'), 'w') as fh:
+            fh.write('VALUE = 1\n')
+        for args in (['add', '-A'],
+                     ['-c', 'user.email=a@b.c', '-c', 'user.name=T',
+                      'commit', '-qm', 'x'],
+                     ['push', '-q', 'origin', 'HEAD:refs/heads/main']):
+            subprocess.run(['git', *args], cwd=work, check=True,
+                           capture_output=True)
+        cls.repo._sync_from_git()
+
+    def _call(self, url, **params):
+        # `url`, not `path`: `path` is also a request parameter of these
+        # endpoints, so naming both the same made every call raise
+        # TypeError: got multiple values for argument 'path'.
+        res = self.url_open(
+            url,
+            data=json.dumps({'jsonrpc': '2.0', 'method': 'call',
+                             'params': params}),
+            headers={'Content-Type': 'application/json'}, timeout=30)
+        self.assertEqual(res.status_code, 200, url)
+        return res.json()['result']
+
+    def setUp(self):
+        super().setUp()
+        self.authenticate('api-err', 'api-err-pw')
+
+    def test_a_real_directory_listing_has_no_error(self):
+        out = self._call(f'/api/git/repositories/{self.repo.id}/tree',
+                         ref='main', path='')
+        self.assertNotIn('error', out)
+        self.assertIn('kept.py', [e['name'] for e in out['tree']])
+
+    def test_unknown_ref_is_reported_not_disguised_as_empty(self):
+        out = self._call(f'/api/git/repositories/{self.repo.id}/tree',
+                         ref='no-such-branch', path='')
+        self.assertEqual(out['tree'], [])
+        self.assertEqual(
+            out.get('error'), 'unknown_ref',
+            'an unknown ref must be distinguishable from an empty directory')
+
+    def test_unknown_path_is_reported(self):
+        out = self._call(f'/api/git/repositories/{self.repo.id}/tree',
+                         ref='main', path='no/such/dir')
+        self.assertEqual(out.get('error'), 'not_found')
+
+    def test_blob_of_a_real_file_has_no_error(self):
+        out = self._call(f'/api/git/repositories/{self.repo.id}/blob',
+                         ref='main', path='kept.py')
+        self.assertNotIn('error', out)
+        self.assertIn('VALUE = 1', out['content'])
+        self.assertFalse(out['binary'])
+
+    def test_blob_unknown_path_is_reported(self):
+        out = self._call(f'/api/git/repositories/{self.repo.id}/blob',
+                         ref='main', path='nope.py')
+        self.assertEqual(out.get('error'), 'not_found')
+        self.assertEqual(out['content'], '')
+
+    def test_blob_without_a_path_is_reported(self):
+        out = self._call(f'/api/git/repositories/{self.repo.id}/blob',
+                         ref='main', path='')
+        self.assertIn('error', out)
+
+    def test_missing_repository_on_disk_is_reported(self):
+        ghost = self.env['git.repository'].create({
+            'name': 'never-created', 'owner_id': self.user.id})
+        self.env.flush_all()
+        out = self._call(f'/api/git/repositories/{ghost.id}/tree', path='')
+        self.assertEqual(out.get('error'), 'no_repository')
 
 
 @tagged('regression', 'post_install', '-at_install')

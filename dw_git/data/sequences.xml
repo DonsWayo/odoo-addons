@@ -1,12 +1,10 @@
 <odoo>
     <!-- Sequences -->
-    <record id="seq_git_pull_request" model="ir.sequence">
-        <field name="name">Git Pull Request</field>
-        <field name="code">git.pull.request</field>
-        <field name="prefix"></field>
-        <field name="padding">4</field>
-        <field name="company_id" eval="False"/>
-    </record>
+    <!-- The pull request sequence is gone on purpose. It was global, so
+         the first PR in a new repository could be #795. Numbering is now
+         per repository, assigned under a row lock in
+         git.pull_request._next_number() with a unique constraint behind
+         it. A single ir.sequence cannot express "per parent record". -->
 
     <record id="seq_git_webhook_delivery" model="ir.sequence">
         <field name="name">Git Webhook Delivery</field>

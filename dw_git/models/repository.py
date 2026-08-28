@@ -275,12 +275,34 @@ class GitRepository(models.Model):
                 repo.access_url = '#'
 
     def _get_repo_path(self):
-        """Get absolute path for repository"""
+        """Absolute path of the bare repository on disk.
+
+        Keyed on the record id, which never changes. It used to be
+        `<base>/<owner.login>/<name>.git`, and `res.users.login` is
+        mutable: renaming a user orphaned every repository they owned. The
+        records went on pointing at a directory that no longer existed,
+        clone returned 404, and the data sat untouched on disk under the
+        old name with nothing in the UI to say so. A `write()` override on
+        this model moved the directory when the repository itself was
+        renamed, but nothing hooked `res.users.write`, so the dangerous
+        half was never covered.
+
+        The clone URLs are unaffected and still read
+        `/git/<owner>/<name>.git` — those resolve by lookup, so the
+        friendly name can change as often as it likes.
+        """
+        self.ensure_one()
+        # An unsaved record has a NewId, which is not an int and would
+        # produce a nonsense directory name.
+        if not isinstance(self.id, int):
+            raise UserError(_(
+                "This repository has not been saved yet, so it has no "
+                "location on disk."))
         base_path = self.env['ir.config_parameter'].sudo().get_param(
             'dw_git.repo_base_path',
             '/var/lib/odoo/git/repos'
         )
-        return os.path.join(base_path, self.owner_id.login, f"{self.name}.git")
+        return os.path.join(base_path, f"{self.id}.git")
 
     def _init_git_repo(self):
         """Create the bare Git repository on disk. Idempotent."""
@@ -438,21 +460,6 @@ class GitRepository(models.Model):
         from odoo.tools import config
         if not config['test_enable']:
             self.env.cr.commit()
-
-    def write(self, vals):
-        """Migrate the bare repo on disk when owner/name changes the path."""
-        import shutil
-        result = True
-        for repo in self:
-            old_path = repo._get_repo_path()
-            res = super(GitRepository, repo).write(vals)
-            new_path = repo._get_repo_path()
-            if old_path != new_path and os.path.isdir(old_path):
-                os.makedirs(os.path.dirname(new_path), exist_ok=True)
-                if not os.path.exists(new_path):
-                    shutil.move(old_path, new_path)
-            result = result and res
-        return result
 
     def _check_repo_access(self, user, operation='read'):
         """Check if user has access to repository.
