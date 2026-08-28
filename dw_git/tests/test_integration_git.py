@@ -1,5 +1,6 @@
 """INTEGRATION tests — real git binary + HTTP layer against live Odoo."""
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -384,3 +385,130 @@ class TestWebhookTellsTheTruth(DwGitCommon):
                 f'{client} appeared — webhooks may now actually be '
                 'delivered, so action_test_delivery must stop saying they '
                 'are not')
+
+
+@tagged('integration', 'post_install', '-at_install')
+class TestMirrorSyncActuallyFetches(DwGitCommon):
+    """`_sync_mirror()` / `_fetch_refs_from()` against a real upstream repo.
+
+    Every other mirror test in this module is negative-path
+    (TestMirrorUrlValidation, `test_sync_revalidates_before_running_git`)
+    or a no-op (`test_cron_sync_mirrors_does_not_crash` runs the cron with
+    zero mirror repositories). None of them ever perform a real `git fetch`
+    and check that the data landed in Odoo. This class does exactly that:
+    build a real bare repo on disk, fetch from it, and assert the branches
+    and commits actually show up as `git.branch` / `git.commit` records —
+    not merely that no exception was raised.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.tmp = tempfile.mkdtemp(prefix='dw_git_mirror_')
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        self.env['ir.config_parameter'].sudo().set_param(
+            'dw_git.repo_base_path', self.tmp)
+
+    def _make_upstream(self):
+        """Build a real bare source repo: main (2 commits) + a branch."""
+        work = os.path.join(self.tmp, 'upstream-work')
+        self._git('init', '-q', '-b', 'main', work)
+        cfg = ['-C', work, '-c', 'user.email=t@t.com', '-c', 'user.name=T']
+
+        def commit(fname, content, msg):
+            with open(os.path.join(work, fname), 'w') as fh:
+                fh.write(content)
+            self._git('-C', work, 'add', '.')
+            self._git(*cfg, 'commit', '-qm', msg)
+            return self._git('-C', work, 'rev-parse', 'HEAD').strip()
+
+        c1 = commit('a.txt', 'one\n', 'first commit')
+        c2 = commit('b.txt', 'two\n', 'second commit')
+        self._git('-C', work, 'checkout', '-q', '-b', 'feature/x')
+        c3 = commit('c.txt', 'three\n', 'feature commit')
+
+        bare = os.path.join(self.tmp, 'upstream.git')
+        self._git('clone', '-q', '--bare', work, bare)
+        return bare, {'main': c2, 'feature/x': c3}, c1
+
+    def _permissive_mirror_guards(self):
+        """Context managers patching the mirror URL/protocol allowlists.
+
+        `MIRROR_URL_RE` in dw_git/models/repository.py deliberately rejects
+        `file://` — see the comment above the regex: it is a real RCE
+        vector (`ext::sh -c ...`) and `file://` reads the local filesystem
+        of the Odoo server. `GIT_ALLOW_PROTOCOL` in `_fetch_refs_from` is a
+        second, independent belt-and-braces guard that git itself enforces
+        and which also excludes `file`. Both allowlists are intentionally
+        hostile to `file://` and are already covered by their own tests in
+        `TestMirrorUrlValidation` (test_regressions.py). A local `file://`
+        path is only how *this test* stands up a "remote" without a
+        network, so both guards are patched, scoped to a single `with`
+        block, and never touched in the shipped module.
+        """
+        return (
+            patch('odoo.addons.dw_git.models.repository.MIRROR_URL_RE',
+                  re.compile(r'.*')),
+            patch('odoo.addons.dw_git.models.repository.'
+                  'MIRROR_ALLOWED_PROTOCOLS', 'http:https:git:ssh:file'),
+        )
+
+    def test_sync_mirror_actually_fetches_and_lands_data(self):
+        bare, heads, c1_sha = self._make_upstream()
+        repo = self._repo('mirror-live')
+        repo._init_git_repo()
+        repo.write({'is_mirror': True, 'mirror_active': True})
+
+        url_patch, proto_patch = self._permissive_mirror_guards()
+        with url_patch, proto_patch:
+            repo.write({'mirror_url': 'file://' + bare})
+            self.env.flush_all()
+            result = repo._sync_mirror()
+
+        self.assertTrue(result, '_sync_mirror() reported failure')
+        self.assertTrue(repo.mirror_last_sync,
+                         'mirror_last_sync was never stamped')
+
+        branches = self.Branch.search([('repository_id', '=', repo.id)])
+        self.assertEqual(
+            set(branches.mapped('name')), {'main', 'feature/x'},
+            f'expected both upstream branches, got {branches.mapped("name")}')
+        main = branches.filtered(lambda b: b.name == 'main')
+        feat = branches.filtered(lambda b: b.name == 'feature/x')
+        self.assertEqual(main.commit_sha, heads['main'])
+        self.assertEqual(feat.commit_sha, heads['feature/x'])
+
+        commits = self.Commit.search([('repository_id', '=', repo.id)])
+        messages = set(commits.mapped('message'))
+        self.assertEqual(
+            {'first commit', 'second commit', 'feature commit'}, messages,
+            f'expected 3 upstream commit messages, got {messages}')
+        first = commits.filtered(lambda c: c.sha == c1_sha)
+        self.assertEqual(len(first), 1, 'the first commit never landed')
+        self.assertEqual(first.message, 'first commit')
+
+    def test_cron_sync_mirrors_fetches_a_repository_that_is_due(self):
+        """Unlike test_cron_sync_mirrors_does_not_crash (zero mirrors,
+        proves nothing), this seeds one genuinely due mirror — is_mirror,
+        mirror_active, a valid mirror_url, never synced before — and
+        checks the cron actually fetched it, not merely that it didn't
+        raise.
+        """
+        bare, heads, _ = self._make_upstream()
+        repo = self._repo('mirror-cron-live')
+        repo._init_git_repo()
+        repo.write({'is_mirror': True, 'mirror_active': True})
+        self.assertFalse(repo.mirror_last_sync, 'precondition: never synced')
+
+        url_patch, proto_patch = self._permissive_mirror_guards()
+        with url_patch, proto_patch:
+            repo.write({'mirror_url': 'file://' + bare})
+            self.env.flush_all()
+            self.Repo._cron_sync_mirrors()
+
+        self.assertTrue(
+            repo.mirror_last_sync,
+            'cron did not sync a repository that is due for sync')
+        branches = self.Branch.search([('repository_id', '=', repo.id)])
+        self.assertEqual(
+            set(branches.mapped('name')), {'main', 'feature/x'},
+            f'cron ran but no branches landed: {branches.mapped("name")}')
