@@ -28,8 +28,8 @@
                 <field name="commit_id"/>
                 <field name="is_protected" widget="boolean_toggle" string="Protected"/>
                 <field name="is_default" widget="boolean_toggle" string="Default"/>
-                <field name="ahead_commits" string="Ahead" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-success', '2': 'bg-success', '3': 'bg-success', '4': 'bg-success', '5': 'bg-success', '6': 'bg-success', '7': 'bg-success', '8': 'bg-success', '9': 'bg-success', '10': 'bg-primary'}}"/>
-                <field name="behind_commits" string="Behind" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-warning', '2': 'bg-warning', '3': 'bg-warning', '4': 'bg-warning', '5': 'bg-warning', '6': 'bg-warning', '7': 'bg-warning', '8': 'bg-warning', '9': 'bg-warning', '10': 'bg-danger'}}"/>
+                <field name="ahead_commits" string="Ahead" widget="git_badge" decoration-success="ahead_commits &gt; 0"/>
+                <field name="behind_commits" string="Behind" widget="git_badge" decoration-warning="behind_commits &gt; 0"/>
                 <field name="last_commit_date" widget="datetime"/>
             </list>
         </field>
@@ -100,8 +100,8 @@
                         <field name="commit_sha" readonly="1" string="Latest Commit SHA"/>
                         <field name="is_default" readonly="1"/>
                         <field name="is_protected" readonly="1"/>
-                        <field name="ahead_commits" readonly="1" string="Ahead" widget="badge" options="{'classes': {'0': 'bg-secondary'}}"/>
-                        <field name="behind_commits" readonly="1" string="Behind" widget="badge" options="{'classes': {'0': 'bg-secondary'}}"/>
+                        <field name="ahead_commits" readonly="1" string="Ahead" widget="git_badge" decoration-success="ahead_commits &gt; 0"/>
+                        <field name="behind_commits" readonly="1" string="Behind" widget="git_badge" decoration-warning="behind_commits &gt; 0"/>
                         <field name="last_commit_date" readonly="1" widget="datetime"/>
                     </group>
 

@@ -31,9 +31,9 @@
                 <field name="committed_date" widget="datetime"/>
                 <field name="repository_id" optional="hide"/>
                 <field name="is_signed" string="Signed" widget="boolean_toggle" decoration-success="is_signed == True"/>
-                <field name="additions" optional="hide" string="Additions" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-success', '2': 'bg-success', '3': 'bg-success', '4': 'bg-success', '5': 'bg-success', '10': 'bg-primary', '50': 'bg-warning', '100': 'bg-danger'}}"/>
-                <field name="deletions" optional="hide" string="Deletions" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-warning', '2': 'bg-warning', '3': 'bg-warning', '5': 'bg-warning', '10': 'bg-warning', '50': 'bg-danger', '100': 'bg-danger'}}"/>
-                <field name="files_changed" optional="hide" string="Files" widget="badge"/>
+                <field name="additions" optional="hide" string="Additions" widget="git_badge" decoration-success="additions &gt; 0"/>
+                <field name="deletions" optional="hide" string="Deletions" widget="git_badge" decoration-danger="deletions &gt; 0"/>
+                <field name="files_changed" optional="hide" string="Files" widget="git_badge" decoration-info="files_changed &gt; 0"/>
             </list>
         </field>
     </record>
@@ -115,9 +115,9 @@
                     </group>
 
                     <group string="Stats" col="4">
-                        <field name="additions" readonly="1" string="Lines Added" widget="badge" options="{'classes': {'0': 'bg-secondary'}}"/>
-                        <field name="deletions" readonly="1" string="Lines Deleted" widget="badge" options="{'classes': {'0': 'bg-secondary'}}"/>
-                        <field name="files_changed" readonly="1" string="Files Changed" widget="badge"/>
+                        <field name="additions" readonly="1" string="Lines Added" widget="git_badge" decoration-success="additions &gt; 0"/>
+                        <field name="deletions" readonly="1" string="Lines Deleted" widget="git_badge" decoration-danger="deletions &gt; 0"/>
+                        <field name="files_changed" readonly="1" string="Files Changed" widget="git_badge" decoration-info="files_changed &gt; 0"/>
                         <field name="is_signed" readonly="1" widget="boolean_toggle"/>
                     </group>
 

@@ -80,6 +80,7 @@ https://github.com/DonsWayo/odoo-addons
     'assets': {
         'web.assets_backend': [
             'dw_git/static/src/scss/dw_git.scss',
+            'dw_git/static/src/components/badge/git_badge_field.js',
             'dw_git/static/src/components/diff_viewer/diff_viewer_field.js',
             'dw_git/static/src/components/diff_viewer/diff_viewer_field.xml',
             'dw_git/static/src/components/file_browser/file_browser.js',

@@ -129,6 +129,9 @@ assets: ## Every static asset referenced anywhere actually exists
 	@# fetched with loadJS/loadCSS. A manifest-only check reported "OK" while
 	@# the diff viewer's highlight.js was never fetched at all.
 	@python3 qa/check_assets.py
+	@# And that no field widget is used on a type it does not support. Odoo
+	@# only warns in the browser console for that, so it survives forever.
+	@python3 qa/check_widgets.py
 
 test: upgrade ## Run the full test suite
 	@# Depends on `upgrade`, not just `build`. Rebuilding the image reloads
