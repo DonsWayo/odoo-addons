@@ -108,9 +108,25 @@ class GitHTTPController(http.Controller):
 
         deploy_key = request.env['git.deploy_key'].sudo().find_by_token(secret)
         if deploy_key and deploy_key.repository_id == repository:
-            if operation == 'read' or deploy_key.can_push:
-                # deploy keys are bound to one repository, not to a user
+            allowed_scope = operation == 'read' or deploy_key.can_push
+            # A deploy key is bound to one repository, not to a user, but it
+            # still resolves to the repository's OWNER — a higher-privilege
+            # identity than the key itself. That resolution must be run
+            # through the same gate as everyone else: _check_repo_access is
+            # "the only gate on every path that runs under sudo()"
+            # (git.repository._check_repo_access docstring), including
+            # company scoping. Without this call, a deploy key kept working
+            # against a repository whose owner had been scoped out of the
+            # repository's company (moved company, removed from it, etc.) —
+            # the exact bypass the owner's own PAT/session would be refused.
+            owner_may = repository._check_repo_access(
+                repository.owner_id, operation)
+            if allowed_scope and owner_may:
                 return repository.owner_id
+            _logger.info(
+                "Deploy key %s refused for %s on %s/%s",
+                deploy_key.id, operation,
+                repository.owner_id.login, repository.name)
         return None
 
     def _run_git_command(self, repo_path, command, input_data=None, env=None):
