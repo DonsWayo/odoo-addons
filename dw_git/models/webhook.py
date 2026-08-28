@@ -63,16 +63,25 @@ class GitWebhook(models.Model):
         if not event_map.get(event_type, False):
             return
 
-        # Add signature
+        self._record_delivery(event_type, payload)
+
+    def _record_delivery(self, event_type, payload):
+        """Sign a payload and store it as a delivery record.
+
+        Split out of _process_event because that method drops any event the
+        webhook is not subscribed to, which is right for real events and
+        wrong for a manual test: 'ping' is in no subscription list, so the
+        test button fell straight through the event filter and did nothing
+        whatsoever — while reporting success.
+        """
+        self.ensure_one()
         body = json.dumps(payload).encode()
         signature = hmac.new(
             self.secret_token.encode(),
             body,
             hashlib.sha256
         ).hexdigest()
-
-        # Create delivery record
-        self.env['git.webhook.delivery'].sudo().create({
+        return self.env['git.webhook.delivery'].sudo().create({
             'webhook_id': self.id,
             'event_type': event_type,
             'payload': body,
@@ -80,14 +89,28 @@ class GitWebhook(models.Model):
         })
 
     def action_test_delivery(self):
-        """Send a test payload"""
-        self._process_event('ping', {'zen': 'Test webhook from Odoo Git Hosting'})
+        """Build and record a signed test payload.
+
+        It is not sent. This module builds and signs webhook payloads and
+        stores the delivery record, but ships no HTTP client — there is no
+        `requests` call anywhere in this file. The limitation is documented,
+        but the button used to report "Test webhook sent!", which is the one
+        place a user would ever find out, and it said the opposite of the
+        truth. Say what actually happened instead.
+        """
+        self._record_delivery('ping', {'zen': 'Test webhook from Odoo Git Hosting'})
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
             'params': {
-                'type': 'success',
-                'message': _('Test webhook sent!'),
+                'type': 'warning',
+                'title': _('Payload recorded, not delivered'),
+                'message': _(
+                    'A signed test payload was built and stored under '
+                    'Deliveries, where you can inspect its body and '
+                    'signature. Git Hosting does not send webhooks over the '
+                    'network yet — nothing was transmitted to the endpoint.'),
+                'sticky': True,
             }
         }
 

@@ -22,8 +22,10 @@ Self-hosted Git repository management inside Odoo 19:
 - mail.thread integration on repositories and pull requests
 - Translation template included (i18n/dw_git.pot)
 
-See README.md for the supported feature set and docs/LIMITATIONS.md for
-what is deliberately not implemented yet.
+The Documentation tab covers installation, configuration and the known
+limitations. Neither README.md nor docs/ ships inside the module, so the
+full feature set and the limitations list live at
+https://github.com/DonsWayo/odoo-addons
 """,
     'author': 'Juan Jose Carracedo',
     'website': 'https://github.com/DonsWayo/odoo-addons',

@@ -91,7 +91,7 @@
         <field name="arch" type="xml">
             <form string="Webhook">
                 <header>
-                    <button name="action_test_delivery" type="object" string="Test Delivery" class="btn-primary" invisible="is_active == False" icon="fa-paper-plane" confirm="Send a test payload to this webhook?"/>
+                    <button name="action_test_delivery" type="object" string="Build Test Payload" class="btn-secondary" invisible="is_active == False" icon="fa-flask" confirm="Build and record a signed test payload? It is stored for inspection, not sent — Git Hosting does not deliver webhooks over the network yet."/>
 
                     <field name="is_active" widget="boolean_toggle" string="Active"/>
                 </header>

@@ -1,6 +1,7 @@
 """INTEGRATION tests — real git binary + HTTP layer against live Odoo."""
 import os
 import shutil
+import subprocess
 import tempfile
 from unittest.mock import patch
 
@@ -264,3 +265,122 @@ class TestNotificationPipeline(DwGitCommon):
         template = self.env.ref('dw_git.mail_template_git_pr_merged')
         with self.assertRaises(ValidationError):
             template.write({'email_from': '{{ object.no_such_field_xyz }}'})
+
+
+@tagged('post_install', '-at_install')
+class TestAheadBehindAgainstRealHistory(DwGitCommon):
+    """Ahead/behind counters, computed from an actual diverged branch.
+
+    These are rendered as badges in three views, and the compute swallows
+    every exception and falls back to 0/0. That makes "up to date" and
+    "the computation broke" the same answer on screen. No test asserted a
+    non-zero count, so the whole feature could have been dead and nothing
+    would have said so.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.base = tempfile.mkdtemp(prefix='dw-git-ahead-')
+        self.addCleanup(shutil.rmtree, self.base, True)
+        self.env['ir.config_parameter'].sudo().set_param(
+            'dw_git.repo_base_path', self.base)
+
+        self.repo = self._repo('ahead-behind')
+        self.repo._init_git_repo()
+        self.work = tempfile.mkdtemp(prefix='dw-git-ahead-work-')
+        self.addCleanup(shutil.rmtree, self.work, True)
+        subprocess.run(['git', 'clone', '-q', self.repo._get_repo_path(),
+                        self.work], check=True, capture_output=True)
+        self._git('symbolic-ref', 'HEAD', 'refs/heads/main')
+
+    def _git(self, *args):
+        return subprocess.run(['git', '-C', self.work] + list(args),
+                              check=True, capture_output=True, text=True).stdout
+
+    def _commit(self, message, name, body):
+        with open(os.path.join(self.work, name), 'w') as fh:
+            fh.write(body)
+        self._git('add', '-A')
+        self._git('-c', 'user.email=t@t.com', '-c', 'user.name=T',
+                  'commit', '-qm', message)
+        return self._git('rev-parse', 'HEAD').strip()
+
+    def test_a_diverged_branch_reports_a_non_zero_ahead_count(self):
+        main_sha = self._commit('base', 'a.txt', 'one\n')
+        self._git('push', '-q', 'origin', 'HEAD:refs/heads/main')
+
+        self._git('checkout', '-q', '-b', 'feature/ahead')
+        self._commit('first', 'b.txt', 'two\n')
+        feat_sha = self._commit('second', 'c.txt', 'three\n')
+        self._git('push', '-q', 'origin', 'HEAD:refs/heads/feature/ahead')
+
+        main = self._branch(self.repo, 'main', sha=main_sha)
+        main.write({'is_default': True})
+        feature = self._branch(self.repo, 'feature/ahead', sha=feat_sha)
+
+        feature.invalidate_recordset()
+        self.assertEqual(
+            feature.ahead_commits, 2,
+            'a branch two commits ahead of default reported '
+            f'{feature.ahead_commits} — 0 here would be indistinguishable '
+            'from the compute silently failing')
+        self.assertEqual(feature.behind_commits, 0)
+
+    def test_the_default_branch_is_level_with_itself(self):
+        sha = self._commit('base', 'a.txt', 'one\n')
+        self._git('push', '-q', 'origin', 'HEAD:refs/heads/main')
+        main = self._branch(self.repo, 'main', sha=sha)
+        main.write({'is_default': True})
+        main.invalidate_recordset()
+        self.assertEqual((main.ahead_commits, main.behind_commits), (0, 0))
+
+
+@tagged('post_install', '-at_install')
+class TestWebhookTellsTheTruth(DwGitCommon):
+    """The test-delivery button reported success for work it never did."""
+
+    def test_test_delivery_does_not_claim_to_have_sent_anything(self):
+        """Regression: the button returned "Test webhook sent!". This module
+        builds and signs payloads and stores the delivery record, but has no
+        HTTP client at all — nothing is transmitted. The notification was
+        the one place a user could have learned that, and it said the
+        opposite.
+        """
+        repo = self._repo('hook-honesty')
+        hook = self.env['git.webhook'].create({
+            'name': 'ci', 'url': 'https://example.invalid/hook',
+            'repository_id': repo.id,
+        })
+        before = self.env['git.webhook.delivery'].search_count(
+            [('webhook_id', '=', hook.id)])
+
+        action = hook.action_test_delivery()
+        message = (action['params'].get('message') or '') + \
+                  (action['params'].get('title') or '')
+
+        self.assertNotIn('sent', message.lower(),
+                         'the button still claims the payload was sent')
+        self.assertNotEqual(action['params'].get('type'), 'success',
+                            'reporting success for work never done')
+        self.assertIn('not deliver', message.lower() + ' ' +
+                      str(action['params'].get('message', '')).lower(),
+                      'the user is not told delivery does not happen')
+
+        after = self.env['git.webhook.delivery'].search_count(
+            [('webhook_id', '=', hook.id)])
+        self.assertEqual(after, before + 1,
+                         'the payload should still be recorded for inspection')
+
+    def test_no_http_client_is_imported_anywhere_in_the_webhook_model(self):
+        """Pins the reason the message above must stay honest. If someone
+        implements real delivery, this fails and the copy gets revisited."""
+        import inspect
+
+        from odoo.addons.dw_git.models import webhook as webhook_module
+        source = inspect.getsource(webhook_module)
+        for client in ('import requests', 'urllib.request', 'http.client'):
+            self.assertNotIn(
+                client, source,
+                f'{client} appeared — webhooks may now actually be '
+                'delivered, so action_test_delivery must stop saying they '
+                'are not')
