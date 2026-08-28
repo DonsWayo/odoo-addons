@@ -401,6 +401,89 @@ class TestGitTransportAuthorisation(HttpCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
 
 
+@tagged('e2e', 'post_install', '-at_install')
+class TestDeactivatedUsersLoseTransportAccess(HttpCase):
+    """A deactivated user must not be able to clone or push.
+
+    _check_repo_access is documented as the only gate on every path that
+    runs under sudo() — the git transport, PAT and deploy-key
+    authentication, and the portal. It checked ownership, membership,
+    groups and company, and never checked whether the user was still
+    ACTIVE. Deactivating someone removes their session and their record
+    access, but their personal access token kept working over Smart HTTP,
+    which is precisely the layer that bypasses record rules.
+
+    The store listing says "Deactivate the user and it is gone." These
+    tests are what make that sentence true.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.base_path = tempfile.mkdtemp(prefix='dw_git_deactivated_')
+        cls.addClassCleanup(shutil.rmtree, cls.base_path, ignore_errors=True)
+        cls.env['ir.config_parameter'].sudo().set_param(
+            'dw_git.repo_base_path', cls.base_path)
+
+        cls.user = cls.env['res.users'].create({
+            'name': 'Soon Gone', 'login': 'soon-gone',
+            'email': 'sg@lc.test'})
+        cls.pat = cls.env['git.personal_access_token'].create({
+            'name': 'sg token', 'user_id': cls.user.id, 'scopes': 'write'})
+        cls.token = cls.pat.token
+        cls.repo = cls.env['git.repository'].create({
+            'name': 'deact-repo', 'owner_id': cls.user.id,
+            'visibility': 'private', 'default_branch': 'main'})
+        cls.repo._init_git_repo()
+
+    def setUp(self):
+        super().setUp()
+        self.work = tempfile.mkdtemp(prefix='dw_git_deact_work_')
+        self.addCleanup(shutil.rmtree, self.work, ignore_errors=True)
+
+    def _clone(self, target):
+        base = self.base_url().replace('http://', '')
+        url = (f'http://{self.user.login}:{self.token}@{base}'
+               f'/git/{self.user.login}/{self.repo.name}.git')
+        env = dict(os.environ, GIT_TERMINAL_PROMPT='0',
+                   GIT_CONFIG_NOSYSTEM='1', HOME=self.work)
+        with self.allow_requests():
+            header = (f'http.extraHeader=Cookie: '
+                      f'{TEST_CURSOR_COOKIE_NAME}={self.http_request_key}')
+            return subprocess.run(
+                ['git', '-c', header, 'clone', '-q', url,
+                 os.path.join(self.work, target)],
+                env=env, capture_output=True, text=True, timeout=120)
+
+    def test_an_active_user_can_clone(self):
+        proc = self._clone('active-clone')
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+
+    def test_a_deactivated_user_cannot_clone(self):
+        self.user.write({'active': False})
+        self.env.flush_all()
+        proc = self._clone('inactive-clone')
+        self.assertNotEqual(
+            proc.returncode, 0,
+            "a deactivated user's PAT still cloned over Smart HTTP")
+
+    def test_check_repo_access_refuses_a_deactivated_user(self):
+        self.assertTrue(self.repo._check_repo_access(self.user, 'read'))
+        self.user.write({'active': False})
+        self.env.flush_all()
+        self.assertFalse(
+            self.repo._check_repo_access(self.user, 'read'),
+            'the only gate on the sudo() paths must refuse inactive users')
+
+    def test_find_by_token_refuses_a_deactivated_users_token(self):
+        self.user.write({'active': False})
+        self.env.flush_all()
+        found = self.env['git.personal_access_token'].sudo().find_by_token(
+            self.token)
+        self.assertFalse(
+            found, "a deactivated user's token must not resolve")
+
+
 @tagged('e2e', 'git_lifecycle', 'post_install', '-at_install')
 class TestDeployKeyTransportAuthorisation(HttpCase):
     """`_identity_for_token()` resolves a deploy key to `repository.owner_id`

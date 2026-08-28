@@ -82,7 +82,13 @@ class GitPersonalAccessToken(models.Model):
     def find_by_token(self, raw_token):
         """Find and verify PAT by raw token"""
         token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
-        pat = self.search([('token_hash', '=', token_hash), ('is_active', '=', True)], limit=1)
+        pat = self.search([('token_hash', '=', token_hash),
+                           ('is_active', '=', True),
+                           ('user_id.active', '=', True)], limit=1)
+        # user_id.active in the domain, not just is_active on the token:
+        # deactivating a person must revoke what they hold. Otherwise the
+        # token outlives the account that owns it, over the one transport
+        # that runs under sudo().
         if pat and (not pat.expires_at or pat.expires_at >= fields.Date.today()):
             pat.write({'last_used': fields.Datetime.now()})
             return pat

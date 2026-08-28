@@ -29,7 +29,6 @@ MIRROR_URL_RE = re.compile(
 MIRROR_ALLOWED_PROTOCOLS = 'http:https:git:ssh'
 
 
-
 class GitRepository(models.Model):
     _name = 'git.repository'
     _description = 'Git Repository'
@@ -441,6 +440,16 @@ class GitRepository(models.Model):
         included: a Git Manager in one company has no claim on another
         company's code.
         """
+        # Deactivating a user removes their session and their record
+        # access, but this method is the ONLY gate on the paths that run
+        # under sudo() — the git transport, PAT and deploy-key
+        # authentication, the portal. Without this check a deactivated
+        # user's personal access token went on cloning and pushing private
+        # repositories over Smart HTTP, which is exactly the layer that
+        # bypasses ir.rule. Demonstrated with a real clone before the fix.
+        if not user._is_superuser() and not user.sudo().active:
+            return False
+
         if (not user._is_superuser()
                 and self.company_id
                 and self.company_id not in user.company_ids):

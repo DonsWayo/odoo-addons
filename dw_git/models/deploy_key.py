@@ -62,7 +62,12 @@ class GitDeployKey(models.Model):
     def find_by_token(self, raw_token):
         """Find and verify deploy key by raw token"""
         token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
-        key = self.search([('token_hash', '=', token_hash), ('is_active', '=', True)], limit=1)
+        # A deploy key resolves to repository.owner_id, so an inactive
+        # owner must not be reachable through it either.
+        key = self.search([('token_hash', '=', token_hash),
+                           ('is_active', '=', True),
+                           ('repository_id.owner_id.active', '=', True)],
+                          limit=1)
         if key:
             key.write({'last_used': fields.Datetime.now()})
             return key
