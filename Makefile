@@ -15,7 +15,7 @@ RUFF     := uvx ruff
 
 .DEFAULT_GOAL := help
 .PHONY: help build up down clean logs shell psql install upgrade test test-one \
-        qa lint fmt xml assets check release-check drop-release-check versions i18n
+        qa lint fmt xml assets check release-check drop-release-check versions i18n seed browser
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -69,6 +69,27 @@ i18n: build ## Regenerate $(MODULE)/i18n/$(MODULE).pot from the running module
 	@# silently produces nothing a human ever sees.
 	$(COMPOSE) cp odoo:/tmp/$(MODULE).pot $(MODULE)/i18n/$(MODULE).pot
 	@echo "wrote $(MODULE)/i18n/$(MODULE).pot ($$(grep -c '^msgid ' $(MODULE)/i18n/$(MODULE).pot) entries)"
+
+seed: ## Seed realistic demo data (DW_GIT_RESET=1 rebuilds from scratch)
+	@# Every repository it creates is a real bare repo with real commits, and
+	@# its pull requests get their diffs through the same path a push uses.
+	@# If a diff does not render after this, that is a bug, not a fixture gap.
+	$(COMPOSE) cp qa/seed.py odoo:/tmp/qa-seed.py
+	$(COMPOSE) exec -T -e DW_GIT_RESET=$(DW_GIT_RESET) odoo bash -c \
+	  'odoo shell -d $(DB) $(DBFLAGS) --no-http < /tmp/qa-seed.py' 2>&1 \
+	  | grep -E '^SEED|^  ' || true
+
+browser: ## Report whether browser tours can actually run here
+	@# Odoo SKIPS tours when Chrome or websocket-client is missing and still
+	@# reports "0 failed". Every tour in this module was skipped for the whole
+	@# life of the project without anyone noticing. This says so out loud.
+	@$(COMPOSE) exec -T odoo python3 -c "import websocket" 2>/dev/null \
+	  && echo "  websocket-client: present" \
+	  || echo "  websocket-client: MISSING - all tours will be skipped"
+	@$(COMPOSE) exec -T odoo sh -c 'command -v google-chrome google-chrome-stable chromium 2>/dev/null | head -1' \
+	  | grep -q . \
+	  && echo "  chrome:           present - tours will RUN" \
+	  || echo "  chrome:           MISSING - tours will be SKIPPED, not passed (expected on arm64; CI runs amd64)"
 
 ## ---------------------------------------------------------------- checks
 

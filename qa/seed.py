@@ -1,143 +1,249 @@
-# -*- coding: utf-8 -*-
-"""Seed realistic data for Git Hosting QA: real bare git repo + branches + commits + PR.
+"""Seed realistic data for Git Hosting QA.
 
-Run inside the container:
-    odoo shell -d odoo --db_host=postgres --db_user=odoo --db_password=odoo \
-        < /opt/qa/seed.py
+Every repository this creates is a *real* bare git repository on disk with
+real commits, real branches and pull requests whose diffs actually render.
 
-Idempotent: skips records that already exist (matched by name).
+That matters more than it sounds. The previous version of this script
+seeded one real repository; the rest of the demo data was records with no
+git repository behind them, so their pull requests showed changed files
+with line counts and an empty diff — the UI describing a history that was
+never pushed. Anything seeded here goes through the same code path a real
+push does, so if a diff does not render locally, that is a bug and not a
+gap in the fixture.
+
+Run with:  make seed          (add DW_GIT_RESET=1 to wipe existing data)
 """
 import os
 import subprocess
-from datetime import datetime, timezone
+from datetime import datetime
 
-
-def odoo_dt(iso):
-    """ISO8601 (git %aI) -> naive UTC string for Odoo Datetime."""
-    dt = datetime.fromisoformat(iso)
-    return dt.astimezone(timezone.utc).replace(tzinfo=None).strftime('%Y-%m-%d %H:%M:%S')
-
-REPO_NAME = 'hello-world'
-OWNER_LOGIN = 'admin'
 BASE = '/var/lib/odoo/git/repos'
-BARE = os.path.join(BASE, OWNER_LOGIN, REPO_NAME + '.git')
-WORK = '/tmp/seed-work-' + REPO_NAME
+RESET = os.environ.get('DW_GIT_RESET') == '1'
 
-Commit = env['git.commit']
 Repo = env['git.repository']
 Branch = env['git.branch']
+Commit = env['git.commit']
 PR = env['git.pull_request']
 User = env['res.users']
 
-existing = Repo.search([('name', '=', REPO_NAME)])
-if existing:
-    print('SEED: repository %r already exists, skipping' % REPO_NAME)
-else:
-    # ---------------------------------------------------------- real git repo
-    def git(*args, cwd=None):
-        cmd = ['git'] + list(args)
-        subprocess.run(cmd, cwd=cwd, check=True, capture_output=True)
+admin = env.ref('base.user_admin')
 
-    subprocess.run(['rm', '-rf', WORK], check=True)
-    os.makedirs(BASE, exist_ok=True)
-    git('init', '-b', 'main', WORK)
-    git('config', 'user.email', 'dev@example.com', cwd=WORK)
-    git('config', 'user.name', 'Dev Author', cwd=WORK)
 
-    def commit(msg, files):
+def odoo_dt(iso):
+    return datetime.fromisoformat(iso).strftime('%Y-%m-%d %H:%M:%S')
+
+
+def git(*args, cwd=None):
+    subprocess.run(['git'] + list(args), cwd=cwd, check=True,
+                   capture_output=True)
+
+
+def rev(ref, cwd):
+    return subprocess.run(['git', 'rev-parse', ref], cwd=cwd,
+                          capture_output=True, text=True).stdout.strip()
+
+
+def build_repo(spec):
+    """Create one repository end to end: disk, records, branches, PR."""
+    name = spec['name']
+    work = f'/tmp/seed-work-{name}'
+    bare = os.path.join(BASE, admin.login, name + '.git')
+
+    subprocess.run(['rm', '-rf', work, bare], check=True)
+    os.makedirs(work, exist_ok=True)
+    git('init', '-q', '-b', 'main', cwd=work)
+    git('config', 'user.email', 'seed@example.com', cwd=work)
+    git('config', 'user.name', 'Seed Author', cwd=work)
+
+    def commit(message, files):
         for path, content in files.items():
-            full = os.path.join(WORK, path)
+            full = os.path.join(work, path)
             os.makedirs(os.path.dirname(full), exist_ok=True)
-            with open(full, 'w') as f:
-                f.write(content)
-        git('add', '.', cwd=WORK)
-        git('commit', '-m', msg, cwd=WORK)
+            with open(full, 'w') as fh:
+                fh.write(content)
+        git('add', '-A', cwd=work)
+        git('commit', '-m', message, cwd=work)
 
-    commit('Initial commit', {
-        'README.md': '# Hello World\n\nDemo repo for Git Hosting QA.\n',
-    })
-    commit('Add python greeting module', {
-        'hello.py': 'def greet(name):\n    return f"Hello, {name}!"\n',
-    })
-    commit('Add math utils (add, mul)', {
-        'mathutil.py': 'def add(a, b):\n    return a + b\n\ndef mul(a, b):\n    return a * b\n',
-    })
-    git('checkout', '-b', 'feature-greetings', cwd=WORK)
-    commit('Add spanish greeting', {
-        'greetings_es.py': 'def hola(name):\n    return "Hola, " + name\n',
-    })
-    main_sha = subprocess.run(
-        ['git', 'rev-parse', 'main'], cwd=WORK, capture_output=True, text=True
-    ).stdout.strip()
-    feat_sha = subprocess.run(
-        ['git', 'rev-parse', 'feature-greetings'], cwd=WORK, capture_output=True, text=True
-    ).stdout.strip()
+    for message, files in spec['commits']:
+        commit(message, files)
+    main_sha = rev('HEAD', work)
 
-    # bare clone to the served path
-    subprocess.run(['rm', '-rf', BARE], check=True)
-    os.makedirs(os.path.dirname(BARE), exist_ok=True)
-    git('clone', '--bare', WORK, BARE)
+    git('checkout', '-q', '-b', spec['branch'], cwd=work)
+    for message, files in spec['feature_commits']:
+        commit(message, files)
+    feat_sha = rev('HEAD', work)
 
-    # ---------------------------------------------------------- odoo records
-    admin = User.search([('login', '=', OWNER_LOGIN)], limit=1)
+    # publish into the bare repo the server actually serves
+    os.makedirs(os.path.dirname(bare), exist_ok=True)
+    git('clone', '-q', '--bare', work, bare)
+    git('symbolic-ref', 'HEAD', 'refs/heads/main', cwd=bare)
+
     repo = Repo.create({
-        'name': REPO_NAME,
-        'description': 'Demo repository seeded for QA with a real git history.',
+        'name': name,
+        'description': spec['description'],
         'owner_id': admin.id,
-        'visibility': 'internal',
+        'visibility': spec.get('visibility', 'internal'),
         'default_branch': 'main',
     })
-    Branch.create({'name': 'main', 'repository_id': repo.id, 'commit_sha': main_sha})
-    Branch.create({'name': 'feature-greetings', 'repository_id': repo.id, 'commit_sha': feat_sha})
+    main_b = Branch.create({'name': 'main', 'repository_id': repo.id,
+                            'commit_sha': main_sha})
+    feat_b = Branch.create({'name': spec['branch'], 'repository_id': repo.id,
+                            'commit_sha': feat_sha})
 
-    for sha, msg in [
-        (main_sha, 'Initial commit'),
-    ]:
-        pass  # commits synced below
+    # mirror the real history into Odoo
+    log = subprocess.run(
+        ['git', 'log', '--all', '--format=%H%x00%an%x00%ae%x00%aI%x00%s'],
+        cwd=work, capture_output=True, text=True).stdout
+    made = 0
+    for line in log.splitlines():
+        if not line.strip():
+            continue
+        sha, an, ae, ad, subj = line.split('\x00')
+        if Commit.search_count([('sha', '=', sha),
+                                ('repository_id', '=', repo.id)]):
+            continue
+        Commit.create({
+            'sha': sha, 'message': subj, 'author_name': an,
+            'author_email': ae, 'committed_date': odoo_dt(ad),
+            'repository_id': repo.id,
+        })
+        made += 1
 
-    # mirror commits into odoo (both branches, walking real history)
-    seen = []
-    for ref in (main_sha, feat_sha):
-        out = subprocess.run(
-            ['git', 'log', '--format=%H%x00%an%x00%ae%x00%aI%x00%s', ref],
-            cwd=WORK, capture_output=True, text=True).stdout
-        for line in out.splitlines():
-            if not line or line in seen:
-                continue
-            seen.append(line)
-            sha, an, ae, ad, subj = line.split('\x00')
-            if not Commit.search([('sha', '=', sha)], limit=1):
-                c = Commit.create({
-                    'sha': sha, 'message': subj, 'author_name': an,
-                    'author_email': ae, 'committed_date': odoo_dt(ad),
-                    'repository_id': repo.id,
-                })
-                # link branches containing this commit
-                containing = subprocess.run(
-                    ['git', 'branch', '-a', '--contains', sha],
-                    cwd=WORK, capture_output=True, text=True).stdout
-                bnames = [b.strip().lstrip('* ').replace('remotes/origin/', '')
-                          for b in containing.splitlines() if b.strip()]
-                c.branch_ids = [(6, 0, Branch.search([
-                    ('name', 'in', bnames), ('repository_id', '=', repo.id)]).ids)]
-
-    main_b = Branch.search([('name', '=', 'main'), ('repository_id', '=', repo.id)], limit=1)
-    feat_b = Branch.search([('name', '=', 'feature-greetings'), ('repository_id', '=', repo.id)], limit=1)
-
-    PR.create({
-        'title': 'Add spanish greeting',
-        'description': '<p>Adds <code>greetings_es.py</code> with a spanish greeting helper.</p>',
+    pr = PR.create({
+        'title': spec['pr_title'],
+        'description': spec['pr_description'],
         'state': 'open',
         'repository_id': repo.id,
         'source_branch_id': feat_b.id,
         'target_branch_id': main_b.id,
         'author_id': admin.id,
     })
-    # bob as member (collaborator E2E path)
-    bob = User.search([('login', '=', 'bob')])
+    # the point of the exercise: real diffs, via the real code path
+    pr.action_refresh_changes()
+
+    bob = User.search([('login', '=', 'bob')], limit=1)
     if bob:
         repo.write({'member_ids': [(4, bob.id)]})
-    print('SEED: created repo=%s branches=2 commits=%d pr=1' % (repo.name, len(seen)))
+
+    subprocess.run(['rm', '-rf', work], check=True)
+    return repo, pr, made
+
+
+SPECS = [
+    {
+        'name': 'hello-world',
+        'description': 'Greeting helpers, used as the QA reference repository.',
+        'branch': 'feature/spanish-greeting',
+        'commits': [
+            ('Initial commit', {'README.md': '# Hello World\n\nDemo repository for Git Hosting QA.\n'}),
+            ('Add python greeting module', {'hello.py': 'def greet(name):\n    return f"Hello, {name}!"\n'}),
+            ('Add math utils', {'mathutil.py': 'def add(a, b):\n    return a + b\n\n\ndef mul(a, b):\n    return a * b\n'}),
+        ],
+        'feature_commits': [
+            ('Add spanish greeting', {
+                'greetings_es.py': 'def hola(name):\n    return f"Hola, {name}!"\n',
+            }),
+        ],
+        'pr_title': 'Add spanish greeting',
+        'pr_description': '<p>Adds <code>greetings_es.py</code> with a spanish greeting helper.</p>',
+    },
+    {
+        'name': 'payments-api',
+        'description': 'Payment gateway integration service.',
+        'branch': 'feature/validate-amounts',
+        'commits': [
+            ('Initial commit', {'README.md': '# payments-api\n\nPayment gateway integration.\n'}),
+            ('Add charge endpoint', {
+                'src/service.py': (
+                    '"""Payment service."""\n\n\n'
+                    'def charge(amount, currency="EUR"):\n'
+                    '    return {"amount": amount, "currency": currency, "status": "ok"}\n'
+                ),
+            }),
+        ],
+        'feature_commits': [
+            ('Reject non-positive amounts and unknown currencies', {
+                'src/service.py': (
+                    '"""Payment service."""\n\n'
+                    'SUPPORTED = ("EUR", "USD", "GBP")\n\n\n'
+                    'def charge(amount, currency="EUR"):\n'
+                    '    """Charge an amount, refusing anything we cannot settle."""\n'
+                    '    if amount <= 0:\n'
+                    '        raise ValueError("amount must be positive")\n'
+                    '    if currency not in SUPPORTED:\n'
+                    '        raise ValueError(f"unsupported currency: {currency}")\n'
+                    '    return {"amount": amount, "currency": currency, "status": "ok"}\n'
+                ),
+                'tests/test_service.py': (
+                    'import pytest\n\n'
+                    'from src.service import charge\n\n\n'
+                    'def test_charges_a_valid_amount():\n'
+                    '    assert charge(10)["status"] == "ok"\n\n\n'
+                    'def test_rejects_zero():\n'
+                    '    with pytest.raises(ValueError):\n'
+                    '        charge(0)\n\n\n'
+                    'def test_rejects_unknown_currency():\n'
+                    '    with pytest.raises(ValueError):\n'
+                    '        charge(10, "XYZ")\n'
+                ),
+            }),
+        ],
+        'pr_title': 'Validate charge amounts and currencies',
+        'pr_description': '<p>Refuses non-positive amounts and unsupported currencies, with tests covering both.</p>',
+    },
+    {
+        'name': 'design-system',
+        'description': 'Shared component library.',
+        'branch': 'feature/button-variants',
+        'visibility': 'private',
+        'commits': [
+            ('Initial commit', {'README.md': '# design-system\n\nShared components.\n'}),
+            ('Add base button', {
+                'components/button.css': '.btn {\n  border-radius: 4px;\n  padding: 8px 16px;\n}\n',
+            }),
+        ],
+        'feature_commits': [
+            ('Add primary and danger button variants', {
+                'components/button.css': (
+                    '.btn {\n  border-radius: 4px;\n  padding: 8px 16px;\n}\n\n'
+                    '.btn--primary {\n  background: #714b67;\n  color: #fff;\n}\n\n'
+                    '.btn--danger {\n  background: #d9534f;\n  color: #fff;\n}\n'
+                ),
+            }),
+        ],
+        'pr_title': 'Add primary and danger button variants',
+        'pr_description': '<p>Two variants on the base button, matching the brand palette.</p>',
+    },
+]
+
+# ---------------------------------------------------------------- run
+if RESET:
+    old = Repo.search([])
+    print('SEED: reset — removing %d repository records and their git dirs'
+          % len(old))
+    for repo in old:
+        path = repo._get_repo_path()
+        subprocess.run(['rm', '-rf', path], check=False)
+    # children cascade from the repository, except PRs which RESTRICT on
+    # branches; drop them first so the repository delete can proceed.
+    PR.search([]).unlink()
+    old.unlink()
+
+report = []
+for spec in SPECS:
+    if Repo.search_count([('name', '=', spec['name'])]):
+        print('SEED: %s already exists, skipping (DW_GIT_RESET=1 to rebuild)'
+              % spec['name'])
+        continue
+    repo, pr, commits = build_repo(spec)
+    patched = len(pr.file_ids.filtered('patch'))
+    report.append((repo.name, commits, len(pr.file_ids), patched))
 
 env.cr.commit()
+
+print('\nSEED: result')
+for name, commits, files, patched in report:
+    ok = 'ok' if files and patched == files else 'INCOMPLETE'
+    print('  %-16s commits=%-3d pr_files=%-3d with_diff=%-3d  %s'
+          % (name, commits, files, patched, ok))
 print('SEED: done')
