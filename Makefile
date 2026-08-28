@@ -70,12 +70,19 @@ i18n: build ## Regenerate $(MODULE)/i18n/$(MODULE).pot from the running module
 	$(COMPOSE) cp odoo:/tmp/$(MODULE).pot $(MODULE)/i18n/$(MODULE).pot
 	@echo "wrote $(MODULE)/i18n/$(MODULE).pot ($$(grep -c '^msgid ' $(MODULE)/i18n/$(MODULE).pot) entries)"
 
-seed: ## Seed realistic demo data (DW_GIT_RESET=1 rebuilds from scratch)
+seed: ## Seed demo data incl. a real mirrored GitHub repo (DW_GIT_RESET=1 rebuilds)
 	@# Every repository it creates is a real bare repo with real commits, and
 	@# its pull requests get their diffs through the same path a push uses.
 	@# If a diff does not render after this, that is a bug, not a fixture gap.
+	@# Also mirrors a real GitHub project (pallets/click by default), because
+	@# toy fixtures hide whole categories of problem: five-entry trees never
+	@# exercise nesting, two-line diffs never exercise width or scrolling,
+	@# and three commits never reach the 50-commit sync ceiling.
+	@# DW_GIT_SEED_MIRROR=0 skips it when offline.
 	$(COMPOSE) cp qa/seed.py odoo:/tmp/qa-seed.py
-	$(COMPOSE) exec -T -e DW_GIT_RESET=$(DW_GIT_RESET) odoo bash -c \
+	$(COMPOSE) exec -T -e DW_GIT_RESET=$(DW_GIT_RESET) \
+	  -e DW_GIT_SEED_MIRROR=$(DW_GIT_SEED_MIRROR) \
+	  -e DW_GIT_SEED_MIRROR_URL=$(DW_GIT_SEED_MIRROR_URL) odoo bash -c \
 	  'odoo shell -d $(DB) $(DBFLAGS) --no-http < /tmp/qa-seed.py' 2>&1 \
 	  | grep -E '^SEED|^  ' || true
 
