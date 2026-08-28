@@ -1,6 +1,6 @@
 {
     'name': 'Git Hosting',
-    'version': '19.0.1.8.0',
+    'version': '19.0.1.9.0',
     'category': 'Tools/Development',
     'summary': 'Self-hosted Git repository hosting and code review inside Odoo: '
                'clone and push over HTTPS, pull requests, branch protection, '

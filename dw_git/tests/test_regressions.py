@@ -633,6 +633,94 @@ class TestJsonApi(HttpCase):
 
 
 @tagged('regression', 'post_install', '-at_install')
+class TestRenamesDoNotOrphanRepositories(HttpCase):
+    """Regression for #9.
+
+    The bare repo used to live at <base>/<owner.login>/<name>.git, and
+    res.users.login is mutable. Renaming a user orphaned every repository
+    they owned: the record pointed at a directory that no longer existed,
+    clone 404'd, and the data sat on disk under the old name with nothing
+    in the UI to say so. A write() override on git.repository chased the
+    path when the REPOSITORY was renamed, but nothing hooked
+    res.users.write, so the dangerous half was uncovered.
+
+    Paths are now keyed on the record id, which never changes.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.base = tempfile.mkdtemp(prefix='dw-git-rename-')
+        cls.addClassCleanup(shutil.rmtree, cls.base, True)
+        cls.env['ir.config_parameter'].sudo().set_param(
+            'dw_git.repo_base_path', cls.base)
+        cls.owner = cls.env['res.users'].create({
+            'name': 'Rename Owner', 'login': 'rename-me',
+            'email': 'ro@t.com'})
+        cls.repo = cls.env['git.repository'].create({
+            'name': 'rename-repo', 'owner_id': cls.owner.id})
+        cls.repo._init_git_repo()
+
+    def _push_a_commit(self):
+        work = tempfile.mkdtemp(prefix='dw-git-rename-work-')
+        self.addCleanup(shutil.rmtree, work, True)
+        subprocess.run(['git', 'clone', '-q', self.repo._get_repo_path(), work],
+                       check=True, capture_output=True)
+        # Unique content per test: the bare repo is built once in
+        # setUpClass and lives on the filesystem, which no rollback undoes.
+        # Writing identical bytes leaves nothing staged and `git commit`
+        # exits 1 on an empty commit.
+        with open(os.path.join(work, 'f.txt'), 'w') as fh:
+            fh.write(f'{self._testMethodName}\n')
+        for args in (['add', '-A'],
+                     ['-c', 'user.email=a@b.c', '-c', 'user.name=T',
+                      'commit', '-qm', f'seed {self._testMethodName}'],
+                     ['push', '-q', 'origin', 'HEAD:refs/heads/main']):
+            subprocess.run(['git', *args], cwd=work, check=True,
+                           capture_output=True)
+
+    def test_path_does_not_contain_the_owner_login(self):
+        self.assertNotIn(
+            self.owner.login, self.repo._get_repo_path(),
+            'the on-disk path must not embed a mutable login')
+
+    def test_renaming_the_owner_login_keeps_the_repository_readable(self):
+        self._push_a_commit()
+        path_before = self.repo._get_repo_path()
+        self.assertTrue(os.path.isdir(path_before))
+
+        self.owner.write({'login': 'renamed-owner'})
+        self.env.flush_all()
+
+        self.assertEqual(
+            self.repo._get_repo_path(), path_before,
+            'renaming the owner must not move the repository')
+        self.assertTrue(
+            os.path.isdir(self.repo._get_repo_path()),
+            'the bare repo must still be where the record says it is')
+        # and it is still a working repository, not just a directory
+        out = subprocess.run(
+            ['git', 'rev-parse', 'refs/heads/main'],
+            cwd=self.repo._get_repo_path(), capture_output=True, text=True)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(len(out.stdout.strip()), 40)
+
+    def test_renaming_the_repository_keeps_it_readable(self):
+        self._push_a_commit()
+        path_before = self.repo._get_repo_path()
+        self.repo.write({'name': 'renamed-repo'})
+        self.env.flush_all()
+        self.assertEqual(self.repo._get_repo_path(), path_before)
+        self.assertTrue(os.path.isdir(self.repo._get_repo_path()))
+
+    def test_clone_url_still_uses_the_friendly_owner_and_name(self):
+        # the URL is a lookup, not a path: it may keep changing
+        self.repo.invalidate_recordset(['clone_url_http'])
+        self.assertIn(f'/{self.repo.owner_id.login}/{self.repo.name}.git',
+                      self.repo.clone_url_http)
+
+
+@tagged('regression', 'post_install', '-at_install')
 class TestApiDistinguishesAbsenceFromFailure(HttpCase):
     """Regression for #31.
 
