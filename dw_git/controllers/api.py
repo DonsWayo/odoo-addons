@@ -140,34 +140,66 @@ class GitAPIController(http.Controller):
             'deletions': c.deletions,
         } for c in commits[:limit]]
 
+    def _open_repo(self, repo):
+        """Open the on-disk repository, or None when there is none.
+
+        Absence is a real, expected state — a repository record whose bare
+        repo was never created. It is NOT a failure, and the two used to be
+        indistinguishable here: every exception collapsed into an empty
+        result, so a missing repository, an unknown ref, a mistyped path
+        and a genuine bug all reached the caller as an empty directory.
+        """
+        import os
+
+        import git
+        path = repo._get_repo_path()
+        if not os.path.isdir(path):
+            return None
+        return git.Repo(path)
+
     @http.route('/api/git/repositories/<int:repo_id>/tree',
                 type='jsonrpc', auth='user')
     def api_get_tree(self, repo_id, ref=None, path='', **kwargs):
-        """List one directory level of the repository tree at `ref`."""
+        """List one directory level of the repository tree at `ref`.
+
+        Returns `error` alongside an empty `tree` when the listing could
+        not be produced, so a caller can tell "this directory is empty"
+        from "this ref does not exist". Unexpected exceptions are NOT
+        swallowed: they propagate as a JSON-RPC error, because a bug that
+        looks like an empty directory is a bug nobody reports.
+        """
         repo = self._repo_or_raise(repo_id)
-        import os
-        if not os.path.isdir(repo._get_repo_path()):
-            return {'ref': ref or repo.default_branch, 'path': path,
-                    'tree': []}
+        ref = ref or repo.default_branch
+        result = {'ref': ref, 'path': path, 'tree': []}
+
+        git_repo = self._open_repo(repo)
+        if git_repo is None:
+            result['error'] = 'no_repository'
+            return result
         try:
-            import git
-            git_repo = git.Repo(repo._get_repo_path())
-            commit = git_repo.commit(ref or repo.default_branch)
-            tree = commit.tree / path if path else commit.tree
-            return {
-                'ref': ref or repo.default_branch,
-                'path': path,
-                'tree': [{
-                    'name': item.name,
-                    'path': item.path,
-                    'type': item.type if item.type in ('tree', 'blob') else 'submodule',
-                    'size': getattr(item, 'size', 0),
-                } for item in tree],
-            }
+            commit = git_repo.commit(ref)
         except Exception:
-            # empty repo, unknown ref, or unknown path
-            return {'ref': ref or repo.default_branch, 'path': path,
-                    'tree': []}
+            # an empty repository has no commits, and an unknown ref cannot
+            # be resolved; both are the caller's problem, not a crash
+            result['error'] = 'unknown_ref'
+            return result
+
+        try:
+            tree = (commit.tree / path) if path else commit.tree
+        except KeyError:
+            result['error'] = 'not_found'
+            return result
+        if tree.type != 'tree':
+            result['error'] = 'not_a_directory'
+            return result
+
+        result['tree'] = [{
+            'name': item.name,
+            'path': item.path,
+            'type': item.type if item.type in ('tree', 'blob') else 'submodule',
+            'size': getattr(item, 'size', 0),
+        } for item in tree]
+        return result
 
     #: files larger than this are not read into memory for browsing
     _BLOB_SIZE_LIMIT = 2 * 1024 * 1024
@@ -175,37 +207,53 @@ class GitAPIController(http.Controller):
     @http.route('/api/git/repositories/<int:repo_id>/blob',
                 type='jsonrpc', auth='user')
     def api_get_blob(self, repo_id, ref=None, path=None, **kwargs):
-        """Read one file's content at `ref`, for the read-only file browser."""
-        repo = self._repo_or_raise(repo_id)
-        import os
-        if not path or not os.path.isdir(repo._get_repo_path()):
-            return {'path': path, 'binary': True, 'content': '', 'size': 0}
-        try:
-            import git
-            git_repo = git.Repo(repo._get_repo_path())
-            commit = git_repo.commit(ref or repo.default_branch)
-            blob = commit.tree / path
-            size = blob.size
-            if size > self._BLOB_SIZE_LIMIT:
-                return {'path': path, 'binary': True, 'content': '',
-                        'size': size, 'too_large': True}
-            raw = blob.data_stream.read()
-            if b'\0' in raw[:8000]:
-                return {'path': path, 'binary': True, 'content': '',
-                        'size': size}
-            return {
-                'path': path,
-                'binary': False,
-                'content': raw.decode('utf-8', errors='replace'),
-                'size': size,
-            }
-        except Exception:
-            # unknown ref, unknown path, or not a blob
-            return {'path': path, 'binary': True, 'content': '', 'size': 0}
+        """Read one file's content at `ref`, for the read-only file browser.
 
-    # ------------------------------------------------------------------
-    # pull requests
-    # ------------------------------------------------------------------
+        Like api_get_tree, reports WHY there is no content instead of
+        returning a plausible empty file for every possible cause.
+        """
+        repo = self._repo_or_raise(repo_id)
+        result = {'path': path, 'binary': False, 'content': '', 'size': 0}
+
+        if not path:
+            result['error'] = 'no_path'
+            result['binary'] = True
+            return result
+
+        git_repo = self._open_repo(repo)
+        if git_repo is None:
+            result['error'] = 'no_repository'
+            result['binary'] = True
+            return result
+        try:
+            commit = git_repo.commit(ref or repo.default_branch)
+        except Exception:
+            result['error'] = 'unknown_ref'
+            result['binary'] = True
+            return result
+
+        try:
+            blob = commit.tree / path
+        except KeyError:
+            result['error'] = 'not_found'
+            result['binary'] = True
+            return result
+        if blob.type != 'blob':
+            result['error'] = 'not_a_file'
+            result['binary'] = True
+            return result
+
+        size = blob.size
+        result['size'] = size
+        if size > self._BLOB_SIZE_LIMIT:
+            return dict(result, binary=True, too_large=True)
+
+        raw = blob.data_stream.read()
+        if b'\0' in raw[:8000]:
+            return dict(result, binary=True)
+        result['content'] = raw.decode('utf-8', errors='replace')
+        return result
+
     @http.route('/api/git/pull_requests/<int:pr_id>', type='jsonrpc',
                 auth='user')
     def api_get_pr(self, pr_id, **kwargs):

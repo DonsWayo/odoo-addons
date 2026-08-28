@@ -9,6 +9,18 @@ import { rpc } from "@web/core/network/rpc";
 const HLJS_JS = "/dw_git/static/lib/highlightjs/highlight.min.js";
 const HLJS_CSS = "/dw_git/static/lib/highlightjs/github.min.css";
 
+//: The API now says WHY it produced nothing instead of returning an empty
+//: result for every cause (#31). Show the reason rather than an empty pane
+//: that looks like an empty directory.
+const API_ERRORS = {
+    no_repository: "This repository has no git repository on disk yet. Push to it first.",
+    unknown_ref: "That branch or commit does not exist in this repository.",
+    not_found: "That path does not exist at this revision.",
+    not_a_directory: "That path is a file, not a directory.",
+    not_a_file: "That path is a directory, not a file.",
+    no_path: "No file selected.",
+};
+
 //: Filename extension -> highlight.js grammar. Auto-detection guesses from
 //: content alone and is unreliable on short files: a 3-line __init__.py was
 //: routinely detected as something other than Python. We know the filename,
@@ -132,6 +144,12 @@ export class GitFileBrowser extends Component {
                 ref: this.state.ref,
                 path,
             });
+            if (data.error) {
+                this.state.treeError = API_ERRORS[data.error] || data.error;
+                this.state.entries = [];
+                this.state.path = data.path;
+                return;
+            }
             this.state.path = data.path;
             this.state.entries = data.tree.sort((a, b) => {
                 if (a.type !== b.type) {
@@ -166,6 +184,10 @@ export class GitFileBrowser extends Component {
                 ref: this.state.ref,
                 path: entry.path,
             });
+            if (data.error) {
+                this.state.fileError = API_ERRORS[data.error] || data.error;
+                return;
+            }
             this.state.fileBinary = data.binary;
             this.state.fileTooLarge = !!data.too_large;
             this.state.fileContent = data.content;

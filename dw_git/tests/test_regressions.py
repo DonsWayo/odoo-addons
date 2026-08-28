@@ -633,6 +633,108 @@ class TestJsonApi(HttpCase):
 
 
 @tagged('regression', 'post_install', '-at_install')
+class TestApiDistinguishesAbsenceFromFailure(HttpCase):
+    """Regression for #31.
+
+    api_get_tree and api_get_blob wrapped their whole body in
+    `except Exception` and returned an empty result. A missing repository,
+    an unknown ref, a mistyped path and a genuine bug were therefore
+    indistinguishable from an empty directory: the caller got a plausible,
+    wrong answer with no way to know. Same shape as the webhook button that
+    reported "sent" without sending.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.base = tempfile.mkdtemp(prefix='dw-git-api-err-')
+        cls.addClassCleanup(shutil.rmtree, cls.base, True)
+        cls.env['ir.config_parameter'].sudo().set_param(
+            'dw_git.repo_base_path', cls.base)
+        cls.user = cls.env['res.users'].create({
+            'name': 'ApiErr', 'login': 'api-err', 'email': 'ae@t.com',
+            'password': 'api-err-pw',
+            'group_ids': [(4, cls.env.ref('base.group_user').id)]})
+        cls.repo = cls.env['git.repository'].create({
+            'name': 'api-err-repo', 'owner_id': cls.user.id})
+        cls.repo._init_git_repo()
+
+        work = tempfile.mkdtemp(prefix='dw-git-api-err-work-')
+        cls.addClassCleanup(shutil.rmtree, work, True)
+        subprocess.run(['git', 'clone', '-q', cls.repo._get_repo_path(), work],
+                       check=True, capture_output=True)
+        with open(os.path.join(work, 'kept.py'), 'w') as fh:
+            fh.write('VALUE = 1\n')
+        for args in (['add', '-A'],
+                     ['-c', 'user.email=a@b.c', '-c', 'user.name=T',
+                      'commit', '-qm', 'x'],
+                     ['push', '-q', 'origin', 'HEAD:refs/heads/main']):
+            subprocess.run(['git', *args], cwd=work, check=True,
+                           capture_output=True)
+        cls.repo._sync_from_git()
+
+    def _call(self, url, **params):
+        # `url`, not `path`: `path` is also a request parameter of these
+        # endpoints, so naming both the same made every call raise
+        # TypeError: got multiple values for argument 'path'.
+        res = self.url_open(
+            url,
+            data=json.dumps({'jsonrpc': '2.0', 'method': 'call',
+                             'params': params}),
+            headers={'Content-Type': 'application/json'}, timeout=30)
+        self.assertEqual(res.status_code, 200, url)
+        return res.json()['result']
+
+    def setUp(self):
+        super().setUp()
+        self.authenticate('api-err', 'api-err-pw')
+
+    def test_a_real_directory_listing_has_no_error(self):
+        out = self._call(f'/api/git/repositories/{self.repo.id}/tree',
+                         ref='main', path='')
+        self.assertNotIn('error', out)
+        self.assertIn('kept.py', [e['name'] for e in out['tree']])
+
+    def test_unknown_ref_is_reported_not_disguised_as_empty(self):
+        out = self._call(f'/api/git/repositories/{self.repo.id}/tree',
+                         ref='no-such-branch', path='')
+        self.assertEqual(out['tree'], [])
+        self.assertEqual(
+            out.get('error'), 'unknown_ref',
+            'an unknown ref must be distinguishable from an empty directory')
+
+    def test_unknown_path_is_reported(self):
+        out = self._call(f'/api/git/repositories/{self.repo.id}/tree',
+                         ref='main', path='no/such/dir')
+        self.assertEqual(out.get('error'), 'not_found')
+
+    def test_blob_of_a_real_file_has_no_error(self):
+        out = self._call(f'/api/git/repositories/{self.repo.id}/blob',
+                         ref='main', path='kept.py')
+        self.assertNotIn('error', out)
+        self.assertIn('VALUE = 1', out['content'])
+        self.assertFalse(out['binary'])
+
+    def test_blob_unknown_path_is_reported(self):
+        out = self._call(f'/api/git/repositories/{self.repo.id}/blob',
+                         ref='main', path='nope.py')
+        self.assertEqual(out.get('error'), 'not_found')
+        self.assertEqual(out['content'], '')
+
+    def test_blob_without_a_path_is_reported(self):
+        out = self._call(f'/api/git/repositories/{self.repo.id}/blob',
+                         ref='main', path='')
+        self.assertIn('error', out)
+
+    def test_missing_repository_on_disk_is_reported(self):
+        ghost = self.env['git.repository'].create({
+            'name': 'never-created', 'owner_id': self.user.id})
+        self.env.flush_all()
+        out = self._call(f'/api/git/repositories/{ghost.id}/tree', path='')
+        self.assertEqual(out.get('error'), 'no_repository')
+
+
+@tagged('regression', 'post_install', '-at_install')
 class TestPortalRoutes(HttpCase):
     """Portal pages referenced models deleted three commits earlier."""
 
