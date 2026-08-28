@@ -73,6 +73,27 @@ registry.category("web_tour.tours").add("dw_git_pr_diff", {
             run: false,
         },
         {
+            // The field wrapper Odoo generates inherits
+            // `.o_field_widget { display: inline-block }`, which shrinks to
+            // its content: a short diff rendered as a narrow column with the
+            // rest of the dialog empty beside it. Nothing failed, it just
+            // looked broken. Assert the widget actually fills its parent.
+            trigger: ".o_field_git_diff_viewer",
+            content: "The diff viewer fills the width available to it",
+            run: function () {
+                const el = document.querySelector(".o_field_git_diff_viewer");
+                const parent = el.parentElement;
+                const own = el.getBoundingClientRect().width;
+                const avail = parent.getBoundingClientRect().width;
+                if (own < avail - 2) {
+                    throw new Error(
+                        `diff viewer collapsed: ${Math.round(own)}px inside ` +
+                        `${Math.round(avail)}px — the field wrapper is still ` +
+                        `inline-block`);
+                }
+            },
+        },
+        {
             trigger: ".nav-link:contains('Raw Patch')",
             content: "Switch to the raw patch",
             run: "click",

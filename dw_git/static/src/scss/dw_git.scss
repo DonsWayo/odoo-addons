@@ -70,7 +70,20 @@
 // diff2html inside an Odoo form: the widget is dropped into a notebook page
 // whose width varies with the dialog, so the diff has to scroll on its own
 // rather than let long source lines spill out of the sheet.
+// The field wrapper Odoo generates for a custom widget — o_field_<name>, so
+// o_field_git_diff_viewer — inherits `.o_field_widget { display: inline-block }`.
+// An inline-block shrinks to its content, so the diff box was only ever as wide
+// as its longest source line: a two-line diff rendered as a narrow column with
+// the rest of the dialog empty beside it. Styling .d2h-wrapper did not help,
+// because the box it scrolls inside had already collapsed.
+.o_field_widget.o_field_git_diff_viewer {
+    display: block;
+    width: 100%;
+}
+
 .o_git_diff_viewer {
+    width: 100%;
+
     .d2h-wrapper {
         overflow-x: auto;
     }
