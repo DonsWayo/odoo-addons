@@ -31,19 +31,19 @@
         <field name="model">git.pull_request</field>
         <field name="arch" type="xml">
             <list string="Pull Requests" sample="1" decoration-muted="state == 'closed'" decoration-success="state == 'merged'" decoration-warning="state == 'draft'">
-                <field name="number" string="#" widget="badge" options="{'classes': {'': 'bg-secondary'}}"/>
+                <field name="number" string="#" widget="git_badge"/>
                 <field name="title" string="Title"/>
                 <field name="state" widget="badge" string="Status" options="{'classes': {'draft': 'bg-secondary', 'open': 'bg-primary', 'merged': 'bg-success', 'closed': 'bg-danger'}}"/>
                 <field name="repository_id"/>
                 <field name="source_branch_id" string="Source" widget="badge" options="{'classes': {'': 'bg-info'}}"/>
                 <field name="target_branch_id" string="Target" widget="badge" options="{'classes': {'': 'bg-primary'}}"/>
                 <field name="author_id"/>
-                <field name="commit_count" optional="hide" string="Commits" widget="badge"/>
-                <field name="changed_files" optional="hide" string="Files" widget="badge"/>
-                <field name="additions" optional="hide" string="Additions" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-success'}}"/>
-                <field name="deletions" optional="hide" string="Deletions" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-warning'}}"/>
-                <field name="approval_count" string="Approvals" widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-success'}}"/>
-                <field name="changes_requested" optional="hide" string="Changes Req." widget="badge" options="{'classes': {'0': 'bg-secondary', '1': 'bg-danger'}}"/>
+                <field name="commit_count" optional="hide" string="Commits" widget="git_badge" decoration-info="commit_count &gt; 0"/>
+                <field name="changed_files" optional="hide" string="Files" widget="git_badge" decoration-info="changed_files &gt; 0"/>
+                <field name="additions" optional="hide" string="Additions" widget="git_badge" decoration-success="additions &gt; 0"/>
+                <field name="deletions" optional="hide" string="Deletions" widget="git_badge" decoration-danger="deletions &gt; 0"/>
+                <field name="approval_count" string="Approvals" widget="git_badge" decoration-success="approval_count &gt; 0"/>
+                <field name="changes_requested" optional="hide" string="Changes Req." widget="git_badge" decoration-danger="changes_requested"/>
                 <field name="is_mergeable" string="Mergeable" widget="boolean_toggle"/>
                 <field name="create_date" widget="datetime" optional="hide"/>
             </list>
@@ -137,7 +137,7 @@
                                      bg-* in `class` paints the field WRAPPER instead: a square
                                      black block behind a rounded pill, with the corners bleeding
                                      out around it. Colour goes through options, as everywhere else. -->
-                                <field name="number" widget="badge" class="me-2"
+                                <field name="number" widget="git_badge" class="me-2"
                                        options="{'classes': {'': 'bg-secondary'}}"/>
                                 <div class="oe_title flex-grow-1 mb-0">
                                     <h3 class="mb-0"><field name="title" nolabel="1" class="w-100"
@@ -170,8 +170,8 @@
                                 <list string="Changed Files" decoration-success="status == 'added'" decoration-danger="status == 'removed'" decoration-warning="status == 'renamed'" decoration-info="status == 'modified'">
                                     <field name="filename"/>
                                     <field name="status" widget="badge" string="Status" options="{'classes': {'added': 'bg-success', 'modified': 'bg-primary', 'removed': 'bg-danger', 'renamed': 'bg-warning'}}"/>
-                                    <field name="additions" string="Additions" widget="badge" options="{'classes': {'0': 'bg-secondary'}}"/>
-                                    <field name="deletions" string="Deletions" widget="badge" options="{'classes': {'0': 'bg-secondary'}}"/>
+                                    <field name="additions" string="Additions" widget="git_badge" decoration-success="additions &gt; 0"/>
+                                    <field name="deletions" string="Deletions" widget="git_badge" decoration-danger="deletions &gt; 0"/>
                                 </list>
                             </field>
                         </page>

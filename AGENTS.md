@@ -10,20 +10,34 @@ commits, PRs, reviews, PATs, deploy keys, webhooks, portal). Runs in Docker
 
 ## Before you touch views/models
 
-READ the project skill first — it encodes every Odoo 19 breaking change that
-has already broken this repo:
+READ the project skill first — it encodes every Odoo 19 breaking change and
+every silent-failure mode that has already broken this repo:
 
 - `.agents/skills/odoo19-dev/SKILL.md`
+
+This is not optional and not a formality. The skill already documented
+`_sql_constraints` -> `models.Constraint` (Odoo 19 ignores the old list
+silently) and it was used anyway, in this repo, months later — the constraint
+was simply never created and the test that should have caught it passed. If
+you are touching views, Owl components, field widgets, tours or tests, read
+the matching section before writing, not after the failure.
 
 ## Commands
 
 ```bash
 make build up install   # first run
 make check              # xml + lint + upgrade + tests — do this before pushing
-make test               # tests (130)
+make test               # full suite, INCLUDING browser tours (181)
+make coverage           # measured line coverage, not grepped
+make assets             # every asset exists; every widget matches its field type
+make seed               # demo data + a real mirrored GitHub repository
 make qa                 # browser QA (must stay green)
 make help               # everything else
 ```
+
+`make test` FAILS if a browser tour was skipped. Odoo skips tours when Chrome
+is missing and still prints "0 failed" — that is how this module's entire UI
+layer went untested for its whole life while every run looked green.
 
 `make lint` is a gate, not advice: ruff's F821 would have caught the
 `NameError` that shipped in 19.0.1.0.0.
@@ -45,3 +59,13 @@ deliberately absent — check it before "fixing" webhooks or SSH.
 5. Run `python3 qa/run.py` after any view change; keep it green.
 6. New controller route ⇒ new HTTP test. New field on an x2many ⇒ a test that
    populates it. New permission path ⇒ a test acting as a second user.
+7. Assert BEHAVIOUR, not structure. A tour asserting `.d2h-ins` exists passed
+   for the whole life of the feature while nothing on the page had any colour.
+8. Never `except Exception: pass` around an ORM write. In PostgreSQL the
+   transaction stays aborted and the NEXT statement dies —
+   `with self.env.cr.savepoint():` or let it raise.
+9. Never key a filesystem path, URL slug or cache key on a mutable field.
+   `res.users.login` is mutable and it orphaned every repository a renamed
+   user owned.
+10. Check CI before merging. Six PRs went into an already-red `main` on the
+    strength of a local `make test` that was silently skipping the UI layer.

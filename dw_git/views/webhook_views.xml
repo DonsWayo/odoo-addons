@@ -29,7 +29,7 @@
                 <field name="event_tag" string="Tag" widget="boolean_toggle" options="{'active': 'fa-check-circle text-success', 'inactive': 'fa-times-circle text-muted'}"/>
                 <field name="last_delivery" widget="datetime" string="Last Delivery"/>
                 <field name="last_status" widget="badge" string="Last Status" options="{'classes': {'success': 'bg-success', 'failed': 'bg-danger', 'pending': 'bg-warning'}}"/>
-                <field name="failure_count" string="Failures" widget="badge" options="{'classes': {'0': 'bg-success', '1': 'bg-warning', '5': 'bg-danger'}}"/>
+                <field name="failure_count" string="Failures" widget="git_badge" decoration-danger="failure_count &gt; 0"/>
                 <field name="is_active" string="Active" widget="boolean_toggle"/>
             </list>
         </field>
@@ -122,7 +122,7 @@
                     <group string="Delivery Stats" col="4">
                         <field name="last_delivery" readonly="1" widget="datetime"/>
                         <field name="last_status" readonly="1" widget="badge" options="{'classes': {'success': 'bg-success', 'failed': 'bg-danger', 'pending': 'bg-warning'}}"/>
-                        <field name="failure_count" readonly="1" widget="badge" options="{'classes': {'0': 'bg-success', '1': 'bg-warning', '5': 'bg-danger'}}"/>
+                        <field name="failure_count" readonly="1" widget="git_badge" decoration-danger="failure_count &gt; 0"/>
                     </group>
 
                     <notebook>
@@ -177,7 +177,7 @@
                         <field name="webhook_id" options="{'no_create': True, 'no_open': True}"/>
                         <field name="event_type" widget="badge" options="{'classes': {'push': 'bg-primary', 'pull_request': 'bg-info', 'pull_request_review': 'bg-warning', 'branch': 'bg-secondary', 'tag': 'bg-success'}}"/>
                         <field name="status" widget="badge" options="{'classes': {'pending': 'bg-warning', 'success': 'bg-success', 'failed': 'bg-danger'}}"/>
-                        <field name="response_code" widget="badge" options="{'classes': {'200': 'bg-success', '201': 'bg-success', '202': 'bg-success', '400': 'bg-danger', '401': 'bg-danger', '403': 'bg-danger', '404': 'bg-danger', '500': 'bg-danger', '502': 'bg-danger', '503': 'bg-danger', '504': 'bg-danger'}}"/>
+                        <field name="response_code" widget="git_badge" decoration-success="response_code &gt;= 200 and response_code &lt; 300" decoration-danger="response_code &gt;= 400"/>
                         <field name="duration" string="Duration (s)"/>
                     </group>
 
