@@ -58,6 +58,21 @@ registry.category("web_tour.tours").add("dw_git_pr_diff", {
             run: false,
         },
         {
+            // Syntax highlighting is claimed in the README, the manifest and
+            // the store listing, and was broken for the whole life of the
+            // feature: the diff2html "slim" bundle does not carry
+            // highlight.js, so highlightCode() ran and did nothing. Nothing
+            // failed — the code was simply black. Assert a real hljs token.
+            trigger: ".o_git_diff_viewer .hljs-keyword",
+            content: "highlight.js coloured a keyword in the diff",
+            run: false,
+        },
+        {
+            trigger: ".o_git_diff_viewer .hljs-string",
+            content: "...and a string literal",
+            run: false,
+        },
+        {
             trigger: ".nav-link:contains('Raw Patch')",
             content: "Switch to the raw patch",
             run: "click",

@@ -216,6 +216,28 @@ SPECS = [
     },
 ]
 
+def configure_local_mail():
+    """Point Odoo at the mailpit container so notifications are readable.
+
+    Without an SMTP server Odoo queues mail and nobody ever sees it, which
+    is how two notification bugs survived here: templates that rendered
+    their own source, and mail addressed to nobody. Both were only obvious
+    once the actual message could be read.
+    """
+    Server = env['ir.mail_server']
+    vals = {'name': 'Mailpit (local)', 'smtp_host': 'mailpit',
+            'smtp_port': 1025, 'smtp_encryption': 'none', 'sequence': 1}
+    existing = Server.search([('name', '=', vals['name'])], limit=1)
+    if existing:
+        existing.write(vals)
+    else:
+        Server.create(vals)
+    icp = env['ir.config_parameter'].sudo()
+    icp.set_param('mail.default.from', 'git-hosting@localhost')
+    icp.set_param('mail.catchall.domain', 'localhost')
+    print('SEED: outgoing mail -> mailpit:1025 (read it at http://localhost:8025)')
+
+
 # ---------------------------------------------------------------- run
 if RESET:
     old = Repo.search([])
@@ -228,6 +250,8 @@ if RESET:
     # branches; drop them first so the repository delete can proceed.
     PR.search([]).unlink()
     old.unlink()
+
+configure_local_mail()
 
 report = []
 for spec in SPECS:

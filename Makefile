@@ -15,7 +15,7 @@ RUFF     := uvx ruff
 
 .DEFAULT_GOAL := help
 .PHONY: help build up down clean logs shell psql install upgrade test test-one \
-        qa lint fmt xml assets check release-check drop-release-check versions i18n seed browser
+        qa lint fmt xml assets check release-check drop-release-check versions i18n seed browser mail mail-clear
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -78,6 +78,18 @@ seed: ## Seed realistic demo data (DW_GIT_RESET=1 rebuilds from scratch)
 	$(COMPOSE) exec -T -e DW_GIT_RESET=$(DW_GIT_RESET) odoo bash -c \
 	  'odoo shell -d $(DB) $(DBFLAGS) --no-http < /tmp/qa-seed.py' 2>&1 \
 	  | grep -E '^SEED|^  ' || true
+
+mail: ## Open the local mailbox that catches every outgoing notification
+	@# Odoo queues mail with no SMTP server and nobody ever sees it. mailpit
+	@# catches everything so the rendered message can actually be read —
+	@# which is the only way the notification bugs here were ever visible.
+	@echo "  mailbox: http://localhost:8025"
+	@curl -s http://localhost:8025/api/v1/messages 2>/dev/null \
+	  | python3 -c "import sys,json; d=json.load(sys.stdin); print('  messages: %d' % d.get('total',0)); [print('    -> %s | %s' % (', '.join(x.get('Address','') for x in m.get('To',[])), m.get('Subject',''))) for m in d.get('messages',[])[:10]]" \
+	  2>/dev/null || echo "  (mailpit not running — 'make up' first)"
+
+mail-clear: ## Empty the local mailbox
+	@curl -s -X DELETE http://localhost:8025/api/v1/messages >/dev/null && echo "  mailbox emptied"
 
 browser: ## Report whether browser tours can actually run here
 	@# Odoo SKIPS tours when Chrome or websocket-client is missing and still
