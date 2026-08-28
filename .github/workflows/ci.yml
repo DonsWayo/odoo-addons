@@ -170,10 +170,18 @@ jobs:
             grep -E "skipped .*(Chrome|websocket-client|devtools port)" test.log | head
             exit 1
           fi
-          tours=$(grep -coE "Tour .* succeeded|tour .* succeeded" test.log || true)
+          # Case-INSENSITIVE: Odoo logs "TOUR <name> SUCCEEDED" in capitals,
+          # so the previous case-sensitive pattern matched nothing and this
+          # step failed even on a run where all seven tours passed. A guard
+          # against hollow green that is itself hollow is worse than none.
+          tours=$(grep -ciE "TOUR [a-z_]+ SUCCEEDED" test.log || true)
           echo "browser tours succeeded: ${tours}"
-          if [ "${tours}" -eq 0 ]; then
-            echo "::error::no browser tour reported success — the e2e layer did not run"
+          # Pin the count. ">0" would still pass if six of seven silently
+          # stopped being run, which is the failure mode this guards.
+          expected=$(grep -roE "web_tour.tours\").add\(\"[a-z_]+" dw_git/static/src/tours | wc -l | tr -d " ")
+          echo "tours registered in the addon: ${expected}"
+          if [ "${tours}" -lt "${expected}" ]; then
+            echo "::error::only ${tours} of ${expected} browser tours reported success"
             exit 1
           fi
 
