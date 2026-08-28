@@ -9,12 +9,18 @@ import { registry } from "@web/core/registry";
  * actually colouring the file rather than dumping plain text.
  */
 registry.category("web_tour.tours").add("dw_git_file_browser", {
-    url: "/odoo/action-dw_git.action_git_repository",
+    // Started on a specific repository's FORM by the test, not on the list
+    // — see the note in pr_diff_tour.js.
+    // No `url` here on purpose. A tour that declares one makes the tour
+    // service navigate to it when the tour starts, which threw away the
+    // startUrl the test passed — the browser loaded the record, then
+    // immediately reloaded the bare action and landed on the LIST, so
+    // .o_form_view never appeared. The test supplies the URL.
     steps: () => [
         {
-            trigger: ".o_list_view .o_data_row",
-            content: "Open the first repository",
-            run: "click",
+            trigger: ".o_form_view",
+            content: "Repository form is open",
+            run: false,
         },
         {
             trigger: "button:contains('Browse Files')",

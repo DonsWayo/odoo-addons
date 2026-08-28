@@ -6,7 +6,14 @@ from odoo.tests import HttpCase, tagged
 _e2e_counter = itertools.count(1)
 
 
-@tagged('e2e', 'at_install', '-post_install')
+# post_install, not at_install. Odoo warns "HttpCase test should be in
+# post_install only" and it is right: at_install runs before the JS asset
+# bundles are generated, so this module's own widgets — the git_diff_viewer
+# field and the file-browser client action — are not in web.assets_backend
+# yet. Any view using them fails to render, and the tour times out waiting
+# for .o_form_view on a form that never mounted. Every tour here was
+# skipped for lack of Chrome, so the mis-tagging was never observable.
+@tagged('e2e', 'post_install', '-at_install')
 class TestDwGitUiE2E(HttpCase):
     """Browser-driven flows: login -> app menu -> repo CRUD -> views render."""
 
@@ -15,9 +22,16 @@ class TestDwGitUiE2E(HttpCase):
         n = next(_e2e_counter)
         self.user = self.env['res.users'].create({
             'name': f'E2E User {n}', 'login': f'e2euser{n}', 'email': f'e2e{n}@t.com'})
+        # Owned by the user the tour LOGS IN AS. The repositories action
+        # sets context {'search_default_my_repos': 1}, and that filter is
+        # [('owner_id', '=', uid)] — so a repository owned by anyone else is
+        # filtered out of the list the moment it opens, and the tour asserted
+        # against an empty list ("e2e-repo not in list"). The extra user is
+        # kept as a member so the fixture still exercises membership.
         self.repo = self.env['git.repository'].create({
             'name': f'e2e-repo-{n}',
-            'owner_id': self.user.id,
+            'owner_id': self.env.ref('base.user_admin').id,
+            'member_ids': [(4, self.user.id)],
             'visibility': 'internal',
             'description': '<p>E2E demo repository</p>'})
         main = self.env['git.branch'].create({
@@ -31,6 +45,14 @@ class TestDwGitUiE2E(HttpCase):
             'title': 'E2E PR', 'repository_id': self.repo.id,
             'source_branch_id': feat.id, 'target_branch_id': main.id,
             'state': 'open'})
+
+        # The browser runs its HTTP requests through the same test cursor,
+        # but reads the DATABASE, not this test's ORM cache. Records created
+        # above live only in the cache until something flushes them, so the
+        # webclient fetched an empty list and the form failed with
+        # "records with IDs 1 cannot be found". Every tour here was skipped
+        # for lack of Chrome, so this was never once observed.
+        self.env.flush_all()
 
     def test_01_repository_list_renders(self):
         """Action loads, list view renders with our repo row."""
@@ -59,7 +81,14 @@ class TestDwGitUiE2E(HttpCase):
                         'dw_git_pat_list', login='admin')
 
 
-@tagged('e2e', 'at_install', '-post_install')
+# post_install, not at_install. Odoo warns "HttpCase test should be in
+# post_install only" and it is right: at_install runs before the JS asset
+# bundles are generated, so this module's own widgets — the git_diff_viewer
+# field and the file-browser client action — are not in web.assets_backend
+# yet. Any view using them fails to render, and the tour times out waiting
+# for .o_form_view on a form that never mounted. Every tour here was
+# skipped for lack of Chrome, so the mis-tagging was never observable.
+@tagged('e2e', 'post_install', '-at_install')
 class TestDwGitDiffAndBrowserE2E(HttpCase):
     """Tours over the two views that render code.
 
@@ -134,6 +163,7 @@ class TestDwGitDiffAndBrowserE2E(HttpCase):
             'source_branch_id': feat_b.id, 'target_branch_id': main_b.id,
             'state': 'open', 'author_id': owner.id})
         cls.pr.action_refresh_changes()
+        cls.env.flush_all()
 
     def test_06_pr_diff_renders(self):
         """The diff dialog shows coloured, readable diff markup."""

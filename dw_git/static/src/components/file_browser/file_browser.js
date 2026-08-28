@@ -26,7 +26,14 @@ const EXT_LANGUAGE = {
 
 export class GitFileBrowser extends Component {
     static template = "dw_git.GitFileBrowser";
-    static props = { ...(Component.props || {}), action: { type: Object, optional: true } };
+    // Odoo hands every client action more props than just `action`:
+    // actionId, updateActionState and className at least. Declaring only
+    // `action` made Owl throw "Invalid props for component
+    // 'GitFileBrowser': unknown key 'actionId'..." — but only in dev and
+    // test mode, because Owl skips prop validation in production. So the
+    // file browser raised on every mount under a tour while appearing to
+    // work in normal use, and no tour ever ran to report it.
+    static props = ["*"];
 
     setup() {
         this.orm = useService("orm");

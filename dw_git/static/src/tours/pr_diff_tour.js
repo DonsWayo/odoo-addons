@@ -11,16 +11,21 @@ import { registry } from "@web/core/registry";
  * the patch, and the coloured markup diff2html produces.
  */
 registry.category("web_tour.tours").add("dw_git_pr_diff", {
-    url: "/odoo/action-dw_git.action_git_pull_request",
+    // The test starts this tour on a specific pull request's FORM, built in
+    // setUpClass with a known patch — not on the list. Opening "the first
+    // row" would depend on ordering and on whatever else the database holds,
+    // and there is no list view on a record URL at all: the tour used to
+    // click a row inside the form's own one2many and navigate away from the
+    // record it was supposed to be testing.
+    // No `url` here on purpose. A tour that declares one makes the tour
+    // service navigate to it when the tour starts, which threw away the
+    // startUrl the test passed — the browser loaded the record, then
+    // immediately reloaded the bare action and landed on the LIST, so
+    // .o_form_view never appeared. The test supplies the URL.
     steps: () => [
         {
-            trigger: ".o_list_view .o_data_row",
-            content: "Open the first pull request",
-            run: "click",
-        },
-        {
             trigger: ".o_form_view",
-            content: "Pull request form opened",
+            content: "Pull request form is open",
             run: false,
         },
         {
