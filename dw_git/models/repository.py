@@ -607,9 +607,26 @@ class GitRepository(models.Model):
             repo.create_remote('origin', url)
         # Belt and braces: even if a URL slipped past the allowlist, git
         # itself refuses any transport outside this set.
+        #
+        # http.followRedirects=false closes the hole the address check
+        # cannot see. _check_mirror_host resolves the host we were GIVEN,
+        # but git's default (`initial`) would follow a redirect from a
+        # perfectly public host to 169.254.169.254 or 127.0.0.1, and the
+        # address we validated would never be the address fetched. It also
+        # narrows DNS rebinding between the check and the request: with
+        # redirects refused, an attacker needs the name to resolve
+        # differently in that window rather than simply being told where to
+        # go next.
+        # via GIT_CONFIG_*, not `fetch -c`: -c is a git-level option that
+        # must precede the subcommand, and GitPython builds
+        # `git fetch -c ...`, which git rejects.
         with repo.git.custom_environment(
                 GIT_ALLOW_PROTOCOL=MIRROR_ALLOWED_PROTOCOLS,
-                GIT_TERMINAL_PROMPT='0'):
-            repo.git.fetch('--prune', 'origin', '+refs/heads/*:refs/heads/*')
+                GIT_TERMINAL_PROMPT='0',
+                GIT_CONFIG_COUNT='1',
+                GIT_CONFIG_KEY_0='http.followRedirects',
+                GIT_CONFIG_VALUE_0='false'):
+            repo.git.fetch('--prune', 'origin',
+                           '+refs/heads/*:refs/heads/*')
         self._sync_from_git()
         return True

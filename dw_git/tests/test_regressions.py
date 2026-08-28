@@ -122,12 +122,15 @@ class TestMirrorUrlValidation(DwGitCommon):
         'https://host/repo.git\next::sh -c id',               # newline smuggling
     ]
 
+    # Only http(s) survives. git:// is unauthenticated plaintext and
+    # ssh:// (with its scp shorthand) would authenticate as whatever key
+    # the Odoo system user holds, which this module does not manage — see
+    # #47. Their rejection is asserted in
+    # TestMirrorCannotReachInternalNetworks.
     LEGITIMATE = [
         'https://github.com/owner/repo.git',
         'http://internal.example/repo.git',
-        'git://git.example.com/repo',
-        'ssh://git@example.com:22/owner/repo.git',
-        'git@github.com:owner/repo.git',
+        'https://gitlab.example.com:8443/group/sub/repo.git',
     ]
 
     def test_hostile_mirror_urls_are_rejected(self):
@@ -1161,14 +1164,19 @@ class TestStaleReviewsAreDismissed(DwGitCommon):
             self.pr.changes_requested,
             'a request-changes against a superseded commit must not block')
 
-    def test_a_review_with_no_commit_recorded_is_treated_as_stale(self):
+    def test_a_review_with_no_commit_recorded_still_counts(self):
+        # commit_id is only populated when a git.commit record exists for
+        # the branch head, and this module syncs the latest 50 commits
+        # only — so a head outside that window leaves the field empty
+        # through no fault of the reviewer. dismiss_stale_reviews defaults
+        # to True, so treating missing metadata as staleness would silently
+        # discard approvals on every such branch.
         self.review.write({'commit_id': False})
         self.main.write({'dismiss_stale_reviews': True})
         self.pr.invalidate_recordset()
         self.assertEqual(
-            self.pr.approval_count, 0,
-            'a review that cannot be shown to describe the merged code '
-            'must not be trusted under the policy')
+            self.pr.approval_count, 1,
+            'absence of evidence is not evidence of staleness')
 
 
 @tagged('regression', 'post_install', '-at_install')

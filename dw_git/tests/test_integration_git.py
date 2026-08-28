@@ -452,12 +452,20 @@ class TestMirrorSyncActuallyFetches(DwGitCommon):
         path is only how *this test* stands up a "remote" without a
         network, so both guards are patched, scoped to a single `with`
         block, and never touched in the shipped module.
+
+        The third patch is the SSRF host check added in #47. It resolves
+        the URL's hostname and refuses loopback and private ranges; a
+        `file://` URL has no hostname at all, so it would be refused before
+        reaching git. It is patched here for the same reason and with the
+        same scope as the other two.
         """
         return (
             patch('odoo.addons.dw_git.models.repository.MIRROR_URL_RE',
                   re.compile(r'.*')),
             patch('odoo.addons.dw_git.models.repository.'
                   'MIRROR_ALLOWED_PROTOCOLS', 'http:https:git:ssh:file'),
+            patch('odoo.addons.dw_git.models.repository.GitRepository.'
+                  '_check_mirror_host', lambda self, url: None),
         )
 
     def test_sync_mirror_actually_fetches_and_lands_data(self):
@@ -466,8 +474,8 @@ class TestMirrorSyncActuallyFetches(DwGitCommon):
         repo._init_git_repo()
         repo.write({'is_mirror': True, 'mirror_active': True})
 
-        url_patch, proto_patch = self._permissive_mirror_guards()
-        with url_patch, proto_patch:
+        url_patch, proto_patch, host_patch = self._permissive_mirror_guards()
+        with url_patch, proto_patch, host_patch:
             repo.write({'mirror_url': 'file://' + bare})
             self.env.flush_all()
             result = repo._sync_mirror()
@@ -507,8 +515,8 @@ class TestMirrorSyncActuallyFetches(DwGitCommon):
         repo.write({'is_mirror': True, 'mirror_active': True})
         self.assertFalse(repo.mirror_last_sync, 'precondition: never synced')
 
-        url_patch, proto_patch = self._permissive_mirror_guards()
-        with url_patch, proto_patch:
+        url_patch, proto_patch, host_patch = self._permissive_mirror_guards()
+        with url_patch, proto_patch, host_patch:
             repo.write({'mirror_url': 'file://' + bare})
             self.env.flush_all()
             self.Repo._cron_sync_mirrors()
