@@ -192,7 +192,11 @@ class GitRepository(models.Model):
              "whose interval has not elapsed since mirror_last_sync.")
     mirror_last_sync = fields.Datetime(readonly=True)
     require_signed_commits = fields.Boolean(default=False)
-    max_file_size = fields.Integer(default=100, help="Max file size in MB")
+    max_file_size = fields.Integer(
+        default=2,
+        help="Largest file the built-in file browser will render, in MB. "
+             "Bigger files are listed but not previewed — clone the "
+             "repository to read them.")
     auto_delete_head_branch = fields.Boolean(default=True)
 
     # === Constraints ===

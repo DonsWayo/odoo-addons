@@ -1042,6 +1042,55 @@ class TestMultiCompanyIsolation(DwGitCommon):
 
 
 @tagged('regression', 'post_install', '-at_install')
+class TestPreviewLimitIsTheConfiguredOne(DwGitCommon):
+    """Regression for #44.
+
+    max_file_size defaulted to 100 MB and nothing read it. The only limit
+    actually enforced was a hardcoded 2 MB in the blob endpoint. Two
+    numbers for one thing, and the one the user could see was the wrong
+    one.
+    """
+
+    def test_the_field_is_the_limit_the_endpoint_enforces(self):
+        from odoo.addons.dw_git.controllers.api import GitAPIController
+        repo = self._repo('preview-limit')
+        repo.write({'max_file_size': 5})
+        limit = ((repo.max_file_size or 0) * 1024 * 1024
+                 or GitAPIController._BLOB_SIZE_DEFAULT)
+        self.assertEqual(limit, 5 * 1024 * 1024)
+
+    def test_a_repository_with_no_limit_falls_back_to_the_default(self):
+        from odoo.addons.dw_git.controllers.api import GitAPIController
+        repo = self._repo('preview-default')
+        repo.write({'max_file_size': 0})
+        limit = ((repo.max_file_size or 0) * 1024 * 1024
+                 or GitAPIController._BLOB_SIZE_DEFAULT)
+        self.assertEqual(limit, GitAPIController._BLOB_SIZE_DEFAULT)
+
+    def test_the_default_matches_what_is_actually_enforced(self):
+        # the field's default and the fallback must not drift apart again
+        from odoo.addons.dw_git.controllers.api import GitAPIController
+        default_mb = self.env['git.repository']._fields['max_file_size'].default(
+            self.env['git.repository'])
+        self.assertEqual(default_mb * 1024 * 1024,
+                         GitAPIController._BLOB_SIZE_DEFAULT)
+
+
+@tagged('regression', 'post_install', '-at_install')
+class TestCloneWizardMakesNoFalseClaim(DwGitCommon):
+    """Regression for #45.
+
+    action_copy_http reported "HTTPS clone URL copied to clipboard!" and
+    copied nothing — a server-side method cannot reach the clipboard.
+    """
+
+    def test_the_fake_copy_action_is_gone(self):
+        self.assertFalse(
+            hasattr(self.env['git.clone.wizard'], 'action_copy_http'),
+            'a method that claims to copy but cannot must not exist')
+
+
+@tagged('regression', 'post_install', '-at_install')
 class TestStaleReviewsAreDismissed(DwGitCommon):
     """Regression for #43.
 

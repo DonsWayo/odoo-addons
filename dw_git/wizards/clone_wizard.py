@@ -1,4 +1,4 @@
-from odoo import _, fields, models
+from odoo import fields, models
 
 
 class GitCloneWizard(models.TransientModel):
@@ -15,12 +15,12 @@ class GitCloneWizard(models.TransientModel):
         readonly=True
     )
 
-    def action_copy_http(self):
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'type': 'success',
-                'message': _('HTTPS clone URL copied to clipboard!'),
-            }
-        }
+    # action_copy_http is gone. It showed "HTTPS clone URL copied to
+    # clipboard!" and copied nothing — a server-side Python method cannot
+    # reach the clipboard. It was also unreachable: no view references this
+    # wizard. The same class of lie as the webhook button that reported
+    # "Test webhook sent!" without sending.
+    #
+    # Copying is a client-side concern, so it is done client-side: the
+    # repository form renders the clone URLs with Odoo's own
+    # CopyClipboardChar widget, which actually copies and says so.

@@ -117,7 +117,7 @@
                             <field name="owner_id" class="oe_inline" options="{'no_create': True, 'no_open': True}"/>
                         </div>
                         <div class="col-6 text-end">
-                            <field name="clone_url_http" readonly="1" widget="url" placeholder="Clone URL (HTTP)"/>
+                            <field name="clone_url_http" readonly="1" widget="CopyClipboardChar" placeholder="Clone URL (HTTP)"/>
                         </div>
                     </div>
 
