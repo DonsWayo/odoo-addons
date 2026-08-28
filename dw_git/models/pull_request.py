@@ -170,17 +170,23 @@ class GitPullRequest(models.Model):
         the author: a "request changes" against an old commit blocked the
         merge forever, even after the very commits that answered it.
 
-        A review with no commit recorded is treated as stale under the
-        policy rather than trusted: it cannot be shown to describe the code
-        being merged.
+        A review with NO commit recorded still counts. It is tempting to
+        treat it as stale — it cannot be shown to describe the merged code
+        — but the field is only populated when a git.commit record exists
+        for the branch head, and this module syncs the latest 50 commits
+        only. A head older than that window has no commit record, so the
+        review has no commit_id through no fault of the reviewer.
+        dismiss_stale_reviews also defaults to True, so treating missing
+        metadata as staleness would silently discard approvals on every
+        such branch. Absence of evidence is not evidence of staleness.
         """
         for pr in self:
             reviews = pr.review_ids
             if pr.target_branch_id.dismiss_stale_reviews:
                 head = pr.source_branch_id.commit_sha
                 reviews = reviews.filtered(
-                    lambda r, head=head: r.commit_id.sha and
-                    r.commit_id.sha == head)
+                    lambda r, head=head: (not r.commit_id.sha)
+                    or r.commit_id.sha == head)
             pr.approval_count = len(
                 reviews.filtered(lambda r: r.state == 'approve'))
             pr.changes_requested = bool(
