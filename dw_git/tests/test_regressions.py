@@ -795,6 +795,71 @@ class TestMultiCompanyIsolation(DwGitCommon):
 
 
 @tagged('regression', 'post_install', '-at_install')
+class TestMirrorCannotReachInternalNetworks(DwGitCommon):
+    """Regression for #47 (SSRF).
+
+    The URL allowlist stopped command injection and local file reads, both
+    real RCE vectors. It did nothing about network pivoting: mirror_url is
+    a plain field every employee can write, the import wizard was open to
+    base.group_user, and the fetch runs from inside the Odoo process. Any
+    internal user could point the server at loopback, an RFC1918 range or
+    a cloud metadata endpoint and read the outcome from the error text.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.repo = self._repo('ssrf-target')
+
+    def _refuses(self, url):
+        with self.assertRaises(UserError) as caught:
+            self.repo._fetch_refs_from(url)
+        return str(caught.exception)
+
+    def test_cloud_metadata_endpoint_is_refused(self):
+        self.assertIn('169.254.169.254',
+                      self._refuses('http://169.254.169.254/latest/meta-data/'))
+
+    def test_loopback_is_refused(self):
+        self._refuses('http://127.0.0.1:8069/web/login')
+
+    def test_private_range_is_refused(self):
+        self._refuses('http://10.0.0.1/x.git')
+
+    def test_localhost_by_name_is_refused(self):
+        # resolving the NAME must not be a way around the address check
+        self._refuses('http://localhost:8069/x.git')
+
+    def test_git_protocol_is_refused(self):
+        # unauthenticated and plaintext; no longer in the allowlist
+        self._refuses('git://github.com/foo/bar.git')
+
+    def test_ssh_protocol_is_refused(self):
+        # would authenticate as whatever key the Odoo system user holds
+        self._refuses('ssh://git@github.com/foo/bar.git')
+
+    def test_scp_form_is_refused(self):
+        self._refuses('git@github.com:foo/bar.git')
+
+    def test_file_url_is_still_refused(self):
+        # the original RCE vector must stay closed
+        self._refuses('file:///etc/passwd')
+
+    def test_ext_command_form_is_still_refused(self):
+        self._refuses('ext::sh -c whoami')
+
+    def test_an_administrator_can_opt_back_in(self):
+        # Assert on the host check itself, which is what the parameter
+        # governs. Going through _fetch_refs_from would then reach the real
+        # git fetch and fail with GitCommandError for an unrelated reason.
+        with self.assertRaises(UserError):
+            self.repo._check_mirror_host('http://127.0.0.1:9/x.git')
+
+        self.env['ir.config_parameter'].sudo().set_param(
+            'dw_git.mirror_allow_private_hosts', '1')
+        self.repo._check_mirror_host('http://127.0.0.1:9/x.git')
+
+
+@tagged('regression', 'post_install', '-at_install')
 class TestRefreshChangesReportsFailure(DwGitCommon):
     """A user-facing button that reported success on failure."""
 
