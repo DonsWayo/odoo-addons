@@ -251,19 +251,9 @@ class GitPullRequest(models.Model):
             'commit_sha': merge_commit.hexsha,
         })
 
-        if self.repository_id.auto_delete_head_branch and not self.source_branch_id.is_default:
-            # only safe to delete when no other PR still references the branch
-            still_used = self.search_count([
-                '|',
-                ('source_branch_id', '=', self.source_branch_id.id),
-                ('target_branch_id', '=', self.source_branch_id.id),
-                ('id', '!=', self.id),
-            ])
-            if not still_used:
-                try:
-                    self.source_branch_id.unlink()
-                except Exception:
-                    pass  # branch kept — referenced elsewhere or protected
+        if (self.repository_id.auto_delete_head_branch
+                and not self.source_branch_id.is_default):
+            self._delete_head_branch()
 
         # Send merge notification — best effort; a mail failure should not
         # block the merge from succeeding
@@ -272,6 +262,47 @@ class GitPullRequest(models.Model):
         except Exception as exc:
             _logger.exception("Failed to send PR merge notification for PR %s: %s", self.id, exc)
 
+        return True
+
+    def _delete_head_branch(self):
+        """Delete the merged head branch's git ref, keeping its record.
+
+        This used to call `source_branch_id.unlink()` inside a bare
+        `except Exception: pass`, which was wrong twice over.
+
+        It could never succeed: `source_branch_id` is `required=True`, so
+        Odoo gives it `ondelete='restrict'`, and *this* pull request — the
+        one just merged — still points at the branch. The guard excluded
+        `self` from the "still referenced" search, but self is precisely
+        the reference that blocks the delete. The feature has therefore
+        never once deleted a branch.
+
+        Worse, the failure was not harmless. In PostgreSQL a failed
+        statement aborts the whole transaction; catching the Python
+        exception does not undo that, so every subsequent query raised
+        InFailedSqlTransaction. The next thing action_merge does is send
+        the merge notification, which died on a plain SELECT for the mail
+        template. A merge would report success, delete nothing, and send
+        no mail, leaving only a log line.
+
+        So: delete the ref on disk, which is the cleanup actually wanted,
+        and keep the Odoo record because the PR's history refers to it —
+        the same thing GitHub does. The savepoint means a git failure
+        cannot poison the caller's transaction.
+        """
+        self.ensure_one()
+        branch = self.source_branch_id
+        try:
+            with self.env.cr.savepoint():
+                import git
+                repo = git.Repo(self.repository_id._get_repo_path())
+                if branch.name in repo.heads:
+                    git.Head.delete(repo, branch.name, force=True)
+        except Exception:
+            _logger.warning(
+                "Could not delete head branch %r of PR %s on disk",
+                branch.name, self.id, exc_info=True)
+            return False
         return True
 
     def _perform_git_merge(self, method):
