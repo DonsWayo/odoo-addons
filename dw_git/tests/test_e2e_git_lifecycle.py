@@ -209,6 +209,80 @@ class TestGitLifecycleOverHttp(HttpCase):
         self.assertTrue(os.path.isfile(os.path.join(verify, 'app.py')),
                         'base file missing after the merge')
 
+    def test_merge_deletes_head_ref_without_poisoning_the_transaction(self):
+        """Regression: auto_delete_head_branch broke the merge notification.
+
+        The cleanup called `source_branch_id.unlink()`. That branch is
+        pinned by this very PR's `source_branch_id`, which is
+        `required=True` and therefore `ondelete='restrict'`, so the DELETE
+        always failed. It was wrapped in `except Exception: pass`, but in
+        PostgreSQL a failed statement aborts the transaction — swallowing
+        the Python exception does not revive it. The very next statement,
+        `env.ref()` for the merge mail template, then died on a plain
+        SELECT with InFailedSqlTransaction.
+
+        Observable result: merge reports success, no branch is deleted, no
+        mail is sent, and only a log line records it.
+
+        Asserted here: the ref is gone from the bare repo, the branch
+        record survives (the PR's history points at it), and the cursor is
+        still usable afterwards — the last being the part that regressed.
+        """
+        self.assertTrue(self.repo.auto_delete_head_branch,
+                        'precondition: the setting defaults on')
+
+        clone = os.path.join(self.work, 'delhead-clone')
+        self._git_http('clone', '-q', self._remote(), clone)
+        self._write_commit(clone, 'base.py', 'x = 1\n', 'base')
+        self._git_http('push', '-q', 'origin', 'HEAD:refs/heads/main',
+                       cwd=clone)
+        self._git('checkout', '-q', '-b', 'doomed', cwd=clone)
+        self._write_commit(clone, 'f.txt', 'y\n', 'feature')
+        self._git_http('push', '-q', 'origin', 'HEAD:refs/heads/doomed',
+                       cwd=clone)
+
+        self.env.invalidate_all()
+        Branch = self.env['git.branch']
+        main = Branch.search([('repository_id', '=', self.repo.id),
+                              ('name', '=', 'main')])
+        doomed = Branch.search([('repository_id', '=', self.repo.id),
+                                ('name', '=', 'doomed')])
+        self.assertTrue(main and doomed)
+        self.assertIn('doomed', self._bare().heads,
+                      'precondition: the ref exists before the merge')
+
+        pr = self.env['git.pull_request'].create({
+            'title': 'Delete my head branch',
+            'repository_id': self.repo.id,
+            'source_branch_id': doomed.id,
+            'target_branch_id': main.id,
+            'author_id': self.dev.id,
+            'state': 'open',
+        })
+        pr.with_user(self.dev).action_merge()
+        self.assertEqual(pr.state, 'merged')
+
+        # 1. the ref is actually gone from disk — the cleanup that was
+        #    advertised and never once happened
+        self.assertNotIn(
+            'doomed', [h.name for h in self._bare().heads],
+            'auto_delete_head_branch did not remove the ref')
+
+        # 2. the record survives: the merged PR still refers to it
+        self.assertTrue(doomed.exists(),
+                        'the branch record backs the PR history')
+        self.assertEqual(pr.source_branch_id, doomed)
+
+        # 3. the transaction is still usable. Under the old code this
+        #    raised InFailedSqlTransaction, which is what silently killed
+        #    the merge notification.
+        self.env.cr.execute('SELECT 1')
+        self.assertEqual(self.env.cr.fetchone()[0], 1)
+        self.assertTrue(
+            self.env.ref('dw_git.mail_template_git_pr_merged',
+                         raise_if_not_found=False),
+            'the merge mail template must still be resolvable')
+
     def test_squash_merge_produces_a_single_parent(self):
         clone = os.path.join(self.work, 'squash-clone')
         self._git_http('clone', '-q', self._remote(), clone)
