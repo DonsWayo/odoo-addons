@@ -58,6 +58,7 @@ https://github.com/DonsWayo/odoo-addons
         'security/record_rules.xml',
         'data/initial_data.xml',
         'data/sequences.xml',
+        'views/project_task_views.xml',
         'views/repository_views.xml',
         'views/branch_views.xml',
         'views/commit_views.xml',
