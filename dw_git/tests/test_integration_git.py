@@ -263,6 +263,14 @@ class TestNotificationPipeline(DwGitCommon):
         why the unit tests check the shipped XML rather than trusting that
         a bad template would be caught on save.
         """
+        # A record must exist for the validation to have anything to
+        # render against. Odoo checks a template by rendering it over a
+        # sample record of its model, and with none in the table there is
+        # nothing to render, so the write is accepted and no error is
+        # raised. That made this test pass on a database with seeded data
+        # and fail on a fresh one — it failed in CI while passing locally
+        # for exactly that reason.
+        self._new_pr(state='open')
         template = self.env.ref('dw_git.mail_template_git_pr_merged')
         with self.assertRaises(ValidationError):
             template.write({'email_from': '{{ object.no_such_field_xyz }}'})

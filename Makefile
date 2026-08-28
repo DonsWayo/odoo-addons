@@ -137,8 +137,19 @@ test: upgrade ## Run the full test suite
 	@# happily tests record rules you edited an hour ago. That cost a real
 	@# debugging session — a company-scoping fix looked broken because the
 	@# database still held the pre-fix rule.
-	$(ODOO) -d $(DB) --test-enable --test-tags /$(MODULE) \
-	  --stop-after-init --http-port=8070 $(DBFLAGS)
+	@set -o pipefail; $(ODOO) -d $(DB) --test-enable --test-tags /$(MODULE) \
+	  --stop-after-init --http-port=8070 $(DBFLAGS) 2>&1 | tee /tmp/dw_git_test.log
+	@# Odoo SKIPS browser tours when Chrome or websocket-client is missing
+	@# and still reports "0 failed". That is exactly how the whole UI layer
+	@# went untested for this project's life while every run looked green,
+	@# with four real bugs sitting behind the silence. A skipped tour is a
+	@# failure here, the same as it is in CI.
+	@if grep -qE "skipped .*(Chrome|websocket-client|devtools port)" /tmp/dw_git_test.log; then \
+	  echo ""; \
+	  echo "FAIL: browser tours were SKIPPED, not passed:"; \
+	  grep -E "skipped .*(Chrome|websocket-client|devtools port)" /tmp/dw_git_test.log | head -3; \
+	  exit 1; \
+	fi
 
 coverage: upgrade ## Measured line coverage of the addon
 	@# Measured, not guessed. Grepping test files for method names claims

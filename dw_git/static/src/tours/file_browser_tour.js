@@ -33,9 +33,18 @@ registry.category("web_tour.tours").add("dw_git_file_browser", {
             run: false,
         },
         {
-            trigger: ".o_git_file_browser select option",
+            // Trigger on the <select>, not on "select option". Odoo's tour
+            // engine only matches VISIBLE elements, and an <option> has no
+            // layout box of its own, so it can never match however
+            // correctly it is rendered. Assert the contents in run().
+            trigger: ".o_git_file_browser select",
             content: "The branch selector is populated",
-            run: false,
+            run: () => {
+                const sel = document.querySelector(".o_git_file_browser select");
+                if (!sel.options.length) {
+                    throw new Error("branch selector rendered no options");
+                }
+            },
         },
         {
             trigger: ".o_git_file_tree .o_git_tree_entry",

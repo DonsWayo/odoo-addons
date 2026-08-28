@@ -1,7 +1,7 @@
 /** @odoo-module **/
 
 import { registry } from "@web/core/registry";
-import { Component, onWillStart, useState } from "@odoo/owl";
+import { Component, onWillStart, useState, markup } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
 import { loadJS, loadCSS } from "@web/core/assets";
 import { rpc } from "@web/core/network/rpc";
@@ -79,15 +79,17 @@ export class GitFileBrowser extends Component {
      * Selecting AGENTS.md showed the Dockerfile.
      *
      * Computing the markup here and rendering it with `t-out` keeps Owl the
-     * only writer of that subtree. hljs escapes the source it is given, so
-     * the result is safe to inject.
+     * only writer of that subtree. The result must be wrapped in markup():
+     * Owl's t-out ESCAPES a plain string, so returning raw HTML would show
+     * literal <span class="hljs-keyword"> tags to the user. hljs escapes
+     * the source it is given, so wrapping its output is safe.
      */
     highlightToHtml(code, path) {
         const escaped = (code || "")
             .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         // eslint-disable-next-line no-undef
         if (typeof hljs === "undefined") {
-            return escaped;
+            return markup(escaped);
         }
         const name = (path || "").split("/").pop();
         const ext = name.includes(".")
@@ -98,13 +100,13 @@ export class GitFileBrowser extends Component {
             // eslint-disable-next-line no-undef
             if (lang && hljs.getLanguage(lang)) {
                 // eslint-disable-next-line no-undef
-                return hljs.highlight(code, {
-                    language: lang, ignoreIllegals: true }).value;
+                return markup(hljs.highlight(code, {
+                    language: lang, ignoreIllegals: true }).value);
             }
             // eslint-disable-next-line no-undef
-            return hljs.highlightAuto(code).value;
+            return markup(hljs.highlightAuto(code).value);
         } catch {
-            return escaped;      // never let colouring break the viewer
+            return markup(escaped);   // never let colouring break the viewer
         }
     }
 
