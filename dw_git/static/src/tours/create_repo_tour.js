@@ -10,7 +10,15 @@ import { registry } from "@web/core/registry";
 registry.category("web_tour.tours").add("dw_git_create_repo", {
     steps: () => [
         {
-            trigger: "button.o-new-button, .o_control_panel_new button:contains('New'), button:contains('New')",
+            // .o_list_button_add is the list controller's own class for the
+            // New button (web/views/list/list_controller.xml). The previous
+            // trigger matched on the text "New", and Odoo renders duplicate
+            // control-panel buttons for different viewports — the hidden one
+            // can match first, so the step timed out clicking nothing. It
+            // passed under headless Chromium 131 locally and timed out under
+            // Chrome 152 in CI, which is exactly the kind of difference a
+            // text-matched selector invites.
+            trigger: ".o_list_button_add",
             content: "Click New",
             // An explicit run. Without it the step only WAITED for the
             // button, never pressed it, so the form never opened and the
