@@ -1,5 +1,6 @@
 /** @odoo-module **/
 import { registry } from "@web/core/registry";
+import { stepUtils } from "@web_tour/tour_utils";
 
 /**
  * Creating a repository through the UI, the way a user does it.
@@ -11,39 +12,33 @@ registry.category("web_tour.tours").add("dw_git_create_repo", {
     steps: () => [
         {
             // .o_list_button_add is the list controller's own class for the
-            // New button (web/views/list/list_controller.xml). The previous
-            // trigger matched on the text "New", and Odoo renders duplicate
-            // control-panel buttons for different viewports — the hidden one
-            // can match first, so the step timed out clicking nothing. It
-            // passed under headless Chromium 131 locally and timed out under
-            // Chrome 152 in CI, which is exactly the kind of difference a
-            // text-matched selector invites.
+            // New button. Matching on the text "New" hit a hidden duplicate
+            // control-panel button and hung under Chrome 152 in CI while
+            // passing under Chromium 131 locally.
             trigger: ".o_list_button_add",
             content: "Click New",
-            // An explicit run. Without it the step only WAITED for the
-            // button, never pressed it, so the form never opened and the
-            // next step timed out looking for a field that could not exist.
             run: "click",
         },
         {
-            // Odoo puts the field name on the wrapper div, not on the input,
-            // so input[name='name'] matches nothing.
+            // Odoo puts the field name on the wrapper div, not the input.
             trigger: ".o_form_view [name='name'] input",
             content: "Name field",
             run: "edit tour-created-repo",
         },
-        {
-            trigger: ".o_form_button_save, button[accesskey='s']",
-            content: "Save",
-            run: "click",
-        },
+        // Odoo's own save helper rather than a hand-written click. It uses
+        // `.o_form_button_save:enabled` and then waits for
+        // `.o_form_readonly, .o_form_saved`. Clicking a bare
+        // `.o_form_button_save` could land on the button while it was still
+        // disabled, which does nothing — the tour then ended with the form
+        // dirty and Odoo failed it: "Tour finished with a dirty form view
+        // being open."
+        ...stepUtils.saveForm(),
         {
             trigger: ".o_field_char[name='name'] input",
             content: "The name persisted through the save",
             run: () => {
-                // Read the INPUT. The previous version queried the wrapper
-                // div and asked for its .value, which is always undefined,
-                // so this assertion could only ever fail.
+                // Read the INPUT. Asking a wrapper div for .value gives
+                // undefined, so that assertion could only ever fail.
                 const el = document.querySelector(".o_field_char[name='name'] input");
                 if (!el || el.value !== "tour-created-repo") {
                     throw new Error(
