@@ -6,6 +6,61 @@ All notable changes to Git Hosting are recorded here. The format follows
 Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
 `19.0.1.1.0` is the second feature release of Git Hosting for Odoo 19.0.
 
+## [19.0.1.8.0] - 2026-08-28
+
+Everything fixed here is one bug: **a capability was claimed, and nothing
+ever checked it against a running system.** None of it raised. None of it
+failed a test. Each one simply did nothing while reporting success.
+
+### Fixed
+
+- **Diff syntax highlighting never ran.** Advertised in the README, the
+  manifest and the store listing since the feature shipped; the code was
+  black the whole time. diff2html's "slim" bundle does not carry
+  highlight.js — its constructor takes it as a fourth argument — so
+  `highlightCode()` executed and did nothing. The theme stylesheet was
+  missing too, so even a working hljs would have emitted spans with nothing
+  to colour them. Verified in the browser: 63 highlighted spans across 5
+  colours, language auto-detected.
+- **Notification bodies sent recipients the template's own source.** Odoo
+  renders `subject`/`email_to` with one engine and `body_html` with QWeb.
+  All five bodies used `{{ }}`, which QWeb emits as literal text, so people
+  received "{{ object.title }}". Only visible once the mails actually
+  started sending.
+- **The webhook test button did nothing and said "Test webhook sent!"** It
+  routed through the event filter, which drops any event the webhook is not
+  subscribed to — and `ping` is in no subscription list. So it sent nothing
+  (this module has no HTTP client at all) and recorded nothing either. It
+  now records a signed payload for inspection and says plainly that
+  delivery does not happen.
+- **`Refresh Changes` reported success when it had done nothing**, against
+  a diff that told the user to press it.
+- The manifest pointed readers at `README.md` and `docs/`, neither of which
+  ships inside the module.
+
+### Added
+
+- **A local mailbox.** `make mail` lists what has been sent and links to
+  mailpit at http://localhost:8025. Odoo delivers nothing without an SMTP
+  server, so notification bugs were invisible by construction; two of them
+  survived precisely because nobody could read the message.
+- **`make seed` builds real repositories** — bare repos on disk, real
+  commits, and pull requests whose diffs come through the same path a push
+  uses. Previously one repository was real and the rest were records with
+  no git behind them, which is why their diffs were empty.
+- **`make browser` says whether browser tours can actually run.** Every
+  tour in this module had been skipped for the life of the project:
+  Odoo skips them when Chrome or websocket-client is missing and still
+  reports "0 failed". CI now fails if a tour was skipped rather than run.
+- **`make assets` checks runtime-loaded assets, not just the manifest.**
+  The libraries loaded by `loadJS` from a string literal were never
+  checked — which is how the diff viewer ran without highlight.js while
+  the check reported "asset files OK".
+- 169 tests, up from 133: mail template rendering in both engines, the
+  notification pipeline end to end, ahead/behind counts against a genuinely
+  diverged branch, webhook honesty, and browser tours for the diff viewer
+  and file browser.
+
 ## [19.0.1.7.1] - 2026-08-27
 
 ### Security

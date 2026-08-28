@@ -17,11 +17,28 @@ services:
       timeout: 5s
       retries: 5
 
+  # Catches every outgoing mail instead of delivering it, with a web UI at
+  # http://localhost:8025 to read what was actually sent. Notification bugs
+  # in this module have twice been invisible without this: templates that
+  # rendered their own source, and mail addressed to nobody. Reading the
+  # real message is the only way to see either.
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"   # web UI
+      - "1025:1025"   # SMTP
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
   odoo:
     build: .
     depends_on:
       postgres:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     environment:
       - HOST=postgres
       - USER=odoo

@@ -117,7 +117,43 @@ make build up install
 Log in at http://localhost:8069 — `admin` / `admin`. `make help` lists every
 target; `make versions` prints what is actually running.
 
-Stack: Odoo 19 · PostgreSQL 18 · GitPython 3.1.59.
+Stack: Odoo 19 · PostgreSQL 18 · GitPython 3.1.59 · mailpit (local mail).
+
+### Try it with real data
+
+```bash
+make seed                    # 3 repositories with real git history
+DW_GIT_RESET=1 make seed     # ...rebuilt from scratch
+```
+
+Every repository this creates is a **real bare git repository on disk** with
+real commits and branches, and its pull requests get their diffs through the
+same code path a `git push` uses. That distinction matters: a repository
+record with no git repository behind it shows changed files with line counts
+and an empty diff — the UI describing a history that was never pushed. If a
+diff does not render after seeding, that is a bug and not a gap in the
+fixture.
+
+### Reading the notification emails
+
+Odoo queues mail and delivers nothing without an SMTP server, so
+notifications are invisible by default. The stack runs
+[mailpit](https://mailpit.axllent.org/), which catches every outgoing message
+instead of sending it:
+
+```bash
+make mail          # list what has been sent, with a link to the mailbox
+make mail-clear    # empty it
+```
+
+Open **http://localhost:8025** to read the actual rendered message. `make
+seed` points Odoo at it automatically.
+
+This is worth using rather than trusting the code: two notification bugs here
+were invisible until the real message could be read — templates that rendered
+their own source (`{{ object.title }}` reaching the recipient as text), and
+mail addressed to nobody at all. Both passed every test that did not open the
+mailbox.
 
 The module source is baked into the image, so code changes need
 `make upgrade` (rebuild + recreate + upgrade). To iterate without rebuilding,

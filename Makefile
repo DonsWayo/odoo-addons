@@ -15,7 +15,7 @@ RUFF     := uvx ruff
 
 .DEFAULT_GOAL := help
 .PHONY: help build up down clean logs shell psql install upgrade test test-one \
-        qa lint fmt xml assets check release-check drop-release-check versions i18n seed browser
+        qa lint fmt xml assets check release-check drop-release-check versions i18n seed browser mail mail-clear
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -79,6 +79,18 @@ seed: ## Seed realistic demo data (DW_GIT_RESET=1 rebuilds from scratch)
 	  'odoo shell -d $(DB) $(DBFLAGS) --no-http < /tmp/qa-seed.py' 2>&1 \
 	  | grep -E '^SEED|^  ' || true
 
+mail: ## Open the local mailbox that catches every outgoing notification
+	@# Odoo queues mail with no SMTP server and nobody ever sees it. mailpit
+	@# catches everything so the rendered message can actually be read —
+	@# which is the only way the notification bugs here were ever visible.
+	@echo "  mailbox: http://localhost:8025"
+	@curl -s http://localhost:8025/api/v1/messages 2>/dev/null \
+	  | python3 -c "import sys,json; d=json.load(sys.stdin); print('  messages: %d' % d.get('total',0)); [print('    -> %s | %s' % (', '.join(x.get('Address','') for x in m.get('To',[])), m.get('Subject',''))) for m in d.get('messages',[])[:10]]" \
+	  2>/dev/null || echo "  (mailpit not running — 'make up' first)"
+
+mail-clear: ## Empty the local mailbox
+	@curl -s -X DELETE http://localhost:8025/api/v1/messages >/dev/null && echo "  mailbox emptied"
+
 browser: ## Report whether browser tours can actually run here
 	@# Odoo SKIPS tours when Chrome or websocket-client is missing and still
 	@# reports "0 failed". Every tour in this module was skipped for the whole
@@ -105,14 +117,11 @@ xml: ## Every XML file parses (do this before `make build`)
 	  [ET.parse(f) for f in fs]; \
 	  print(f'XML OK ({len(fs)} files)')"
 
-assets: ## Every file named in a manifest's assets actually exists
-	@python3 -c "\
-import ast, glob, os, sys; \
-missing=[p for mf in glob.glob('*/__manifest__.py') \
-         for paths in ast.literal_eval(open(mf).read()[open(mf).read().index('{'):]).get('assets',{}).values() \
-         for e in paths for p in [e[0] if isinstance(e,(list,tuple)) else e] \
-         if '*' not in p and not os.path.isfile(p)]; \
-sys.exit('assets declared but absent: '+', '.join(missing)) if missing else print('asset files OK')"
+assets: ## Every static asset referenced anywhere actually exists
+	@# Checks BOTH the manifest bundles and the paths hardcoded in JS and
+	@# fetched with loadJS/loadCSS. A manifest-only check reported "OK" while
+	@# the diff viewer's highlight.js was never fetched at all.
+	@python3 qa/check_assets.py
 
 test: upgrade ## Run the full test suite
 	@# Depends on `upgrade`, not just `build`. Rebuilding the image reloads

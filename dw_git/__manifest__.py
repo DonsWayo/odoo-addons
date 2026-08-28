@@ -1,6 +1,6 @@
 {
     'name': 'Git Hosting',
-    'version': '19.0.1.7.1',
+    'version': '19.0.1.8.0',
     'category': 'Tools/Development',
     'summary': 'Self-hosted Git repository hosting and code review inside Odoo: '
                'clone and push over HTTPS, pull requests, branch protection, '
@@ -22,8 +22,10 @@ Self-hosted Git repository management inside Odoo 19:
 - mail.thread integration on repositories and pull requests
 - Translation template included (i18n/dw_git.pot)
 
-See README.md for the supported feature set and docs/LIMITATIONS.md for
-what is deliberately not implemented yet.
+The Documentation tab covers installation, configuration and the known
+limitations. Neither README.md nor docs/ ships inside the module, so the
+full feature set and the limitations list live at
+https://github.com/DonsWayo/odoo-addons
 """,
     'author': 'Juan Jose Carracedo',
     'website': 'https://github.com/DonsWayo/odoo-addons',
