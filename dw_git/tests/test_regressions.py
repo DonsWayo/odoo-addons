@@ -1042,6 +1042,87 @@ class TestMultiCompanyIsolation(DwGitCommon):
 
 
 @tagged('regression', 'post_install', '-at_install')
+class TestStaleReviewsAreDismissed(DwGitCommon):
+    """Regression for #43.
+
+    dismiss_stale_reviews was stored on the branch and read nowhere, and
+    _compute_review_status counted every review regardless of the commit it
+    was pinned to. An approval therefore survived any number of later
+    pushes and went on satisfying required_approving_reviews.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.repo = self._repo('stale-reviews')
+        self.main = self.Branch.create({
+            'name': 'main', 'repository_id': self.repo.id,
+            'commit_sha': 'a' * 40, 'required_approving_reviews': 1})
+        self.feature = self.Branch.create({
+            'name': 'feature', 'repository_id': self.repo.id,
+            'commit_sha': 'b' * 40})
+        self.old_commit = self.env['git.commit'].create({
+            'sha': 'b' * 40, 'message': 'reviewed', 'repository_id': self.repo.id,
+            'author_name': 'A', 'author_email': 'a@b.c'})
+        self.pr = self.PR.create({
+            'title': 'stale', 'repository_id': self.repo.id,
+            'source_branch_id': self.feature.id,
+            'target_branch_id': self.main.id, 'state': 'open'})
+        self.review = self.env['git.pr.review'].create({
+            'pull_request_id': self.pr.id, 'state': 'approve',
+            'reviewer_id': self.other.id, 'commit_id': self.old_commit.id})
+
+    def _push_new_head(self):
+        """Move the source branch on, as a push would."""
+        new = self.env['git.commit'].create({
+            'sha': 'c' * 40, 'message': 'later work',
+            'repository_id': self.repo.id,
+            'author_name': 'A', 'author_email': 'a@b.c'})
+        self.feature.write({'commit_sha': new.sha})
+        self.pr.invalidate_recordset()
+        return new
+
+    def test_an_approval_of_the_current_head_counts(self):
+        self.main.write({'dismiss_stale_reviews': True})
+        self.pr.invalidate_recordset()
+        self.assertEqual(self.pr.approval_count, 1)
+
+    def test_an_approval_of_an_old_commit_is_dismissed(self):
+        self.main.write({'dismiss_stale_reviews': True})
+        self._push_new_head()
+        self.assertEqual(
+            self.pr.approval_count, 0,
+            'an approval pinned to a superseded commit must not count')
+
+    def test_without_the_policy_an_old_approval_still_counts(self):
+        self.main.write({'dismiss_stale_reviews': False})
+        self._push_new_head()
+        self.assertEqual(
+            self.pr.approval_count, 1,
+            'the branch policy is opt-in and must be honoured either way')
+
+    def test_a_stale_request_changes_stops_blocking_the_merge(self):
+        # the half that hurts the author: a rejection of code that has
+        # since been replaced must not block forever
+        self.review.write({'state': 'request_changes'})
+        self.main.write({'dismiss_stale_reviews': True})
+        self.pr.invalidate_recordset()
+        self.assertTrue(self.pr.changes_requested)
+        self._push_new_head()
+        self.assertFalse(
+            self.pr.changes_requested,
+            'a request-changes against a superseded commit must not block')
+
+    def test_a_review_with_no_commit_recorded_is_treated_as_stale(self):
+        self.review.write({'commit_id': False})
+        self.main.write({'dismiss_stale_reviews': True})
+        self.pr.invalidate_recordset()
+        self.assertEqual(
+            self.pr.approval_count, 0,
+            'a review that cannot be shown to describe the merged code '
+            'must not be trusted under the policy')
+
+
+@tagged('regression', 'post_install', '-at_install')
 class TestMirrorCannotReachInternalNetworks(DwGitCommon):
     """Regression for #47 (SSRF).
 
