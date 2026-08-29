@@ -28,7 +28,7 @@
   <a href="https://github.com/DonsWayo/odoo-addons/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/DonsWayo/odoo-addons"></a>
   <a href="LICENSE"><img alt="License: LGPL-3.0" src="https://img.shields.io/badge/license-LGPL--3.0-blue"></a>
   <img alt="Odoo 19.0" src="https://img.shields.io/badge/odoo-19.0-714B67">
-  <img alt="130 tests" src="https://img.shields.io/badge/tests-130%20passing-brightgreen">
+  <img alt="291 tests" src="https://img.shields.io/badge/tests-291%20passing-brightgreen">
   <img alt="PostgreSQL 18" src="https://img.shields.io/badge/postgres-18-336791">
 </p>
 
@@ -254,8 +254,9 @@ owning user, and that user's access to the repository is what gets checked.
 ## Testing
 
 ```bash
-make check          # xml + lint + upgrade + tests — what CI runs
-make test           # 130 tests: unit, real-git integration, HTTP, e2e, regression
+make ci             # the CI gates, on a throwaway database — trust this one
+make check          # xml + lint + upgrade + tests
+make test           # 291 tests: unit, real-git integration, HTTP, e2e, regression
 make test-one T=TestJsonApi
 make qa             # 6 deterministic browser flows
 make release-check  # the full pre-tag gate, including a clean install
