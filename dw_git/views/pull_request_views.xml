@@ -175,6 +175,22 @@
                                 </list>
                             </field>
                         </page>
+                        <page string="Tasks" name="tasks">
+                            <div class="text-muted mb-2">
+                                Tasks referenced in the title or description —
+                                write <code>task-42</code> to link one, or
+                                <code>fixes task-42</code> to close it when this
+                                pull request is merged.
+                            </div>
+                            <field name="task_ids" readonly="1">
+                                <list>
+                                    <field name="name"/>
+                                    <field name="project_id"/>
+                                    <field name="stage_id"/>
+                                    <field name="user_ids" widget="many2many_avatar_user"/>
+                                </list>
+                            </field>
+                        </page>
                         <page string="Reviews" name="reviews">
                             <field name="review_ids" mode="list,form" readonly="1">
                                 <list string="Reviews" decoration-success="state == 'approve'" decoration-danger="state == 'request_changes'" decoration-info="state == 'comment'" decoration-muted="state == 'pending'">

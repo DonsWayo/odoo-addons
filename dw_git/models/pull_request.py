@@ -9,7 +9,8 @@ _logger = logging.getLogger(__name__)
 class GitPullRequest(models.Model):
     _name = 'git.pull_request'
     _description = 'Pull Request'
-    _inherit = ['mail.thread', 'mail.activity.mixin', 'portal.mixin']
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'portal.mixin',
+                'git.task.link.mixin']
     _order = 'create_date desc'
 
     number = fields.Integer(
@@ -21,6 +22,12 @@ class GitPullRequest(models.Model):
              "'the Nth pull request in THIS repository'.",
     )
     name = fields.Char(compute='_compute_name', store=True)
+    task_ids = fields.Many2many(
+        'project.task', 'git_pr_task_rel', 'pr_id', 'task_id',
+        string='Tasks',
+        help="Tasks referenced in the title or description, e.g. 'task-42'. "
+             "A reference written as 'fixes task-42' closes the task when "
+             "this pull request is merged.")
 
     title = fields.Char(required=True, tracking=True)
     description = fields.Html()
@@ -247,6 +254,7 @@ class GitPullRequest(models.Model):
             if not vals.get('number') and vals.get('repository_id'):
                 vals['number'] = self._next_number(vals['repository_id'])
         records = super().create(vals_list)
+        records._link_referenced_tasks()
         for pr in records:
             # best effort: a PR can legitimately exist before its bare repo
             # has the commits (fixtures, imports), so never block creation
@@ -261,6 +269,56 @@ class GitPullRequest(models.Model):
             # Schedule initial review activities for reviewers
             pr._schedule_review_activities(pr.reviewer_ids)
         return records
+
+    def _link_referenced_tasks(self):
+        """Attach tasks named in the title or description.
+
+        Posted to the task's chatter as well as stored: the value of the
+        link is that someone reading the task sees the work, so a link
+        nobody is told about is not the feature.
+        """
+        for pr in self:
+            refs = pr._extract_task_refs(pr.title, pr.description)
+            tasks = pr._resolve_tasks(refs)
+            new = tasks - pr.task_ids
+            if tasks:
+                pr.task_ids = [(6, 0, tasks.ids)]
+            for task in new:
+                task.message_post(body=_(
+                    "Linked to pull request %(name)s in %(repo)s.",
+                    name=pr.name or pr.title,
+                    repo=pr.repository_id.name))
+
+    def _close_referenced_tasks(self):
+        """Close tasks referenced with a closing keyword, on merge.
+
+        Only those: a bare 'task-42' records that the work touches the
+        task, while 'fixes task-42' states that it finishes it. Treating
+        both the same would close tasks that were merely mentioned.
+
+        The task is moved to a folded stage of its own project rather than
+        to a stage borrowed from somewhere else, and if the project has no
+        folded stage nothing is moved and a note is posted instead — better
+        a visible note than a task quietly parked in the wrong column.
+        """
+        for pr in self:
+            refs = pr._extract_task_refs(pr.title, pr.description)
+            closing_ids = [tid for tid, closes in refs.items() if closes]
+            for task in pr._resolve_tasks(closing_ids):
+                done = self.env['project.task.type'].search([
+                    ('project_ids', 'in', task.project_id.id),
+                    ('fold', '=', True),
+                ], limit=1)
+                if done:
+                    task.stage_id = done
+                    task.message_post(body=_(
+                        "Closed by pull request %(name)s.", name=pr.name))
+                else:
+                    task.message_post(body=_(
+                        "Pull request %(name)s was merged and says it "
+                        "closes this task, but this project has no closing "
+                        "stage, so the task has been left where it is.",
+                        name=pr.name))
 
     def write(self, vals):
         """Handle updates to PR, including reviewer additions.
@@ -278,6 +336,11 @@ class GitPullRequest(models.Model):
                 reviewer_changes[pr.id] = old_reviewer_ids
 
         result = super().write(vals)
+        # Re-read references when the text they live in changes: editing a
+        # description to add "fixes task-42" must link the task, or the
+        # feature only works if you got the wording right first time.
+        if 'title' in vals or 'description' in vals:
+            self._link_referenced_tasks()
 
         # After write completes, check for newly added reviewers and notify them
         if 'reviewer_ids' in vals and vals['reviewer_ids']:
@@ -322,6 +385,8 @@ class GitPullRequest(models.Model):
         if (self.repository_id.auto_delete_head_branch
                 and not self.source_branch_id.is_default):
             self._delete_head_branch()
+
+        self._close_referenced_tasks()
 
         # Send merge notification — best effort; a mail failure should not
         # block the merge from succeeding

@@ -1,17 +1,22 @@
 import logging
 
-from odoo import api, fields, models
+from odoo import _, api, fields, models
 
 _logger = logging.getLogger(__name__)
 
 
 class GitCommit(models.Model):
     _name = 'git.commit'
+    _inherit = ['git.task.link.mixin']
     _description = 'Git Commit'
     _order = 'committed_date desc'
     _rec_name = 'short_sha'
 
     sha = fields.Char(required=True, size=40, index=True)
+    task_ids = fields.Many2many(
+        'project.task', 'git_commit_task_rel', 'commit_id', 'task_id',
+        string='Tasks', readonly=True,
+        help="Tasks referenced by this commit's message, e.g. 'task-42'.")
     short_sha = fields.Char(compute='_compute_short_sha', store=True, size=8)
     message = fields.Text()
     message_short = fields.Char(compute='_compute_message_short')
@@ -76,3 +81,29 @@ class GitCommit(models.Model):
             return ''
         except Exception:
             return ''
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        commits = super().create(vals_list)
+        commits._link_referenced_tasks()
+        return commits
+
+    def _link_referenced_tasks(self):
+        """Attach tasks named in the commit message, and say so on the task.
+
+        Linking silently would make this an invisible feature: the value is
+        that someone reading the task sees the code that touched it, so the
+        link is posted to the task's chatter as well as stored.
+        """
+        for commit in self:
+            refs = commit._extract_task_refs(commit.message)
+            tasks = commit._resolve_tasks(refs)
+            if not tasks:
+                continue
+            commit.task_ids = [(6, 0, tasks.ids)]
+            for task in tasks:
+                task.message_post(body=_(
+                    "Referenced in commit %(sha)s of %(repo)s: %(message)s",
+                    sha=commit.sha[:8],
+                    repo=commit.repository_id.name,
+                    message=commit.message.splitlines()[0] if commit.message else ''))

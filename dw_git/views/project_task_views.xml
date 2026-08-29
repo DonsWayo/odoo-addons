@@ -1,0 +1,45 @@
+<odoo>
+    <!-- The other half of the integration: from a task, see the code.
+         Linking commits and pull requests to tasks is only half useful if
+         the link is visible from the Git side alone — the person who wants
+         it most is the one reading the task. -->
+    <record id="action_git_task_commits" model="ir.actions.act_window">
+        <field name="name">Commits</field>
+        <field name="res_model">git.commit</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('task_ids', 'in', [active_id])]</field>
+    </record>
+
+    <record id="action_git_task_pull_requests" model="ir.actions.act_window">
+        <field name="name">Pull Requests</field>
+        <field name="res_model">git.pull_request</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="domain">[('task_ids', 'in', [active_id])]</field>
+    </record>
+
+    <record id="view_project_task_form_git" model="ir.ui.view">
+        <field name="name">project.task.form.git</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project.view_task_form2"/>
+        <field name="arch" type="xml">
+            <div name="button_box" position="inside">
+                <!-- groups on the ELEMENTS, not on the record: Odoo 19 refuses
+                     an inherited view that carries group_ids itself
+                     ("Inherited view cannot have 'groups' defined on the
+                     record"). -->
+                <button name="%(action_git_task_pull_requests)d" type="action"
+                        groups="dw_git.group_git_user"
+                        class="oe_stat_button" icon="fa-share-alt"
+                        invisible="git_pr_count == 0">
+                    <field name="git_pr_count" widget="statinfo" string="Pull Requests"/>
+                </button>
+                <button name="%(action_git_task_commits)d" type="action"
+                        groups="dw_git.group_git_user"
+                        class="oe_stat_button" icon="fa-history"
+                        invisible="git_commit_count == 0">
+                    <field name="git_commit_count" widget="statinfo" string="Commits"/>
+                </button>
+            </div>
+        </field>
+    </record>
+</odoo>
