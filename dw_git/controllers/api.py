@@ -201,8 +201,12 @@ class GitAPIController(http.Controller):
         } for item in tree]
         return result
 
-    #: files larger than this are not read into memory for browsing
-    _BLOB_SIZE_LIMIT = 2 * 1024 * 1024
+    #: Fallback preview cap, in bytes, when a repository has no explicit
+    #: max_file_size. The per-repository field is authoritative — there
+    #: used to be two numbers for one thing: a max_file_size field
+    #: defaulting to 100 MB that nothing read, and this constant, which was
+    #: the only limit actually enforced.
+    _BLOB_SIZE_DEFAULT = 2 * 1024 * 1024
 
     @http.route('/api/git/repositories/<int:repo_id>/blob',
                 type='jsonrpc', auth='user')
@@ -245,7 +249,9 @@ class GitAPIController(http.Controller):
 
         size = blob.size
         result['size'] = size
-        if size > self._BLOB_SIZE_LIMIT:
+        limit = ((repo.max_file_size or 0) * 1024 * 1024
+                 or self._BLOB_SIZE_DEFAULT)
+        if size > limit:
             return dict(result, binary=True, too_large=True)
 
         raw = blob.data_stream.read()

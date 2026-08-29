@@ -153,13 +153,44 @@ class GitPullRequest(models.Model):
             _logger.info("PR %s not mergeable: %s", self.id, exc)
             return True
 
-    @api.depends('review_ids.state')
+    @api.depends('review_ids.state', 'review_ids.commit_id.sha',
+                 'source_branch_id.commit_sha',
+                 'target_branch_id.dismiss_stale_reviews')
     def _compute_review_status(self):
+        """Count reviews, honouring the target branch's stale-review policy.
+
+        Every review used to count regardless of which commit it was
+        pinned to, and `dismiss_stale_reviews` was stored on the branch and
+        read nowhere. So an approval survived any number of later pushes
+        and went on satisfying required_approving_reviews — the listing's
+        claim that approvals are pinned to the reviewed commit was true of
+        storage and meaningless at the point it mattered.
+
+        The same applies in the other direction, and that half is worse for
+        the author: a "request changes" against an old commit blocked the
+        merge forever, even after the very commits that answered it.
+
+        A review with NO commit recorded still counts. It is tempting to
+        treat it as stale — it cannot be shown to describe the merged code
+        — but the field is only populated when a git.commit record exists
+        for the branch head, and this module syncs the latest 50 commits
+        only. A head older than that window has no commit record, so the
+        review has no commit_id through no fault of the reviewer.
+        dismiss_stale_reviews also defaults to True, so treating missing
+        metadata as staleness would silently discard approvals on every
+        such branch. Absence of evidence is not evidence of staleness.
+        """
         for pr in self:
-            approvals = pr.review_ids.filtered(lambda r: r.state == 'approve')
-            changes = pr.review_ids.filtered(lambda r: r.state == 'request_changes')
-            pr.approval_count = len(approvals)
-            pr.changes_requested = bool(changes)
+            reviews = pr.review_ids
+            if pr.target_branch_id.dismiss_stale_reviews:
+                head = pr.source_branch_id.commit_sha
+                reviews = reviews.filtered(
+                    lambda r, head=head: (not r.commit_id.sha)
+                    or r.commit_id.sha == head)
+            pr.approval_count = len(
+                reviews.filtered(lambda r: r.state == 'approve'))
+            pr.changes_requested = bool(
+                reviews.filtered(lambda r: r.state == 'request_changes'))
 
     @api.depends('repository_id.owner_id', 'repository_id.name', 'number')
     def _compute_access_url(self):

@@ -19,14 +19,45 @@ NAME_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$')
 # grants every employee write on — so it is attacker-controlled input that
 # the hourly mirror cron feeds to git as the Odoo system user.
 MIRROR_URL_RE = re.compile(
-    r"""^(?:
-          (?:https?|git|ssh)://[^\s'"\\]+      # scheme form
-        | [A-Za-z0-9._-]+@[A-Za-z0-9.-]+:[^\s'"\\]+   # scp form: user@host:path
-    )$""",
+    r"""^https?://[^\s'"\\]+$""",
     re.VERBOSE,
 )
 # Protocols git may use for a mirror fetch, as GIT_ALLOW_PROTOCOL expects them.
-MIRROR_ALLOWED_PROTOCOLS = 'http:https:git:ssh'
+#
+# git:// and ssh:// are deliberately absent. git:// is unauthenticated and
+# plaintext, and ssh:// would authenticate as whatever key the Odoo system
+# user happens to hold — this module manages no keys for outbound fetches,
+# so an ssh mirror URL borrows the server's identity. The scp form
+# (user@host:path) is gone with them.
+MIRROR_ALLOWED_PROTOCOLS = 'http:https'
+
+#: Hosts a mirror may never reach. `mirror_url` is attacker-controlled
+#: input — every employee has write on the field, and the import wizard was
+#: open to base.group_user — and the fetch runs from inside the Odoo
+#: process. Without this, an internal user could make the server request
+#: loopback, private ranges, or a cloud metadata endpoint
+#: (169.254.169.254) and use the error text as an oracle. The allowlist
+#: above stops command injection and local file reads; it does nothing
+#: about network pivoting.
+#:
+#: Self-hosters mirroring an internal GitLab can opt back in with the
+#: system parameter dw_git.mirror_allow_private_hosts.
+def _resolve_addresses(host):
+    """Every address `host` resolves to, as ipaddress objects."""
+    import ipaddress
+    import socket
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except OSError:
+        return []
+    found = []
+    for info in infos:
+        try:
+            found.append(ipaddress.ip_address(info[4][0]))
+        except ValueError:
+            continue
+    return found
+
 
 
 class GitRepository(models.Model):
@@ -161,7 +192,11 @@ class GitRepository(models.Model):
              "whose interval has not elapsed since mirror_last_sync.")
     mirror_last_sync = fields.Datetime(readonly=True)
     require_signed_commits = fields.Boolean(default=False)
-    max_file_size = fields.Integer(default=100, help="Max file size in MB")
+    max_file_size = fields.Integer(
+        default=2,
+        help="Largest file the built-in file browser will render, in MB. "
+             "Bigger files are listed but not previewed — clone the "
+             "repository to read them.")
     auto_delete_head_branch = fields.Boolean(default=True)
 
     # === Constraints ===
@@ -504,6 +539,48 @@ class GitRepository(models.Model):
         self.mirror_last_sync = fields.Datetime.now()
         return True
 
+    def _check_mirror_host(self, url):
+        """Refuse a mirror URL that resolves to a network we must not reach.
+
+        The URL allowlist stops command injection and local file reads.
+        It does nothing about network pivoting: `mirror_url` is a plain
+        field every employee can write, the import wizard was open to
+        base.group_user, and the fetch runs from inside the Odoo process.
+        Without this, an internal user could point the server at loopback,
+        an RFC1918 range, or a cloud metadata endpoint (169.254.169.254)
+        and read the outcome from the error text.
+
+        Every address the host resolves to is checked, not just the first:
+        a name with both a public and a private A record must not slip
+        through on ordering.
+        """
+        self.ensure_one()
+        allow_private = self.env['ir.config_parameter'].sudo().get_param(
+            'dw_git.mirror_allow_private_hosts')
+        if allow_private and allow_private not in ('0', 'False', 'false'):
+            return
+
+        from urllib.parse import urlparse
+        host = (urlparse(url).hostname or '').strip('[]')
+        if not host:
+            raise UserError(_("Mirror URL has no host: %(url)s", url=url))
+
+        addresses = _resolve_addresses(host)
+        if not addresses:
+            raise UserError(_(
+                "Could not resolve the mirror host %(host)s.", host=host))
+        for address in addresses:
+            if (address.is_private or address.is_loopback
+                    or address.is_link_local or address.is_multicast
+                    or address.is_reserved or address.is_unspecified):
+                raise UserError(_(
+                    "Refusing to mirror from %(host)s: it resolves to "
+                    "%(address)s, which is on a network this server must "
+                    "not be made to reach. A system administrator can "
+                    "allow it with the dw_git.mirror_allow_private_hosts "
+                    "system parameter.",
+                    host=host, address=address))
+
     def _fetch_refs_from(self, url):
         """Fetch every branch from `url` into this repository's bare repo.
 
@@ -518,6 +595,7 @@ class GitRepository(models.Model):
             raise UserError(_(
                 "Refusing to fetch from an unsupported remote URL: %(url)s",
                 url=url))
+        self._check_mirror_host(url)
         import git
         path = self._get_repo_path()
         if not os.path.isdir(path):
@@ -529,9 +607,26 @@ class GitRepository(models.Model):
             repo.create_remote('origin', url)
         # Belt and braces: even if a URL slipped past the allowlist, git
         # itself refuses any transport outside this set.
+        #
+        # http.followRedirects=false closes the hole the address check
+        # cannot see. _check_mirror_host resolves the host we were GIVEN,
+        # but git's default (`initial`) would follow a redirect from a
+        # perfectly public host to 169.254.169.254 or 127.0.0.1, and the
+        # address we validated would never be the address fetched. It also
+        # narrows DNS rebinding between the check and the request: with
+        # redirects refused, an attacker needs the name to resolve
+        # differently in that window rather than simply being told where to
+        # go next.
+        # via GIT_CONFIG_*, not `fetch -c`: -c is a git-level option that
+        # must precede the subcommand, and GitPython builds
+        # `git fetch -c ...`, which git rejects.
         with repo.git.custom_environment(
                 GIT_ALLOW_PROTOCOL=MIRROR_ALLOWED_PROTOCOLS,
-                GIT_TERMINAL_PROMPT='0'):
-            repo.git.fetch('--prune', 'origin', '+refs/heads/*:refs/heads/*')
+                GIT_TERMINAL_PROMPT='0',
+                GIT_CONFIG_COUNT='1',
+                GIT_CONFIG_KEY_0='http.followRedirects',
+                GIT_CONFIG_VALUE_0='false'):
+            repo.git.fetch('--prune', 'origin',
+                           '+refs/heads/*:refs/heads/*')
         self._sync_from_git()
         return True
