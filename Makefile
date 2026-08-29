@@ -15,7 +15,7 @@ RUFF     := uvx ruff
 
 .DEFAULT_GOAL := help
 .PHONY: help build up down clean logs shell psql install upgrade test test-one \
-        qa lint fmt xml assets check release-check drop-release-check versions i18n seed browser mail mail-clear coverage
+        qa lint fmt xml assets check release-check drop-release-check versions i18n seed browser mail mail-clear coverage ci
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -153,6 +153,16 @@ test: upgrade ## Run the full test suite
 	  grep -E "skipped .*(Chrome|websocket-client|devtools port)" /tmp/dw_git_test.log | head -3; \
 	  exit 1; \
 	fi
+
+ci: build ## Run the CI gates locally (throwaway DB, no GitHub minutes)
+	@# Mirrors .github/workflows/ci.yml. Differs from `make test` in the
+	@# ways that matter: a THROWAWAY database, so it cannot pass because
+	@# the dev database happens to be healthy — `make test` once reported
+	@# "0 failed, 0 error(s) of 0 tests" and exited 0 because dw_git was
+	@# uninstalled there. It also greps the INSTALL log and pins the tour
+	@# count to the tours registered on disk.
+	$(COMPOSE) up -d
+	@bash qa/ci_local.sh
 
 coverage: upgrade ## Measured line coverage of the addon
 	@# Measured, not guessed. Grepping test files for method names claims
