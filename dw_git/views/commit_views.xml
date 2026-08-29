@@ -25,7 +25,7 @@
         <field name="model">git.commit</field>
         <field name="arch" type="xml">
             <list string="Commits" sample="1">
-                <field name="short_sha" string="SHA" widget="badge" options="{'classes': {'': 'bg-dark'}}"/>
+                <field name="short_sha" string="SHA" widget="badge"/>
                 <field name="message_short" string="Message"/>
                 <field name="author_name" string="Author"/>
                 <field name="committed_date" widget="datetime"/>
@@ -136,7 +136,7 @@
                         <page string="Parents" name="parents">
                             <field name="parent_ids" mode="list" readonly="1">
                                 <list string="Parent Commits">
-                                    <field name="short_sha" string="SHA" widget="badge" options="{'classes': {'': 'bg-dark'}}"/>
+                                    <field name="short_sha" string="SHA" widget="badge"/>
                                     <field name="message_short" string="Message"/>
                                 </list>
                             </field>
@@ -144,7 +144,7 @@
                         <page string="Branches" name="branches">
                             <field name="branch_ids" mode="list,kanban" readonly="1">
                                 <list string="Branches containing this commit">
-                                    <field name="name" widget="badge" options="{'classes': {'': 'bg-primary'}}"/>
+                                    <field name="name" widget="badge"/>
                                     <field name="is_default" widget="boolean_toggle" string="Default"/>
                                 </list>
                                 <kanban>

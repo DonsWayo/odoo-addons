@@ -9,6 +9,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+from unittest.mock import patch
 
 from psycopg2 import IntegrityError
 
@@ -1278,3 +1279,287 @@ class TestRefreshChangesReportsFailure(DwGitCommon):
                       'the error should name the repository')
         self.assertIn(repo._get_repo_path(), message,
                       'the error should say where it looked')
+
+
+@tagged('regression', 'post_install', '-at_install')
+class TestReviewAndApprovalFlow(DwGitCommon):
+    """Review states and approval counts drive merge decisions."""
+
+    def setUp(self):
+        super().setUp()
+        self.repo = self._repo('review-flow')
+        self.main = self._branch(self.repo, 'main', sha='a' * 40)
+        self.feat = self._branch(self.repo, 'feature', sha='b' * 40)
+        self.pr = self.PR.create({
+            'title': 'test review flow',
+            'repository_id': self.repo.id,
+            'source_branch_id': self.feat.id,
+            'target_branch_id': self.main.id,
+            'state': 'open'
+        })
+        self.reviewer = self.other
+
+    def _mergeable_ignoring_conflicts(self, pr):
+        """is_mergeable with conflict detection taken out of the picture.
+
+        _compute_mergeable ends with `is_mergeable = can_merge and not
+        has_conflicts`, and _check_conflicts returns True whenever it cannot
+        read the repository — refusing to merge is its safe default. These
+        fixtures have no bare repo on disk, so is_mergeable is False no
+        matter how many approvals exist.
+
+        Asserting on it directly would have made the "not mergeable" tests
+        pass for the wrong reason and the "mergeable" tests impossible.
+        Patching the conflict check isolates the gate under test: the
+        REVIEW rules, which is what this class is about.
+        """
+        with patch.object(
+                type(pr), '_check_conflicts', lambda self: False):
+            pr.invalidate_recordset()
+            return pr.is_mergeable
+
+    def test_approve_review_increments_approval_count(self):
+        """An 'approve' review must increment approval_count."""
+        self.assertFalse(self.pr.approval_count,
+                         'precondition: no approvals yet')
+        self.env['git.pr.review'].create({
+            'pull_request_id': self.pr.id,
+            'reviewer_id': self.reviewer.id,
+            'state': 'approve'
+        })
+        self.assertEqual(self.pr.approval_count, 1,
+                         'approve review did not increment approval_count')
+
+    def test_comment_review_does_not_increment_approval_count(self):
+        """A 'comment' review must not increment approval_count."""
+        self.assertFalse(self.pr.approval_count,
+                         'precondition: no approvals yet')
+        self.env['git.pr.review'].create({
+            'pull_request_id': self.pr.id,
+            'reviewer_id': self.reviewer.id,
+            'state': 'comment'
+        })
+        self.assertFalse(self.pr.approval_count,
+                         'comment review incremented approval_count')
+
+    def test_request_changes_review_sets_changes_requested_true(self):
+        """A 'request_changes' review must set changes_requested = True."""
+        self.assertFalse(self.pr.changes_requested,
+                         'precondition: no changes requested yet')
+        self.env['git.pr.review'].create({
+            'pull_request_id': self.pr.id,
+            'reviewer_id': self.reviewer.id,
+            'state': 'request_changes'
+        })
+        self.assertTrue(self.pr.changes_requested,
+                        'request_changes did not set changes_requested')
+
+    def test_pr_not_mergeable_without_required_approvals(self):
+        """A PR requiring 2 approvals must not be mergeable with only 1."""
+        self.main.write({
+            'is_protected': True,
+            'require_pr_reviews': True,
+            'required_approving_reviews': 2
+        })
+        self.env['git.pr.review'].create({
+            'pull_request_id': self.pr.id,
+            'reviewer_id': self.reviewer.id,
+            'state': 'approve'
+        })
+        self.assertEqual(self.pr.approval_count, 1,
+                         'precondition: only 1 approval')
+        self.assertFalse(
+            self._mergeable_ignoring_conflicts(self.pr),
+            'a PR must not be mergeable with 1 approval when 2 are required')
+
+    def test_pr_mergeable_with_required_approvals(self):
+        """A PR with exactly the required approval count must be mergeable."""
+        self.main.write({
+            'is_protected': True,
+            'require_pr_reviews': True,
+            'required_approving_reviews': 2
+        })
+        for i in range(2):
+            reviewer = (self.reviewer if i == 0
+                        else self._create_user(f'reviewer{i}'))
+            self.env['git.pr.review'].create({
+                'pull_request_id': self.pr.id,
+                'reviewer_id': reviewer.id,
+                'state': 'approve'
+            })
+        self.assertEqual(self.pr.approval_count, 2,
+                         'precondition: exactly 2 approvals')
+        self.assertTrue(
+            self._mergeable_ignoring_conflicts(self.pr),
+            'the required approval count is met, so the review gate must pass')
+
+    def test_changes_requested_blocks_merge_despite_approvals(self):
+        """A PR with changes_requested must not be mergeable even with
+        sufficient approvals."""
+        self.main.write({
+            'is_protected': True,
+            'require_pr_reviews': True,
+            'required_approving_reviews': 1
+        })
+        # Add an approval
+        self.env['git.pr.review'].create({
+            'pull_request_id': self.pr.id,
+            'reviewer_id': self.reviewer.id,
+            'state': 'approve'
+        })
+        self.assertEqual(self.pr.approval_count, 1,
+                         'precondition: approval count is 1')
+        self.assertTrue(
+            self._mergeable_ignoring_conflicts(self.pr),
+                        'precondition: should be mergeable without changes_requested')
+
+        # Now request changes
+        other_reviewer = self._create_user('other_reviewer')
+        self.env['git.pr.review'].create({
+            'pull_request_id': self.pr.id,
+            'reviewer_id': other_reviewer.id,
+            'state': 'request_changes'
+        })
+        self.assertTrue(self.pr.changes_requested,
+                        'precondition: changes_requested is true')
+        self.assertFalse(
+            self._mergeable_ignoring_conflicts(self.pr),
+                         'PR mergeable despite changes_requested')
+
+    def test_changing_review_from_request_changes_to_approve_unblocks_merge(self):
+        """Changing a review state from request_changes to approve must
+        unblock the merge."""
+        self.main.write({
+            'is_protected': True,
+            'require_pr_reviews': True,
+            'required_approving_reviews': 1
+        })
+        # Create a review that requests changes
+        review = self.env['git.pr.review'].create({
+            'pull_request_id': self.pr.id,
+            'reviewer_id': self.reviewer.id,
+            'state': 'request_changes'
+        })
+        self.assertTrue(self.pr.changes_requested,
+                        'precondition: changes_requested is true')
+        self.assertFalse(
+            self._mergeable_ignoring_conflicts(self.pr),
+                         'precondition: should not be mergeable')
+
+        # Change it to approve
+        review.write({'state': 'approve'})
+        self.assertFalse(self.pr.changes_requested,
+                         'changes_requested should be false after removing all request_changes')
+        self.assertTrue(
+            self._mergeable_ignoring_conflicts(self.pr),
+                        'PR should be mergeable after changing to approve')
+
+    def test_review_records_commit_id_on_creation(self):
+        """A review with state 'approve' or 'request_changes' must record
+        the source branch's commit_id."""
+        # Create a commit associated with the feat branch
+        commit = self.Commit.create({
+            'sha': self.feat.commit_sha,
+            'message': 'feature commit',
+            'repository_id': self.repo.id
+        })
+        self.feat.write({'commit_sha': commit.sha})
+
+        # Create an approve review
+        review = self.env['git.pr.review'].create({
+            'pull_request_id': self.pr.id,
+            'reviewer_id': self.reviewer.id,
+            'state': 'approve'
+        })
+        self.assertTrue(review.commit_id,
+                        'approve review did not record commit_id')
+        self.assertEqual(review.commit_id.id, commit.id,
+                         'commit_id does not match source branch head')
+
+        # Create a request_changes review
+        review2 = self.env['git.pr.review'].create({
+            'pull_request_id': self.pr.id,
+            'reviewer_id': self._create_user('reviewer2').id,
+            'state': 'request_changes'
+        })
+        self.assertTrue(review2.commit_id,
+                        'request_changes review did not record commit_id')
+        self.assertEqual(review2.commit_id.id, commit.id,
+                         'request_changes commit_id does not match source branch head')
+
+    def test_review_from_different_user_counts_separately(self):
+        """Reviews from different users must all count towards approval_count."""
+        reviewer1 = self.reviewer
+        reviewer2 = self._create_user('second_reviewer')
+        reviewer3 = self._create_user('third_reviewer')
+
+        self.env['git.pr.review'].create({
+            'pull_request_id': self.pr.id,
+            'reviewer_id': reviewer1.id,
+            'state': 'approve'
+        })
+        self.assertEqual(self.pr.approval_count, 1,
+                         'first approval not counted')
+
+        self.env['git.pr.review'].create({
+            'pull_request_id': self.pr.id,
+            'reviewer_id': reviewer2.id,
+            'state': 'approve'
+        })
+        self.assertEqual(self.pr.approval_count, 2,
+                         'second approval from different user not counted')
+
+        self.env['git.pr.review'].create({
+            'pull_request_id': self.pr.id,
+            'reviewer_id': reviewer3.id,
+            'state': 'approve'
+        })
+        self.assertEqual(self.pr.approval_count, 3,
+                         'third approval from different user not counted')
+
+    def test_same_user_reviewing_twice_counts_both_reviews_as_separate(self):
+        """The model does not dedupe reviews by user — each review is
+        counted separately, even if from the same user.
+
+        This is the ACTUAL behaviour based on _compute_review_status().
+        It counts `len(approvals)`, not `len(approvals.reviewer_id)`.
+        """
+        self.env['git.pr.review'].create({
+            'pull_request_id': self.pr.id,
+            'reviewer_id': self.reviewer.id,
+            'state': 'approve'
+        })
+        self.assertEqual(self.pr.approval_count, 1,
+                         'first approval not counted')
+
+        # Same reviewer creates a second review (approve)
+        self.env['git.pr.review'].create({
+            'pull_request_id': self.pr.id,
+            'reviewer_id': self.reviewer.id,
+            'state': 'approve'
+        })
+        self.assertEqual(self.pr.approval_count, 2,
+                         'second approval from same user not counted separately '
+                         '(model does not dedupe by reviewer)')
+
+    def test_comment_review_does_not_change_approval_or_changes_requested(self):
+        """A 'comment' review must not affect approval_count or
+        changes_requested."""
+        self.main.write({
+            'is_protected': True,
+            'require_pr_reviews': True,
+            'required_approving_reviews': 1
+        })
+        self.env['git.pr.review'].create({
+            'pull_request_id': self.pr.id,
+            'reviewer_id': self.reviewer.id,
+            'state': 'comment',
+            'body': '<p>This looks interesting</p>'
+        })
+        self.assertFalse(self.pr.approval_count,
+                         'comment incremented approval_count')
+        self.assertFalse(self.pr.changes_requested,
+                         'comment set changes_requested')
+        self.assertFalse(
+            self._mergeable_ignoring_conflicts(self.pr),
+                         'comment somehow made PR mergeable')

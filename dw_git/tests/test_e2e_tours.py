@@ -174,6 +174,18 @@ class TestDwGitDiffAndBrowserE2E(HttpCase):
             f'/odoo/action-dw_git.action_git_pull_request/{self.pr.id}',
             'dw_git_pr_diff', login='admin')
 
+    def test_09_pr_review_flow(self):
+        """The Reviews tab shows the review and the approval count."""
+        self.env['git.pr.review'].create({
+            'pull_request_id': self.pr.id,
+            'reviewer_id': self.env.ref('base.user_admin').id,
+            'state': 'approve',
+        })
+        self.env.flush_all()
+        self.start_tour(
+            f'/odoo/action-dw_git.action_git_pull_request/{self.pr.id}',
+            'dw_git_pr_review', login='admin')
+
     def test_08_commit_shows_its_changes(self):
         """A commit page shows real stats and a real diff."""
         # The class fixture pushes to the bare repo and creates the branch

@@ -33,10 +33,10 @@
             <list string="Pull Requests" sample="1" decoration-muted="state == 'closed'" decoration-success="state == 'merged'" decoration-warning="state == 'draft'">
                 <field name="number" string="#" widget="git_badge"/>
                 <field name="title" string="Title"/>
-                <field name="state" widget="badge" string="Status" options="{'classes': {'draft': 'bg-secondary', 'open': 'bg-primary', 'merged': 'bg-success', 'closed': 'bg-danger'}}"/>
+                <field name="state" widget="badge" decoration-primary="state == 'open'" decoration-success="state == 'merged'" decoration-danger="state == 'closed'" decoration-muted="state == 'draft'" string="Status"/>
                 <field name="repository_id"/>
-                <field name="source_branch_id" string="Source" widget="badge" options="{'classes': {'': 'bg-info'}}"/>
-                <field name="target_branch_id" string="Target" widget="badge" options="{'classes': {'': 'bg-primary'}}"/>
+                <field name="source_branch_id" string="Source" widget="badge"/>
+                <field name="target_branch_id" string="Target" widget="badge"/>
                 <field name="author_id"/>
                 <field name="commit_count" optional="hide" string="Commits" widget="git_badge" decoration-info="commit_count &gt; 0"/>
                 <field name="changed_files" optional="hide" string="Files" widget="git_badge" decoration-info="changed_files &gt; 0"/>
@@ -132,13 +132,14 @@
                     <div class="row mb-3">
                         <div class="col-12">
                             <div class="d-flex flex-wrap align-items-center gap-2">
-                                <field name="state" widget="badge" options="{'classes': {'draft': 'bg-secondary', 'open': 'bg-primary', 'merged': 'bg-success', 'closed': 'bg-danger'}}" class="me-2"/>
+                                <field name="state" widget="badge" decoration-primary="state == 'open'" decoration-success="state == 'merged'" decoration-danger="state == 'closed'" decoration-muted="state == 'draft'" class="me-2"/>
                                 <!-- The badge widget renders its own <span class="badge">, so a
                                      bg-* in `class` paints the field WRAPPER instead: a square
                                      black block behind a rounded pill, with the corners bleeding
-                                     out around it. Colour goes through options, as everywhere else. -->
-                                <field name="number" widget="git_badge" class="me-2"
-                                       options="{'classes': {'': 'bg-secondary'}}"/>
+                                     out around it. Colour goes through decoration-*
+                                     attributes; the badge widget has no
+                                     `classes` option and never read one. -->
+                                <field name="number" widget="git_badge" class="me-2"/>
                                 <div class="oe_title flex-grow-1 mb-0">
                                     <h3 class="mb-0"><field name="title" nolabel="1" class="w-100"
                                         placeholder="What does this pull request do?"/></h3>
@@ -169,7 +170,7 @@
                             <field name="file_ids" mode="list,form" readonly="1">
                                 <list string="Changed Files" decoration-success="status == 'added'" decoration-danger="status == 'removed'" decoration-warning="status == 'renamed'" decoration-info="status == 'modified'">
                                     <field name="filename"/>
-                                    <field name="status" widget="badge" string="Status" options="{'classes': {'added': 'bg-success', 'modified': 'bg-primary', 'removed': 'bg-danger', 'renamed': 'bg-warning'}}"/>
+                                    <field name="status" widget="badge" decoration-success="status == 'added'" decoration-primary="status == 'modified'" decoration-danger="status == 'removed'" decoration-warning="status == 'renamed'" string="Status"/>
                                     <field name="additions" string="Additions" widget="git_badge" decoration-success="additions &gt; 0"/>
                                     <field name="deletions" string="Deletions" widget="git_badge" decoration-danger="deletions &gt; 0"/>
                                 </list>
@@ -195,8 +196,8 @@
                             <field name="review_ids" mode="list,form" readonly="1">
                                 <list string="Reviews" decoration-success="state == 'approve'" decoration-danger="state == 'request_changes'" decoration-info="state == 'comment'" decoration-muted="state == 'pending'">
                                     <field name="reviewer_id"/>
-                                    <field name="state" widget="badge" string="Review" options="{'classes': {'pending': 'bg-secondary', 'comment': 'bg-info', 'approve': 'bg-success', 'request_changes': 'bg-danger'}}"/>
-                                    <field name="commit_id" widget="badge" options="{'classes': {'': 'bg-dark'}}"/>
+                                    <field name="state" widget="badge" decoration-success="state == 'approve'" decoration-danger="state == 'request_changes'" decoration-info="state == 'comment'" decoration-muted="state == 'pending'" string="Review"/>
+                                    <field name="commit_id" widget="badge"/>
                                     <field name="create_date" widget="datetime"/>
                                 </list>
                             </field>
@@ -204,7 +205,7 @@
                         <page string="Commits" name="commits">
                             <field name="commit_ids" mode="list,kanban" readonly="1">
                                 <list string="Commits">
-                                    <field name="short_sha" string="SHA" widget="badge" options="{'classes': {'': 'bg-dark'}}"/>
+                                    <field name="short_sha" string="SHA" widget="badge"/>
                                     <field name="message_short" string="Message"/>
                                     <field name="author_name" string="Author"/>
                                     <field name="committed_date" widget="datetime"/>
@@ -265,7 +266,10 @@
                         <h2 class="mb-1"><field name="filename" readonly="1" nolabel="1" class="font-monospace"/></h2>
                         <div class="d-flex align-items-center gap-2">
                             <field name="status" widget="badge" nolabel="1"
-                                   options="{'classes': {'added': 'bg-success', 'modified': 'bg-primary', 'removed': 'bg-danger', 'renamed': 'bg-warning'}}"/>
+                                   decoration-success="status == 'added'"
+                                   decoration-primary="status == 'modified'"
+                                   decoration-danger="status == 'removed'"
+                                   decoration-warning="status == 'renamed'"/>
                             <span class="badge bg-success-subtle text-success-emphasis" title="Lines added">
                                 +<field name="additions" readonly="1" nolabel="1"/>
                             </span>
