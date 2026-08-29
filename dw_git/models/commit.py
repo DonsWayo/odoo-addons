@@ -40,6 +40,27 @@ class GitCommit(models.Model):
     deletions = fields.Integer()
     files_changed = fields.Integer()
 
+    patch = fields.Text(
+        compute='_compute_patch',
+        help="Unified diff of this commit against its first parent.")
+
+    def _compute_patch(self):
+        """Read the commit's diff from the repository, on demand.
+
+        Not stored: the text can be large, it never changes once the commit
+        exists, and storing it would duplicate the object database for no
+        gain. Computed rather than eager so that listing commits does not
+        run one diff per row.
+
+        _get_diff() has existed on this model since the beginning and
+        nothing ever called it — the ability to show a commit's changes was
+        written and never wired to anything, so every commit page showed a
+        message and no code.
+        """
+        for commit in self:
+            commit.patch = commit._get_diff() or ''
+
+
     # GPG Signature
     is_signed = fields.Boolean(default=False)
     signature = fields.Text()
@@ -70,16 +91,36 @@ class GitCommit(models.Model):
         except Exception:
             return []
 
+    #: git's canonical empty tree. Diffing a root commit against it is how
+    #: git itself shows the first commit in a repository.
+    EMPTY_TREE_SHA = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
+
     def _get_diff(self, parent_sha=None):
-        """Get diff against parent"""
+        """Unified diff of this commit against its first parent.
+
+        Parents come from GIT, not from parent_ids. That relation is an
+        Odoo many2many which _sync_from_git never populates, so the
+        previous implementation resolved no parent for any commit and
+        returned an empty string every time — which is why the diff was
+        empty rather than merely unused.
+
+        A root commit has no parent and is diffed against the empty tree,
+        the same way git shows the first commit in a repository.
+        """
+        self.ensure_one()
         try:
             import git
             repo = git.Repo(self.repository_id._get_repo_path())
-            parent = repo.commit(parent_sha) if parent_sha else (self.parent_ids[:1] and repo.commit(self.parent_ids[0].sha))
-            if parent:
-                return repo.git.diff(parent.sha, self.sha)
-            return ''
+            commit = repo.commit(self.sha)
+            if parent_sha:
+                base = parent_sha
+            elif commit.parents:
+                base = commit.parents[0].hexsha
+            else:
+                base = self.EMPTY_TREE_SHA
+            return repo.git.diff(base, self.sha)
         except Exception:
+            # a repository that is not on disk, or a sha that is not in it
             return ''
 
     @api.model_create_multi

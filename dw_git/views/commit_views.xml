@@ -126,6 +126,10 @@
                     </group>
 
                     <notebook>
+                        <page string="Changes" name="changes">
+                            <field name="patch" nolabel="1" readonly="1"
+                                   widget="git_diff_viewer"/>
+                        </page>
                         <page string="Message" name="message">
                             <field name="message" readonly="1" widget="text" class="o_monospace p-3 bg-light rounded"/>
                         </page>

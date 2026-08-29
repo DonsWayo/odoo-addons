@@ -528,3 +528,97 @@ class TestMirrorSyncActuallyFetches(DwGitCommon):
         self.assertEqual(
             set(branches.mapped('name')), {'main', 'feature/x'},
             f'cron ran but no branches landed: {branches.mapped("name")}')
+
+
+@tagged('post_install', '-at_install')
+class TestCommitStatsAndDiff(DwGitCommon):
+    """Regression for #54.
+
+    additions/deletions/files_changed are shown in the list, kanban and
+    form views with badges and colour, and nothing ever wrote them: every
+    commit reported zero changes, confidently, always. _get_diff() existed
+    on the model and nothing called it, so a commit page showed a message
+    and no code.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.base = tempfile.mkdtemp(prefix='dw-git-stats-')
+        self.addCleanup(shutil.rmtree, self.base, True)
+        self.env['ir.config_parameter'].sudo().set_param(
+            'dw_git.repo_base_path', self.base)
+        self.repo = self._repo('commit-stats')
+        self.repo._init_git_repo()
+
+        self.work = tempfile.mkdtemp(prefix='dw-git-stats-work-')
+        self.addCleanup(shutil.rmtree, self.work, True)
+        subprocess.run(
+            ['git', 'clone', '-q', self.repo._get_repo_path(), self.work],
+            check=True, capture_output=True)
+
+        # first commit: three lines in one file
+        self._write('a.py', 'one\ntwo\nthree\n')
+        self._make_commit('first')
+        # second: one line changed, one added, plus a whole new file
+        self._write('a.py', 'one\nTWO\nthree\nfour\n')
+        self._write('b.py', 'new file\n')
+        self._make_commit('second')
+        self._run('push', '-q', 'origin', 'HEAD:refs/heads/main')
+        self.repo._sync_from_git()
+
+    def _run(self, *args):
+        return subprocess.run(['git', *args], cwd=self.work, check=True,
+                              capture_output=True, text=True).stdout
+
+    def _write(self, name, body):
+        with open(os.path.join(self.work, name), 'w') as fh:
+            fh.write(body)
+
+    def _make_commit(self, message):
+        self._run('add', '-A')
+        self._run('-c', 'user.email=a@b.c', '-c', 'user.name=T',
+                  'commit', '-qm', message)
+
+    def _by_message(self, text):
+        return self.env['git.commit'].search([
+            ('repository_id', '=', self.repo.id),
+            ('message', '=', text)], limit=1)
+
+    def test_stats_are_populated_at_sync(self):
+        second = self._by_message('second')
+        self.assertTrue(second, 'the commit must have synced at all')
+        self.assertEqual(second.files_changed, 2,
+                         'a.py was modified and b.py added')
+        self.assertEqual(second.additions, 3,
+                         '"TWO", "four" and "new file"')
+        self.assertEqual(second.deletions, 1, 'the original "two"')
+
+    def test_the_first_commit_counts_its_own_lines(self):
+        first = self._by_message('first')
+        self.assertEqual(first.files_changed, 1)
+        self.assertEqual(first.additions, 3)
+        self.assertEqual(first.deletions, 0)
+
+    def test_a_commit_exposes_a_real_unified_diff(self):
+        patch = self._by_message('second').patch
+        self.assertIn('diff --git', patch,
+                      'the diff must be a real unified patch')
+        self.assertIn('+four', patch)
+        self.assertIn('-two', patch)
+        self.assertIn('b.py', patch)
+
+    def test_the_diff_is_computed_not_stored(self):
+        # storing it would duplicate the object database for text that
+        # never changes once the commit exists
+        field = self.env['git.commit']._fields['patch']
+        self.assertFalse(field.store)
+        self.assertTrue(field.compute)
+
+    def test_a_commit_with_no_repository_on_disk_yields_no_diff(self):
+        ghost_repo = self._repo('no-disk')
+        ghost = self.env['git.commit'].create({
+            'sha': 'f' * 40, 'message': 'nowhere',
+            'repository_id': ghost_repo.id,
+            'author_name': 'A', 'author_email': 'a@b.c'})
+        self.assertEqual(ghost.patch, '',
+                         'a missing repository must not raise here')

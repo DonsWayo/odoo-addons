@@ -174,6 +174,22 @@ class TestDwGitDiffAndBrowserE2E(HttpCase):
             f'/odoo/action-dw_git.action_git_pull_request/{self.pr.id}',
             'dw_git_pr_diff', login='admin')
 
+    def test_08_commit_shows_its_changes(self):
+        """A commit page shows real stats and a real diff."""
+        commit = self.env['git.commit'].search(
+            [('repository_id', '=', self.repo.id)],
+            order='committed_date desc', limit=1)
+        self.assertTrue(commit, 'the fixture must have synced a commit')
+        self.assertTrue(
+            commit.patch,
+            'precondition: the commit must have a diff to render')
+        self.assertTrue(
+            commit.files_changed,
+            'precondition: stats must be populated at sync')
+        self.start_tour(
+            f'/odoo/action-dw_git.action_git_commit/{commit.id}',
+            'dw_git_commit_diff', login='admin')
+
     def test_07_file_browser_renders_highlighted_source(self):
         """Browse Files loads the tree and highlights a file."""
         self.start_tour(

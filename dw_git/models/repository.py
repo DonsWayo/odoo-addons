@@ -436,6 +436,19 @@ class GitRepository(models.Model):
                 if Commit.search_count([('sha', '=', gc.hexsha),
                                         ('repository_id', '=', self.id)]):
                     continue
+                # Diffstat at sync time. additions/deletions/files_changed
+                # are displayed in the list, kanban and form views with
+                # badges and colour, and nothing ever wrote them: every
+                # commit in the product reported zero changes, confidently,
+                # always. Reading them here costs one diff per NEW commit —
+                # already-synced commits are skipped above — and a commit's
+                # stats never change once it exists.
+                stats = {}
+                try:
+                    stats = gc.stats.total or {}
+                except Exception:            # noqa: BLE001 - cosmetic only
+                    _logger.debug(
+                        "No diffstat for %s in %s", gc.hexsha, self.name)
                 Commit.create({
                     'sha': gc.hexsha,
                     'message': (gc.message or '').strip(),
@@ -443,6 +456,9 @@ class GitRepository(models.Model):
                     'author_email': gc.author.email if gc.author else '',
                     'committed_date': datetime.fromtimestamp(gc.committed_date),
                     'repository_id': self.id,
+                    'additions': stats.get('insertions', 0),
+                    'deletions': stats.get('deletions', 0),
+                    'files_changed': stats.get('files', 0),
                 })
         # A push arrives over HTTP; commit so the synced refs survive even if a
         # later step of the request fails. Never commit under the test cursor —
