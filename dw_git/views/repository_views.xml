@@ -149,8 +149,22 @@
                             </group>
                         </page>
                         <page string="Members" name="members">
-                            <field name="member_ids" widget="many2many_tags" options="{'no_create_edit': True}"/>
-                            <field name="group_ids" widget="many2many_tags"/>
+                            <group string="Team">
+                                <field name="member_ids" widget="many2many_tags" options="{'no_create_edit': True}" nolabel="1"/>
+                                <field name="group_ids" widget="many2many_tags" nolabel="1"/>
+                            </group>
+                            <group string="Portal Collaborators">
+                                <div class="text-muted mb-2" colspan="2">
+                                    Portal users who may read this repository's
+                                    portal pages at
+                                    <code>/git/&lt;owner&gt;/&lt;name&gt;</code>.
+                                    They get no backend access, and they cannot
+                                    clone or push — sharing a pull request with
+                                    a customer does not share the source tree.
+                                </div>
+                                <field name="portal_member_ids" widget="many2many_tags"
+                                       options="{'no_create_edit': True}" nolabel="1" colspan="2"/>
+                            </group>
                         </page>
                     </notebook>
                 </sheet>

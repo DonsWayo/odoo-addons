@@ -107,6 +107,15 @@ class GitRepository(models.Model):
         index=True,
         required=True
     )
+    portal_member_ids = fields.Many2many(
+        'res.users',
+        'git_repo_portal_member_rel',
+        'repo_id', 'user_id',
+        string='Portal Collaborators',
+        domain="[('share', '=', True)]",
+        help="Portal users who may READ this repository's portal pages. "
+             "They get no backend access and cannot clone or push.")
+
     member_ids = fields.Many2many(
         'res.users',
         'git_repo_member_rel',
@@ -517,7 +526,31 @@ class GitRepository(models.Model):
                     and not user.share)
 
     def _check_portal_access(self, user):
-        """Check if user has portal access to repository"""
+        """May `user` read this repository's PORTAL PAGES?
+
+        Deliberately wider than _check_repo_access, and deliberately
+        separate from it.
+
+        _check_repo_access is the gate on the git transport, the JSON-RPC
+        API, PAT and deploy-key authentication. Adding portal collaborators
+        there would have handed them `git clone` over Smart HTTP and the
+        whole API, because those callers ask it the same question with
+        operation='read'. A portal user is an external person — a customer
+        looking at a pull request — and giving them the source tree is not
+        what "share this PR" means.
+
+        So the portal check is the only place portal_member_ids is
+        consulted. Everything else keeps refusing them, and the refusal is
+        asserted by tests that attempt a real clone.
+        """
+        if not user._is_superuser() and not user.sudo().active:
+            return False
+        if (self.company_id
+                and not user._is_superuser()
+                and self.company_id not in user.company_ids):
+            return False
+        if user in self.portal_member_ids:
+            return True
         return self._check_repo_access(user, 'read')
 
     def _get_user_permissions(self, user):
