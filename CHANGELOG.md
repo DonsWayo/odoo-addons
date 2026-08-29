@@ -6,6 +6,18 @@ All notable changes to Git Hosting are recorded here. The format follows
 Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
 `19.0.1.1.0` is the second feature release of Git Hosting for Odoo 19.0.
 
+## [19.0.1.9.1] - 2026-08-29
+
+### Fixed
+
+- **The store listing and README claimed 130 automated tests.** There are
+  291. An external audit had flagged the same number when it was an
+  over-claim; 19.0.1.9.0 took the count past it in the other direction. A
+  published figure that nobody re-checks drifts in whichever direction the
+  work happens to go.
+
+No code changes. Documentation and store copy only.
+
 ## [19.0.1.9.0] - 2026-08-29
 
 Thirteen issues, opened and closed against a running system. Three were
@@ -743,7 +755,8 @@ First working release: repositories, branches, commits, pull requests with
 reviews and merge strategies, personal access tokens, deploy keys, webhooks,
 portal pages, and Git Smart HTTP transport.
 
-[Unreleased]: https://github.com/DonsWayo/odoo-addons/compare/dw_git-v19.0.1.9.0...HEAD
+[Unreleased]: https://github.com/DonsWayo/odoo-addons/compare/dw_git-v19.0.1.9.1...HEAD
+[19.0.1.9.1]: https://github.com/DonsWayo/odoo-addons/compare/dw_git-v19.0.1.9.0...dw_git-v19.0.1.9.1
 [19.0.1.9.0]: https://github.com/DonsWayo/odoo-addons/compare/dw_git-v19.0.1.8.0...dw_git-v19.0.1.9.0
 [19.0.1.5.0]: https://github.com/DonsWayo/odoo-addons/compare/v19.0.1.4.0...odoogit-v19.0.1.5.0
 [19.0.1.4.0]: https://github.com/DonsWayo/odoo-addons/compare/v19.0.1.3.0...v19.0.1.4.0
