@@ -692,3 +692,101 @@ class TestDeployKeyTransportAuthorisation(HttpCase):
         self.assertNotIn(
             'main', [h.name for h in bare_b.heads],
             "the foreign deploy key's push landed in repo B")
+
+
+@tagged('e2e', 'post_install', '-at_install')
+class TestPortalCollaboratorsCannotReachTheTransport(HttpCase):
+    """Portal access must stop at the portal (#21).
+
+    A portal collaborator is an external person — a customer looking at a
+    pull request. `_check_repo_access` is the gate on the git transport,
+    the JSON-RPC API, and PAT and deploy-key authentication, and every one
+    of those callers asks it the same question with operation='read'. So
+    putting portal collaborators into THAT method would have handed them
+    `git clone` over Smart HTTP and the whole API along with the web page.
+
+    portal_member_ids is therefore consulted only by _check_portal_access.
+    These tests are what hold the two apart.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.base_path = tempfile.mkdtemp(prefix='dw_git_portal_')
+        cls.addClassCleanup(shutil.rmtree, cls.base_path, ignore_errors=True)
+        cls.env['ir.config_parameter'].sudo().set_param(
+            'dw_git.repo_base_path', cls.base_path)
+
+        cls.owner = cls.env['res.users'].create({
+            'name': 'Portal Repo Owner', 'login': 'portal-owner',
+            'email': 'po@lc.test'})
+        cls.customer = cls.env['res.users'].create({
+            'name': 'A Customer', 'login': 'portal-customer',
+            'email': 'pc@lc.test',
+            'group_ids': [(6, 0, [cls.env.ref('base.group_portal').id])]})
+        cls.repo = cls.env['git.repository'].create({
+            'name': 'portal-repo', 'owner_id': cls.owner.id,
+            'visibility': 'private', 'default_branch': 'main',
+            'portal_member_ids': [(4, cls.customer.id)]})
+        cls.repo._init_git_repo()
+        cls.pat = cls.env['git.personal_access_token'].create({
+            'name': 'customer token', 'user_id': cls.customer.id,
+            'scopes': 'read'})
+        cls.token = cls.pat.token
+
+    def setUp(self):
+        super().setUp()
+        self.work = tempfile.mkdtemp(prefix='dw_git_portal_work_')
+        self.addCleanup(shutil.rmtree, self.work, ignore_errors=True)
+
+    def test_the_customer_is_really_a_portal_user(self):
+        self.assertTrue(
+            self.customer.share,
+            'precondition: the fixture must be a portal user, not an employee')
+
+    def test_a_portal_collaborator_may_read_the_portal_page(self):
+        self.assertTrue(
+            self.repo._check_portal_access(self.customer),
+            'the whole point of #21 is that this now works')
+
+    def test_a_portal_collaborator_is_refused_by_the_transport_gate(self):
+        self.assertFalse(
+            self.repo._check_repo_access(self.customer, 'read'),
+            'portal_member_ids must not be visible to _check_repo_access — '
+            'that gate gates git clone and the JSON-RPC API')
+        self.assertFalse(
+            self.repo._check_repo_access(self.customer, 'write'))
+
+    def test_a_portal_collaborator_cannot_clone_over_smart_http(self):
+        base = self.base_url().replace('http://', '')
+        url = (f'http://{self.customer.login}:{self.token}@{base}'
+               f'/git/{self.owner.login}/{self.repo.name}.git')
+        env = dict(os.environ, GIT_TERMINAL_PROMPT='0',
+                   GIT_CONFIG_NOSYSTEM='1', HOME=self.work)
+        with self.allow_requests():
+            header = (f'http.extraHeader=Cookie: '
+                      f'{TEST_CURSOR_COOKIE_NAME}={self.http_request_key}')
+            proc = subprocess.run(
+                ['git', '-c', header, 'clone', '-q', url,
+                 os.path.join(self.work, 'stolen')],
+                env=env, capture_output=True, text=True, timeout=120)
+        self.assertNotEqual(
+            proc.returncode, 0,
+            'a portal collaborator cloned the source tree over Smart HTTP')
+        self.assertFalse(
+            os.path.isdir(os.path.join(self.work, 'stolen', '.git')))
+
+    def test_a_portal_user_who_is_not_a_collaborator_gets_nothing(self):
+        stranger = self.env['res.users'].create({
+            'name': 'Other Customer', 'login': 'portal-stranger',
+            'email': 'ps@lc.test',
+            'group_ids': [(6, 0, [self.env.ref('base.group_portal').id])]})
+        self.assertFalse(self.repo._check_portal_access(stranger))
+        self.assertFalse(self.repo._check_repo_access(stranger, 'read'))
+
+    def test_a_deactivated_portal_collaborator_loses_the_portal_too(self):
+        self.customer.write({'active': False})
+        self.env.flush_all()
+        self.assertFalse(
+            self.repo._check_portal_access(self.customer),
+            'deactivation must revoke portal access as well')

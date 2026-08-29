@@ -9,13 +9,18 @@ class GitPortalController(http.Controller):
         """Portal view for user's repositories"""
         user = request.env.user
         domain = [
-            '|', '|',
+            '|', '|', '|',
             ('owner_id', '=', user.id),
             ('member_ids', 'in', user.id),
-            ('group_ids', 'in', user.group_ids.ids)
+            ('group_ids', 'in', user.group_ids.ids),
+            ('portal_member_ids', 'in', user.id),
         ]
 
-        Repository = request.env['git.repository']
+        # sudo(): a portal user has no ORM access to git.repository, and
+        # deliberately still does not — the portal pages run under sudo and
+        # _check_portal_access is the gate. The domain above is what limits
+        # the result to repositories this user may see.
+        Repository = request.env['git.repository'].sudo()
         repositories = Repository.search(domain, limit=12, offset=(page-1)*12)
         total = Repository.search_count(domain)
 
