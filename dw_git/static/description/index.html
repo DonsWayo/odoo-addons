@@ -168,6 +168,49 @@
   </div>
 </section>
 
+<section class="oe_container">
+  <div class="oe_row oe_spaced">
+    <div class="oe_span12">
+      <h3 class="oe_slogan">Commits and pull requests, linked to your tasks</h3>
+      <p class="oe_mt32 text-center">
+        Write <code>task-42</code> in a commit message, a pull request title
+        or its description and the task is linked. Write
+        <code>fixes task-42</code> and merging the pull request closes it.
+        The task itself gains Commits and Pull Requests buttons, so the
+        person reading the task can see the code that answered it.
+      </p>
+      <p class="text-center text-muted">
+        This is the part no standalone Git host can do: it already knows who
+        your developers are, and now it knows what they were working on.
+        Task references resolve through the reader's own access, so a commit
+        message cannot be used to find out which tasks exist.
+      </p>
+    </div>
+  </div>
+  <div class="oe_row oe_spaced">
+    <div class="oe_span6">
+      <div class="oe_row_img">
+        <h4 class="text-center"><i class="fa fa-users"/> Share with a customer</h4>
+        <p class="text-center">
+          Portal collaborators can read a repository's portal pages without a
+          backend account. They cannot clone, cannot push and cannot reach
+          the API &mdash; sharing a pull request with a customer does not
+          share the source tree.
+        </p>
+      </div>
+    </div>
+    <div class="oe_span6">
+      <div class="oe_row_img">
+        <h4 class="text-center"><i class="fa fa-history"/> Every commit, in full</h4>
+        <p class="text-center">
+          Each commit carries its real diffstat and a Changes tab rendering
+          the unified diff, using the same viewer as pull requests.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="oe_container oe_dark">
   <div class="oe_row oe_spaced">
     <div class="oe_span12">
