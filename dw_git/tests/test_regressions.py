@@ -123,12 +123,15 @@ class TestMirrorUrlValidation(DwGitCommon):
         'https://host/repo.git\next::sh -c id',               # newline smuggling
     ]
 
+    # Only http(s) survives. git:// is unauthenticated plaintext and
+    # ssh:// (with its scp shorthand) would authenticate as whatever key
+    # the Odoo system user holds, which this module does not manage — see
+    # #47. Their rejection is asserted in
+    # TestMirrorCannotReachInternalNetworks.
     LEGITIMATE = [
         'https://github.com/owner/repo.git',
         'http://internal.example/repo.git',
-        'git://git.example.com/repo',
-        'ssh://git@example.com:22/owner/repo.git',
-        'git@github.com:owner/repo.git',
+        'https://gitlab.example.com:8443/group/sub/repo.git',
     ]
 
     def test_hostile_mirror_urls_are_rejected(self):
@@ -1043,6 +1046,206 @@ class TestMultiCompanyIsolation(DwGitCommon):
 
 
 @tagged('regression', 'post_install', '-at_install')
+class TestPreviewLimitIsTheConfiguredOne(DwGitCommon):
+    """Regression for #44.
+
+    max_file_size defaulted to 100 MB and nothing read it. The only limit
+    actually enforced was a hardcoded 2 MB in the blob endpoint. Two
+    numbers for one thing, and the one the user could see was the wrong
+    one.
+    """
+
+    def test_the_field_is_the_limit_the_endpoint_enforces(self):
+        from odoo.addons.dw_git.controllers.api import GitAPIController
+        repo = self._repo('preview-limit')
+        repo.write({'max_file_size': 5})
+        limit = ((repo.max_file_size or 0) * 1024 * 1024
+                 or GitAPIController._BLOB_SIZE_DEFAULT)
+        self.assertEqual(limit, 5 * 1024 * 1024)
+
+    def test_a_repository_with_no_limit_falls_back_to_the_default(self):
+        from odoo.addons.dw_git.controllers.api import GitAPIController
+        repo = self._repo('preview-default')
+        repo.write({'max_file_size': 0})
+        limit = ((repo.max_file_size or 0) * 1024 * 1024
+                 or GitAPIController._BLOB_SIZE_DEFAULT)
+        self.assertEqual(limit, GitAPIController._BLOB_SIZE_DEFAULT)
+
+    def test_the_default_matches_what_is_actually_enforced(self):
+        # the field's default and the fallback must not drift apart again
+        from odoo.addons.dw_git.controllers.api import GitAPIController
+        default_mb = self.env['git.repository']._fields['max_file_size'].default(
+            self.env['git.repository'])
+        self.assertEqual(default_mb * 1024 * 1024,
+                         GitAPIController._BLOB_SIZE_DEFAULT)
+
+
+@tagged('regression', 'post_install', '-at_install')
+class TestCloneWizardMakesNoFalseClaim(DwGitCommon):
+    """Regression for #45.
+
+    action_copy_http reported "HTTPS clone URL copied to clipboard!" and
+    copied nothing — a server-side method cannot reach the clipboard.
+    """
+
+    def test_the_fake_copy_action_is_gone(self):
+        self.assertFalse(
+            hasattr(self.env['git.clone.wizard'], 'action_copy_http'),
+            'a method that claims to copy but cannot must not exist')
+
+
+@tagged('regression', 'post_install', '-at_install')
+class TestStaleReviewsAreDismissed(DwGitCommon):
+    """Regression for #43.
+
+    dismiss_stale_reviews was stored on the branch and read nowhere, and
+    _compute_review_status counted every review regardless of the commit it
+    was pinned to. An approval therefore survived any number of later
+    pushes and went on satisfying required_approving_reviews.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.repo = self._repo('stale-reviews')
+        self.main = self.Branch.create({
+            'name': 'main', 'repository_id': self.repo.id,
+            'commit_sha': 'a' * 40, 'required_approving_reviews': 1})
+        self.feature = self.Branch.create({
+            'name': 'feature', 'repository_id': self.repo.id,
+            'commit_sha': 'b' * 40})
+        self.old_commit = self.env['git.commit'].create({
+            'sha': 'b' * 40, 'message': 'reviewed', 'repository_id': self.repo.id,
+            'author_name': 'A', 'author_email': 'a@b.c'})
+        self.pr = self.PR.create({
+            'title': 'stale', 'repository_id': self.repo.id,
+            'source_branch_id': self.feature.id,
+            'target_branch_id': self.main.id, 'state': 'open'})
+        self.review = self.env['git.pr.review'].create({
+            'pull_request_id': self.pr.id, 'state': 'approve',
+            'reviewer_id': self.other.id, 'commit_id': self.old_commit.id})
+
+    def _push_new_head(self):
+        """Move the source branch on, as a push would."""
+        new = self.env['git.commit'].create({
+            'sha': 'c' * 40, 'message': 'later work',
+            'repository_id': self.repo.id,
+            'author_name': 'A', 'author_email': 'a@b.c'})
+        self.feature.write({'commit_sha': new.sha})
+        self.pr.invalidate_recordset()
+        return new
+
+    def test_an_approval_of_the_current_head_counts(self):
+        self.main.write({'dismiss_stale_reviews': True})
+        self.pr.invalidate_recordset()
+        self.assertEqual(self.pr.approval_count, 1)
+
+    def test_an_approval_of_an_old_commit_is_dismissed(self):
+        self.main.write({'dismiss_stale_reviews': True})
+        self._push_new_head()
+        self.assertEqual(
+            self.pr.approval_count, 0,
+            'an approval pinned to a superseded commit must not count')
+
+    def test_without_the_policy_an_old_approval_still_counts(self):
+        self.main.write({'dismiss_stale_reviews': False})
+        self._push_new_head()
+        self.assertEqual(
+            self.pr.approval_count, 1,
+            'the branch policy is opt-in and must be honoured either way')
+
+    def test_a_stale_request_changes_stops_blocking_the_merge(self):
+        # the half that hurts the author: a rejection of code that has
+        # since been replaced must not block forever
+        self.review.write({'state': 'request_changes'})
+        self.main.write({'dismiss_stale_reviews': True})
+        self.pr.invalidate_recordset()
+        self.assertTrue(self.pr.changes_requested)
+        self._push_new_head()
+        self.assertFalse(
+            self.pr.changes_requested,
+            'a request-changes against a superseded commit must not block')
+
+    def test_a_review_with_no_commit_recorded_still_counts(self):
+        # commit_id is only populated when a git.commit record exists for
+        # the branch head, and this module syncs the latest 50 commits
+        # only — so a head outside that window leaves the field empty
+        # through no fault of the reviewer. dismiss_stale_reviews defaults
+        # to True, so treating missing metadata as staleness would silently
+        # discard approvals on every such branch.
+        self.review.write({'commit_id': False})
+        self.main.write({'dismiss_stale_reviews': True})
+        self.pr.invalidate_recordset()
+        self.assertEqual(
+            self.pr.approval_count, 1,
+            'absence of evidence is not evidence of staleness')
+
+
+@tagged('regression', 'post_install', '-at_install')
+class TestMirrorCannotReachInternalNetworks(DwGitCommon):
+    """Regression for #47 (SSRF).
+
+    The URL allowlist stopped command injection and local file reads, both
+    real RCE vectors. It did nothing about network pivoting: mirror_url is
+    a plain field every employee can write, the import wizard was open to
+    base.group_user, and the fetch runs from inside the Odoo process. Any
+    internal user could point the server at loopback, an RFC1918 range or
+    a cloud metadata endpoint and read the outcome from the error text.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.repo = self._repo('ssrf-target')
+
+    def _refuses(self, url):
+        with self.assertRaises(UserError) as caught:
+            self.repo._fetch_refs_from(url)
+        return str(caught.exception)
+
+    def test_cloud_metadata_endpoint_is_refused(self):
+        self.assertIn('169.254.169.254',
+                      self._refuses('http://169.254.169.254/latest/meta-data/'))
+
+    def test_loopback_is_refused(self):
+        self._refuses('http://127.0.0.1:8069/web/login')
+
+    def test_private_range_is_refused(self):
+        self._refuses('http://10.0.0.1/x.git')
+
+    def test_localhost_by_name_is_refused(self):
+        # resolving the NAME must not be a way around the address check
+        self._refuses('http://localhost:8069/x.git')
+
+    def test_git_protocol_is_refused(self):
+        # unauthenticated and plaintext; no longer in the allowlist
+        self._refuses('git://github.com/foo/bar.git')
+
+    def test_ssh_protocol_is_refused(self):
+        # would authenticate as whatever key the Odoo system user holds
+        self._refuses('ssh://git@github.com/foo/bar.git')
+
+    def test_scp_form_is_refused(self):
+        self._refuses('git@github.com:foo/bar.git')
+
+    def test_file_url_is_still_refused(self):
+        # the original RCE vector must stay closed
+        self._refuses('file:///etc/passwd')
+
+    def test_ext_command_form_is_still_refused(self):
+        self._refuses('ext::sh -c whoami')
+
+    def test_an_administrator_can_opt_back_in(self):
+        # Assert on the host check itself, which is what the parameter
+        # governs. Going through _fetch_refs_from would then reach the real
+        # git fetch and fail with GitCommandError for an unrelated reason.
+        with self.assertRaises(UserError):
+            self.repo._check_mirror_host('http://127.0.0.1:9/x.git')
+
+        self.env['ir.config_parameter'].sudo().set_param(
+            'dw_git.mirror_allow_private_hosts', '1')
+        self.repo._check_mirror_host('http://127.0.0.1:9/x.git')
+
+
+@tagged('regression', 'post_install', '-at_install')
 class TestRefreshChangesReportsFailure(DwGitCommon):
     """A user-facing button that reported success on failure."""
 
@@ -1276,7 +1479,7 @@ class TestReviewAndApprovalFlow(DwGitCommon):
         # Create a request_changes review
         review2 = self.env['git.pr.review'].create({
             'pull_request_id': self.pr.id,
-            'reviewer_id': self._create_user('reviewer2'),
+            'reviewer_id': self._create_user('reviewer2').id,
             'state': 'request_changes'
         })
         self.assertTrue(review2.commit_id,
