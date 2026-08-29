@@ -176,10 +176,16 @@ class TestDwGitDiffAndBrowserE2E(HttpCase):
 
     def test_08_commit_shows_its_changes(self):
         """A commit page shows real stats and a real diff."""
+        # The class fixture pushes to the bare repo and creates the branch
+        # records by hand; it never imports commits. Drive the real sync
+        # here rather than manufacturing a git.commit record, so this also
+        # exercises the path that populates the stats.
+        self.repo._sync_from_git()
+        self.env.flush_all()
         commit = self.env['git.commit'].search(
             [('repository_id', '=', self.repo.id)],
             order='committed_date desc', limit=1)
-        self.assertTrue(commit, 'the fixture must have synced a commit')
+        self.assertTrue(commit, 'the sync must have imported a commit')
         self.assertTrue(
             commit.patch,
             'precondition: the commit must have a diff to render')
