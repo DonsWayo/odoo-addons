@@ -22,6 +22,39 @@ COMPOSE="docker compose"
 LOGS="$(mktemp -d)"
 FAILED=0
 
+# Odoo logs "Closed N connections" before postgres has released them, so a
+# bare DROP loses a race against its own teardown and fails with "database
+# is being accessed by other users". Silencing that failure is worse than
+# the race: the throwaway database survives, and a SECOND database makes
+# Odoo serve /web/database/selector instead of the login form, which fails
+# every browser flow in `make qa` at "Password: element never appeared".
+# That is exactly what happened after the first run of this script.
+drop_db() {
+    # Stopping odoo first is not belt-and-braces, it is required: its
+    # connection pool reconnects faster than pg_terminate_backend can clear
+    # it, so a terminate-then-drop loses the race and the database survives.
+    # docs/RELEASING.md prescribes the same dance for release_check.
+    #
+    # Leaving it behind is not cosmetic. A SECOND database makes Odoo serve
+    # /web/database/selector instead of the login form, and every browser
+    # flow in `make qa` then fails at "Password: element never appeared" —
+    # which is exactly how the first run of this script broke the release
+    # gate that came after it.
+    docker compose stop odoo >/dev/null 2>&1
+    docker compose exec -T postgres dropdb -U odoo --if-exists "$DB" >/dev/null 2>&1
+    docker compose start odoo >/dev/null 2>&1
+    for _ in $(seq 1 30); do
+        docker compose exec -T odoo true >/dev/null 2>&1 && break
+        sleep 1
+    done
+    if docker compose exec -T postgres psql -U odoo -lqt 2>/dev/null \
+            | cut -d"|" -f1 | tr -d " " | grep -qx "$DB"; then
+        printf '\033[31mWARNING\033[0m  could not drop %s — drop it before running make qa\n' "$DB"
+        return 1
+    fi
+    return 0
+}
+
 step()  { printf '\n\033[1m== %s\033[0m\n' "$1"; }
 fail()  { printf '\033[31mFAIL\033[0m  %s\n' "$1"; FAILED=1; }
 ok()    { printf '\033[32mok\033[0m    %s\n' "$1"; }
@@ -36,7 +69,7 @@ for target in xml lint assets; do
 done
 
 step "Install into a throwaway database ($DB)"
-$COMPOSE exec -T postgres dropdb -U odoo --if-exists "$DB" >/dev/null 2>&1
+drop_db
 if $COMPOSE exec -T odoo odoo -d "$DB" -i dw_git --stop-after-init $DBFLAGS \
         >"$LOGS/install.log" 2>&1; then
     ok "module installs from scratch"
@@ -94,7 +127,7 @@ else
 fi
 
 step "Result"
-$COMPOSE exec -T postgres dropdb -U odoo --if-exists "$DB" >/dev/null 2>&1
+drop_db || FAILED=1
 if [ "$FAILED" -eq 0 ]; then
     printf '\033[32mALL CI GATES PASSED\033[0m  (logs: %s)\n' "$LOGS"
 else

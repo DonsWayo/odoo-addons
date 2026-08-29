@@ -6,6 +6,120 @@ All notable changes to Git Hosting are recorded here. The format follows
 Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
 `19.0.1.1.0` is the second feature release of Git Hosting for Odoo 19.0.
 
+## [19.0.1.9.0] - 2026-08-29
+
+Thirteen issues, opened and closed against a running system. Three were
+security holes; one of them was demonstrated with a real `git clone`
+before it was fixed. The rest are the same shape as 19.0.1.8.0 — something
+displayed, never verified, quietly wrong — plus the tooling that would
+have caught them.
+
+**Breaking.** Bare repositories move on disk and pull requests are
+renumbered. Both are handled by a migration; no operator action is needed.
+Mirror URLs using `git://`, `ssh://` or the `user@host:path` form stop
+working and must be changed to `https://`.
+
+### Security
+
+- **A deactivated user kept full Git access.** Deactivating someone
+  removed their session and their record access, but their personal access
+  token went on cloning and pushing private repositories over Smart HTTP —
+  the one layer that runs under `sudo()` and never consults record rules.
+  Proven with a real clone by a deactivated account before fixing. The
+  store listing said "Deactivate the user and it is gone"; it was not.
+  Deploy keys resolving to a deactivated owner were closed at the same
+  time.
+- **Mirroring could be pointed at your internal network.** Any employee
+  could set a mirror URL, and the import wizard was open to every employee,
+  so the server could be made to fetch `127.0.0.1`, an RFC1918 address, or
+  a cloud metadata endpoint, and the outcome read back from the error text.
+  Hostnames are now resolved and every address they answer with is checked;
+  HTTP redirects are refused, because validating the host you were given
+  means nothing if git then follows a redirect somewhere else. Importing
+  now requires Git Manager.
+- **The portal could not be used, and making it work must not leak code.**
+  Portal pages rendered but no portal user could be given a repository, so
+  the audience could not exist. Repositories now have Portal
+  Collaborators — and that grant is read by the portal only. A portal
+  collaborator cannot clone, cannot push and cannot reach the JSON-RPC API,
+  which is asserted by a test that attempts a real clone with a valid
+  token and requires it to fail. Sharing a pull request with a customer
+  does not share the source tree.
+
+### Fixed
+
+- **Every commit reported zero changes.** Lines Added, Lines Deleted and
+  Files Changed were shown on every commit, in three views, with colour —
+  and nothing ever wrote them. Commits also had no way to show what they
+  changed, though the method to produce the diff had been on the model
+  since the beginning with nothing calling it. Commits now carry real
+  counts and a Changes tab, using the same viewer as pull requests.
+- **Approving a pull request, then pushing more commits, left the approval
+  standing.** `dismiss_stale_reviews` was stored on the branch and read
+  nowhere. The same bug ran the other way and was worse for the author: a
+  "request changes" against a superseded commit blocked the merge forever,
+  including after the commits that answered it.
+- **Renaming a user orphaned every repository they owned.** Paths embedded
+  the login, which is mutable: the records went on pointing at a directory
+  that no longer existed, clone returned 404, and the data sat intact on
+  disk under the old name with nothing in the interface to say so.
+- **The tree and file APIs answered every failure with an empty
+  directory.** A missing repository, an unknown branch, a mistyped path and
+  a genuine bug were indistinguishable from an empty folder. They now say
+  which it is, and the file browser shows the reason instead of a blank
+  pane.
+- **Forty-four badge colour maps did nothing.** Written across pull request
+  states, review states, file statuses, webhook results and every counter,
+  and read by nothing — Odoo's badge widget has no such option, so all of
+  them rendered the same grey while appearing colour-coded. Numeric badges
+  additionally logged a warning on every view load.
+- **The clone dialog reported "copied to clipboard!" without copying.** A
+  server-side method cannot reach the clipboard. The repository form now
+  offers a copy control that works.
+- **Two different file-size limits.** A configurable one that nothing read,
+  and a hardcoded one that was enforced. Now one, and it is the one you can
+  see.
+
+### Added
+
+- **Commits and pull requests link to project tasks.** Write `task-42` in a
+  commit message, a pull request title or its description; write
+  `fixes task-42` and merging closes the task. Tasks gain Commits and Pull
+  Requests buttons. Deliberately not a bare `#42`, which would read as a
+  pull request number in the same sentence. Task references resolve through
+  the reader's own access, so a commit message cannot be used to discover
+  which tasks exist. This is what `project_id` was for; it had been a field
+  nobody read, carrying an entire dependency on its own.
+- **`make ci`** runs the CI gates locally against a throwaway database, so
+  a green result cannot come from a healthy development database.
+- **`make coverage`** reports measured line coverage.
+- Repository seeding now mirrors a real GitHub repository, because toy
+  fixtures never exercised width, nesting or scale — the diff viewer shipped
+  too narrow precisely because nothing was ever wide enough to show it.
+
+### Changed
+
+- Pull requests are numbered per repository. The first pull request in a
+  new repository was previously numbered by a global counter and could
+  appear as `#795`. Existing pull requests are renumbered by creation order
+  within each repository.
+- Bare repositories are stored under an immutable id rather than the
+  owner's login. Existing repositories are moved by the migration.
+- Mirror URLs accept `https://` only. `git://` is unauthenticated and
+  plaintext, and `ssh://` would authenticate as whatever key the server
+  holds — this module manages no keys for outbound fetches, so an ssh URL
+  borrows the server's identity rather than presenting one of its own.
+
+### Testing
+
+169 tests to 291, and the browser layer runs for the first time. Every
+tour had been silently skipped for the project's life: no arm64 Chrome
+exists, Odoo skips tours when it cannot find a browser, and reports "0
+failed". Four real interface defects were hiding behind that silence.
+Chromium now ships in the image, and both `make test` and CI fail when a
+tour is skipped — the tour count is pinned to the tours registered on
+disk, because a tour that never runs fails nothing.
+
 ## [19.0.1.8.0] - 2026-08-28
 
 Everything fixed here is one bug: **a capability was claimed, and nothing
@@ -629,7 +743,8 @@ First working release: repositories, branches, commits, pull requests with
 reviews and merge strategies, personal access tokens, deploy keys, webhooks,
 portal pages, and Git Smart HTTP transport.
 
-[Unreleased]: https://github.com/DonsWayo/odoo-addons/compare/odoogit-v19.0.1.5.0...HEAD
+[Unreleased]: https://github.com/DonsWayo/odoo-addons/compare/dw_git-v19.0.1.9.0...HEAD
+[19.0.1.9.0]: https://github.com/DonsWayo/odoo-addons/compare/dw_git-v19.0.1.8.0...dw_git-v19.0.1.9.0
 [19.0.1.5.0]: https://github.com/DonsWayo/odoo-addons/compare/v19.0.1.4.0...odoogit-v19.0.1.5.0
 [19.0.1.4.0]: https://github.com/DonsWayo/odoo-addons/compare/v19.0.1.3.0...v19.0.1.4.0
 [19.0.1.3.0]: https://github.com/DonsWayo/odoo-addons/compare/v19.0.1.2.0...v19.0.1.3.0
