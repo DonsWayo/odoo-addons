@@ -103,7 +103,29 @@ never appeared". That is the extra database, not a regression.
    the branch name to match the series. Forget this and the store keeps
    serving the previous release, with nothing to tell you it has gone stale.
 
-5. Publish the GitHub release with the changelog section as the body:
+5. **Confirm the Apps Store actually picked it up.** Pushing `19.0` is not
+   publishing. The store serves a cached copy and rescans on its own
+   schedule, so the listing can sit on the previous release indefinitely
+   with nothing anywhere to say so — no error, no warning, no email.
+
+   ```bash
+   # what the store should be serving
+   gh api "repos/DonsWayo/odoo-addons/contents/dw_git/__manifest__.py?ref=19.0" \
+     --jq .content | base64 -d | grep "'version'"
+   ```
+
+   Then open <https://apps.odoo.com/apps/modules/19.0/dw_git> and compare
+   the version shown against that. If it is behind, sign in as the
+   publisher and trigger a rescan from the module's management page; the
+   listing updates within a few minutes.
+
+   This step was missing from this document until 19.0.1.9.1, and the
+   consequence was exactly what it warns about: 19.0.1.9.0 and 19.0.1.9.1
+   were tagged, released and pushed to `19.0` while the store went on
+   serving 19.0.1.8.0 — including a listing that claimed a security
+   property three releases before it was true.
+
+6. Publish the GitHub release with the changelog section as the body:
 
    ```bash
    gh release create v19.0.x.y.z \
