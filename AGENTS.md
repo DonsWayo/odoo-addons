@@ -27,13 +27,21 @@ the matching section before writing, not after the failure.
 ```bash
 make build up install   # first run
 make check              # xml + lint + upgrade + tests — do this before pushing
-make test               # full suite, INCLUDING browser tours (181)
+make ci                 # the CI gates, locally: throwaway DB + every guard
+make test               # full suite, INCLUDING browser tours
 make coverage           # measured line coverage, not grepped
 make assets             # every asset exists; every widget matches its field type
 make seed               # demo data + a real mirrored GitHub repository
 make qa                 # browser QA (must stay green)
 make help               # everything else
 ```
+
+`make ci` is the one to trust before pushing. It installs into a THROWAWAY
+database, so it cannot pass because your dev database happens to be
+healthy — `make test` once reported "0 failed, 0 error(s) of 0 tests" and
+exited 0 because dw_git was uninstalled there, and a suite with nothing in
+it looks exactly like a suite that passed. It also greps the install log
+and pins the browser-tour count to the tours registered on disk.
 
 `make test` FAILS if a browser tour was skipped. Odoo skips tours when Chrome
 is missing and still prints "0 failed" — that is how this module's entire UI
