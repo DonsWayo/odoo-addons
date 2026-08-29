@@ -17,6 +17,9 @@ import os
 import subprocess
 from datetime import datetime
 
+# Where repositories live is the model's business, not this script's —
+# see build_repo. Kept only for the reset sweep below, which removes
+# directories for records that are being deleted.
 BASE = '/var/lib/odoo/git/repos'
 RESET = os.environ.get('DW_GIT_RESET') == '1'
 
@@ -47,9 +50,8 @@ def build_repo(spec):
     """Create one repository end to end: disk, records, branches, PR."""
     name = spec['name']
     work = f'/tmp/seed-work-{name}'
-    bare = os.path.join(BASE, admin.login, name + '.git')
 
-    subprocess.run(['rm', '-rf', work, bare], check=True)
+    subprocess.run(['rm', '-rf', work], check=True)
     os.makedirs(work, exist_ok=True)
     git('init', '-q', '-b', 'main', cwd=work)
     git('config', 'user.email', 'seed@example.com', cwd=work)
@@ -73,11 +75,13 @@ def build_repo(spec):
         commit(message, files)
     feat_sha = rev('HEAD', work)
 
-    # publish into the bare repo the server actually serves
-    os.makedirs(os.path.dirname(bare), exist_ok=True)
-    git('clone', '-q', '--bare', work, bare)
-    git('symbolic-ref', 'HEAD', 'refs/heads/main', cwd=bare)
-
+    # The record comes FIRST, because the path is keyed on its id. Bare
+    # repos used to live at <base>/<owner.login>/<name>.git and this script
+    # built that path by hand; they now live at <base>/<id>.git, which does
+    # not exist until the record does. Ask the model where the repository
+    # belongs instead of constructing it here — that is the whole point of
+    # keying on an immutable id, and rebuilding the old layout by hand put
+    # every seeded repo somewhere the server does not look.
     repo = Repo.create({
         'name': name,
         'description': spec['description'],
@@ -85,6 +89,11 @@ def build_repo(spec):
         'visibility': spec.get('visibility', 'internal'),
         'default_branch': 'main',
     })
+    bare = repo._get_repo_path()
+    subprocess.run(['rm', '-rf', bare], check=True)
+    os.makedirs(os.path.dirname(bare), exist_ok=True)
+    git('clone', '-q', '--bare', work, bare)
+    git('symbolic-ref', 'HEAD', 'refs/heads/main', cwd=bare)
     main_b = Branch.create({'name': 'main', 'repository_id': repo.id,
                             'commit_sha': main_sha})
     feat_b = Branch.create({'name': spec['branch'], 'repository_id': repo.id,
@@ -251,7 +260,18 @@ def mirror_real_project():
     imported by _sync_from_git(), and the diff is produced by
     action_refresh_changes() against the real merge base.
     """
-    bare = os.path.join(BASE, admin.login, MIRROR_NAME + '.git')
+    # Same as build_repo: the record first, because the path is keyed on
+    # its id and the model is the only thing that knows it.
+    repo = Repo.create({
+        'name': MIRROR_NAME,
+        'description': 'Mirrored from %s — real history, real diffs.'
+                       % MIRROR_URL,
+        'owner_id': admin.id,
+        'visibility': 'internal',
+        'is_mirror': True,
+        'mirror_url': MIRROR_URL,
+    })
+    bare = repo._get_repo_path()
     subprocess.run(['rm', '-rf', bare], check=True)
     os.makedirs(os.path.dirname(bare), exist_ok=True)
 
@@ -264,6 +284,7 @@ def mirror_real_project():
                        check=True, capture_output=True, timeout=600)
     except Exception as exc:
         print('SEED: mirror skipped — %s' % exc)
+        repo.unlink()
         return None
 
     head = subprocess.run(
@@ -281,16 +302,7 @@ def mirror_real_project():
                         f'refs/heads/{target_name}', base_sha],
                        cwd=bare, check=True, capture_output=True)
 
-    repo = Repo.create({
-        'name': MIRROR_NAME,
-        'description': 'Mirrored from %s — real history, real diffs.'
-                       % MIRROR_URL,
-        'owner_id': admin.id,
-        'visibility': 'internal',
-        'default_branch': head,
-        'is_mirror': True,
-        'mirror_url': MIRROR_URL,
-    })
+    repo.write({'default_branch': head})
     # the real import path, not hand-built records
     repo._sync_from_git()
 
