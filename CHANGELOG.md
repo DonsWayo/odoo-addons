@@ -6,6 +6,23 @@ All notable changes to Git Hosting are recorded here. The format follows
 Versions use Odoo's addon scheme: `<odoo-series>.<major>.<minor>.<patch>`.
 `19.0.1.1.0` is the second feature release of Git Hosting for Odoo 19.0.
 
+## [19.0.1.9.3] - 2026-08-30
+
+### Fixed
+
+- **Four store screenshots were stale.** `repositories_screenshot.png`,
+  `file_browser.png`, `pr_diff.png` and `commits.png` predated the fixes
+  in this cycle — most visibly, the diff screenshot could have been
+  captured before #38 and #56, the same mistake already made once this
+  month with the syntax-highlighting image. Recaptured against a live
+  instance seeded with a real mirrored repository: the file browser shows
+  a second file's real content and colour (the bug that started this
+  cycle), the diff shows a real +186/-26 change with word-level
+  highlighting, and the commit screenshot shows real stats — Lines Added
+  233, Lines Deleted 5 — instead of the permanent zero they used to be.
+
+No code changes. Screenshots only.
+
 ## [19.0.1.9.2] - 2026-08-29
 
 ### Fixed
@@ -767,7 +784,8 @@ First working release: repositories, branches, commits, pull requests with
 reviews and merge strategies, personal access tokens, deploy keys, webhooks,
 portal pages, and Git Smart HTTP transport.
 
-[Unreleased]: https://github.com/DonsWayo/odoo-addons/compare/dw_git-v19.0.1.9.2...HEAD
+[Unreleased]: https://github.com/DonsWayo/odoo-addons/compare/dw_git-v19.0.1.9.3...HEAD
+[19.0.1.9.3]: https://github.com/DonsWayo/odoo-addons/compare/dw_git-v19.0.1.9.2...dw_git-v19.0.1.9.3
 [19.0.1.9.2]: https://github.com/DonsWayo/odoo-addons/compare/dw_git-v19.0.1.9.1...dw_git-v19.0.1.9.2
 [19.0.1.9.1]: https://github.com/DonsWayo/odoo-addons/compare/dw_git-v19.0.1.9.0...dw_git-v19.0.1.9.1
 [19.0.1.9.0]: https://github.com/DonsWayo/odoo-addons/compare/dw_git-v19.0.1.8.0...dw_git-v19.0.1.9.0
